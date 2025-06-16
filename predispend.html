@@ -661,9 +661,8 @@ function renderDashboard() {
     // นับจำนวนรายงานที่เกี่ยวกับ HAD (High Alert Drug) แบบไม่สนใจตัวพิมพ์เล็ก/ใหญ่ และตัดช่องว่าง
     const hadReports = masterData.records.filter(rec => {
         const incorrectMedicine = (rec.รายการยาที่ผิด || '').trim().toLowerCase();
-        // ค้นหาชื่อยาใน masterData.medicines แบบไม่สนใจตัวพิมพ์เล็ก/ใหญ่ และตัดช่องว่าง
         const medicine = masterData.medicines.find(med => (med.Name || '').trim().toLowerCase() === incorrectMedicine);
-        return medicine && (med.HAD === 'Yes' || med.HAD === 'ใช่');
+        return medicine && (medicine.HAD === 'Yes' || medicine.HAD === 'ใช่');
     }).length;
 
     // รวบรวมข้อมูลตามปี
