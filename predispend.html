@@ -199,9 +199,7 @@ function showPage(pageId) {
         } else {
             link.classList.remove('bg-gray-200', 'font-bold'); // Remove active styles
         }
-    }),
-
-    // Render content specific to the selected page
+    });    /* Render content specific to the selected page */
     switch (pageId) {
         case 'records-list-page': renderRecordsList(); break;
         case 'record-form-page': renderRecordForm(); break;
@@ -1017,8 +1015,7 @@ function renderDashboard() {
                         }
                         return color;
                     });
-                    
-                    new Chart(ctx, {
+                      new Chart(ctx, {
                         type: 'bar',
                         data: {
                             labels: medicineLabels,
@@ -1046,6 +1043,7 @@ function renderDashboard() {
                                     }
                                 }
                             }
+                        }
                     });
                 }
             } catch (err) {
