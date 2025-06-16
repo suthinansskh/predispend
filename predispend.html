@@ -614,13 +614,29 @@ function renderRecordForm() {
     // Attach event listener for form submission
     document.getElementById('record-form').addEventListener('submit', handleRecordSubmit);
 
-    // Attach event listener for reset button
+    // Attach event listener for reset button (ล้างข้อมูล)
     document.getElementById('reset-form-btn').addEventListener('click', () => {
-        document.getElementById('record-form').reset();
-        document.getElementById('event_date').valueAsDate = new Date(); // Reset date to today
-        // Clear HAD status
-        document.getElementById('had_status').textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
-        document.getElementById('had_status').parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
+        const form = document.getElementById('record-form');
+        if (form) {
+            form.reset();
+            // รีเซ็ตวันที่ให้เป็นวันนี้ (ถ้ามี input date)
+            const dateInput = document.getElementById('event_date');
+            if (dateInput) {
+                dateInput.valueAsDate = new Date();
+            }
+            // รีเซ็ตสถานะ HAD (ถ้ามี)
+            const hadStatus = document.getElementById('had_status');
+            if (hadStatus) {
+                hadStatus.textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
+                hadStatus.parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
+            }
+            // ซ่อนช่อง process_other (ถ้ามี)
+            const processOtherInput = document.getElementById('process_other');
+            if (processOtherInput) {
+                processOtherInput.classList.add('hidden');
+                processOtherInput.value = '';
+            }
+        }
     });
     // เติมหลัง renderRecordForm เสมอ เพื่อให้ปุ่มล้างข้อมูลทำงาน
     document.getElementById('reset-form-btn')?.addEventListener('click', function() {
