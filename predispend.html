@@ -848,5 +848,56 @@ document.addEventListener('DOMContentLoaded', async () => {
     showPage('records-list-page');
 });
 </script>
+<script>
+    const barCtx = document.getElementById('barChart').getContext('2d');
+    const pieCtx = document.getElementById('pieChart').getContext('2d');
+
+    new Chart(barCtx, {
+        type: 'bar',
+        data: {
+            labels: ['A', 'B', 'C'],
+            datasets: [{
+                label: 'Bar Data',
+                data: [12, 19, 3],
+                backgroundColor: ['green', 'orange', 'purple']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: true,
+                    text: 'Bar Chart Example'
+                }
+            }
+        }
+    });
+
+    new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Red', 'Blue', 'Yellow'],
+            datasets: [{
+                data: [300, 50, 100],
+                backgroundColor: ['red', 'blue', 'yellow']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: true,
+                    text: 'Pie Chart Example'
+                }
+            }
+        }
+    });
+</script>
 </body>
 </html>
