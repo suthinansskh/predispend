@@ -661,7 +661,7 @@ function renderRecordForm() {
                 dateInput.valueAsDate = new Date();
             }
             // รีเซ็ต select ให้เลือก option แรก ("เลือก...")
-            ['shift','patient_type','place','process'].forEach(id => {
+            ['shift','patient_type','place','process','cause'].forEach(id => {
                 const sel = document.getElementById(id);
                 if (sel) sel.selectedIndex = 0;
             });
