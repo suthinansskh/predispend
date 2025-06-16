@@ -858,15 +858,16 @@ function renderDashboard() {
     const currentYear = new Date().getFullYear().toString();
     let selectedYear = 'all'; // แสดงทุกปี
     let viewType = 'monthly'; // แสดงรายเดือน
-    
+      // เก็บ chart instances ไว้อ้างอิงเพื่อทำลายเมื่อสร้างใหม่
+    let timeChartInstance = null;
+
     function updateTimeChart() {
         const timeChartElement = document.getElementById('timeChart');
         if (!timeChartElement) return;
 
         // ถ้ามีกราฟอยู่แล้วให้ทำลายก่อน
-        const existingChart = Chart.getChart(timeChartElement);
-        if (existingChart) {
-            existingChart.destroy();
+        if (timeChartInstance) {
+            timeChartInstance.destroy();
         }
         
         let labels, data;
@@ -875,8 +876,7 @@ function renderDashboard() {
             // แสดงข้อมูลเป็นรายปี
             labels = Object.keys(window.dashboardData.byYear).sort();
             data = labels.map(year => window.dashboardData.byYear[year]);
-            
-            createChart('timeChart', 'bar', labels, data, 'จำนวนรายงานตามปี', chartColors);
+              timeChartInstance = createChart('timeChart', 'bar', labels, data, 'จำนวนรายงานตามปี', chartColors);
         } else {
             // แสดงข้อมูลเป็นรายเดือน
             let monthYearData;
@@ -905,72 +905,95 @@ function renderDashboard() {
             labels = sortedMonthsYears;
             data = labels.map(month => monthYearData[month]);
             
-            createChart('timeChart', 'line', labels, data, 'จำนวนรายงานตามเดือน', chartColors);
+            timeChartInstance = createChart('timeChart', 'line', labels, data, 'จำนวนรายงานตามเดือน', chartColors);
         }
     }
+      // สร้างกราฟแสดงข้อมูลตามเวรและประเภทผู้ป่วย
+    if (document.getElementById('shiftChart')) {
+        createChart('shiftChart', 'pie', Object.keys(byShift), Object.values(byShift), 'จำนวนรายงานตามเวร', chartColors.slice(0, Object.keys(byShift).length), true);
+    }
     
-    // สร้างกราฟแสดงข้อมูลตามเวรและประเภทผู้ป่วย
-    createChart('shiftChart', 'pie', Object.keys(byShift), Object.values(byShift), 'จำนวนรายงานตามเวร', chartColors.slice(0, Object.keys(byShift).length), true);
-    createChart('patientTypeChart', 'pie', Object.keys(byPatientType), Object.values(byPatientType), 'จำนวนรายงานตามประเภทผู้ป่วย', chartColors.slice(0, Object.keys(byPatientType).length), true);
+    if (document.getElementById('patientTypeChart')) {
+        createChart('patientTypeChart', 'pie', Object.keys(byPatientType), Object.values(byPatientType), 'จำนวนรายงานตามประเภทผู้ป่วย', chartColors.slice(0, Object.keys(byPatientType).length), true);
+    }
 
     // สร้างกราฟแสดงข้อมูลตามสถานที่และกระบวนการ
-    createChart('placeChart', 'bar', Object.keys(byPlace), Object.values(byPlace), 'จำนวนรายงานตามสถานที่', chartColors.slice(0, Object.keys(byPlace).length));
-    createChart('processChart', 'bar', Object.keys(byProcess), Object.values(byProcess), 'จำนวนรายงานตามกระบวนการ', chartColors.slice(0, Object.keys(byProcess).length));    // สร้างกราฟแสดงยาที่จัดผิดบ่อย 10 อันดับแรก
-    const medicineLabels = topInvalidMedicines.map(item => item[0]);
-    const medicineCounts = topInvalidMedicines.map(item => item[1]);
+    if (document.getElementById('placeChart')) {
+        createChart('placeChart', 'bar', Object.keys(byPlace), Object.values(byPlace), 'จำนวนรายงานตามสถานที่', chartColors.slice(0, Object.keys(byPlace).length));
+    }
     
-    const ctx = document.getElementById('topMedicinesChart')?.getContext('2d');
-    if (ctx) {
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: medicineLabels,
-                datasets: [{
-                    label: '10 อันดับยาที่จัดผิดบ่อย',
-                    data: medicineCounts,
-                    backgroundColor: chartColors.slice(0, topInvalidMedicines.length),
-                    borderColor: chartColors.slice(0, topInvalidMedicines.length).map(color => color.replace('0.6)', '1)')),
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
+    if (document.getElementById('processChart')) {
+        createChart('processChart', 'bar', Object.keys(byProcess), Object.values(byProcess), 'จำนวนรายงานตามกระบวนการ', chartColors.slice(0, Object.keys(byProcess).length));
+    }// สร้างกราฟแสดงยาที่จัดผิดบ่อย 10 อันดับแรก
+    if (topInvalidMedicines.length > 0) {
+        const medicineLabels = topInvalidMedicines.map(item => item[0]);
+        const medicineCounts = topInvalidMedicines.map(item => item[1]);
+        
+        const topMedicinesElement = document.getElementById('topMedicinesChart');
+        if (topMedicinesElement) {
+            const ctx = topMedicinesElement.getContext('2d');
+            if (ctx) {
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: medicineLabels,
+                        datasets: [{
+                            label: '10 อันดับยาที่จัดผิดบ่อย',
+                            data: medicineCounts,
+                            backgroundColor: chartColors.slice(0, topInvalidMedicines.length),
+                            borderColor: chartColors.slice(0, topInvalidMedicines.length).map(color => color.replace('0.6)', '1)')),
+                            borderWidth: 1
+                        }]
                     },
-                    title: {
-                        display: true,
-                        text: '10 อันดับยาที่จัดผิดบ่อย',
-                        font: {
-                            size: 16
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        }
-                    },
-                    y: {
-                        ticks: {
-                            autoSkip: false,
-                            callback: function(value) {
-                                // แสดงชื่อยาแบบย่อถ้าชื่อยาวเกินไป
-                                const label = this.getLabelForValue(value);
-                                if (label.length > 20) {
-                                    return label.substr(0, 20) + '...';
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: '10 อันดับยาที่จัดผิดบ่อย',
+                                font: {
+                                    size: 16
                                 }
-                                return label;
+                            }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    autoSkip: false,
+                                    callback: function(value) {
+                                        try {
+                                            // แสดงชื่อยาแบบย่อถ้าชื่อยาวเกินไป
+                                            const label = this.getLabelForValue(value);
+                                            if (label && label.length > 20) {
+                                                return label.substr(0, 20) + '...';
+                                            }
+                                            return label || '';
+                                        } catch (e) {
+                                            console.log('Error in label callback:', e);
+                                            return '';
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
-                }
+                });
             }
-        });
+        } else {
+            console.log('Element topMedicinesChart not found');
+        }
+    } else {
+        console.log('No invalid medicines data available');
     }
     
     // เพิ่ม event listeners สำหรับตัวเลือกแสดงข้อมูล
