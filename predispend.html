@@ -630,20 +630,44 @@ function renderDashboard() {
     // --- Data Aggregation for Charts ---
     const totalReports = masterData.records.length;
     
-    // Aggregate records by Month (using event date)
-    const byMonth = masterData.records.reduce((acc, rec) => {
+    // นับจำนวนรายงานที่เกี่ยวกับ HAD (High Alert Drug)
+    const hadReports = masterData.records.filter(rec => {
+        // ตรวจสอบว่ารายการยาที่ผิดอยู่ในรายการ HAD หรือไม่
+        const incorrectMedicine = rec.รายการยาที่ผิด || '';
+        const medicine = masterData.medicines.find(med => med.Name === incorrectMedicine);
+        return medicine && medicine.HAD === 'Yes';
+    }).length;
+
+    // รวบรวมข้อมูลตามปี
+    const byYear = masterData.records.reduce((acc, rec) => {
         const eventDate = new Date(rec.วันที่เกิดเหตุการณ์);
         if (!isNaN(eventDate)) {
-            // Format month as "Month Year" (e.g., "ตุลาคม 2566")
+            const year = eventDate.getFullYear();
+            acc[year] = (acc[year] || 0) + 1;
+        }
+        return acc;
+    }, {});
+    
+    // Aggregate records by Month and Year (using event date)
+    const byMonthYear = masterData.records.reduce((acc, rec) => {
+        const eventDate = new Date(rec.วันที่เกิดเหตุการณ์);
+        if (!isNaN(eventDate)) {
+            // Format as "Month Year" (e.g., "ตุลาคม 2566")
             const monthYear = eventDate.toLocaleString('th-TH', { month: 'long', year: 'numeric' });
-            acc[monthYear] = (acc[monthYear] || 0) + 1;
+            const year = eventDate.getFullYear().toString();
+            
+            if (!acc[year]) {
+                acc[year] = {};
+            }
+            
+            acc[year][monthYear] = (acc[year][monthYear] || 0) + 1;
         }
         return acc;
     }, {});
 
     // Aggregate records by Shift
     const byShift = masterData.records.reduce((acc, rec) => {
-        const shift = rec.เวร || 'ไม่ระบุ'; // Handle potential undefined/null
+        const shift = rec.เวร || 'ไม่ระบุ';
         acc[shift] = (acc[shift] || 0) + 1;
         return acc;
     }, {});
@@ -661,47 +685,118 @@ function renderDashboard() {
         acc[patientType] = (acc[patientType] || 0) + 1;
         return acc;
     }, {});
+    
+    // Aggregate records by Process
+    const byProcess = masterData.records.reduce((acc, rec) => {
+        const process = rec.กระบวนการ || 'ไม่ระบุ';
+        acc[process] = (acc[process] || 0) + 1;
+        return acc;
+    }, {});
+    
+    // นับความถี่ของยาที่ผิด
+    const incorrectMedicineFrequency = masterData.records.reduce((acc, rec) => {
+        const medicine = rec.รายการยาที่ผิด || 'ไม่ระบุ';
+        acc[medicine] = (acc[medicine] || 0) + 1;
+        return acc;
+    }, {});
+    
+    // เรียงลำดับยาที่ผิดบ่อยที่สุด 10 อันดับแรก
+    const topInvalidMedicines = Object.entries(incorrectMedicineFrequency)
+        .filter(([medicine]) => medicine !== 'ไม่ระบุ')
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
 
     // --- HTML Structure for Dashboard ---
     container.innerHTML = `
         <div class="p-6 bg-white rounded-lg shadow-md">
             <h2 class="mb-6 text-xl font-bold text-gray-800">Dashboard สรุปรายงาน</h2>
+            
+            <!-- ส่วนของตัวเลือกในการแสดงข้อมูล -->
+            <div class="mb-6 flex flex-wrap items-center gap-4">
+                <div>
+                    <label for="display-year-select" class="block text-sm font-medium text-gray-700 mb-1">เลือกปีที่แสดง</label>
+                    <select id="display-year-select" class="px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="all">ทุกปี</option>
+                        ${Object.keys(byYear).sort((a, b) => b - a).map(year => 
+                            `<option value="${year}">${year}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div>
+                    <label for="display-view-type" class="block text-sm font-medium text-gray-700 mb-1">แสดงข้อมูลแบบ</label>
+                    <select id="display-view-type" class="px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="monthly">รายเดือน</option>
+                        <option value="yearly">รายปี</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- สรุปจำนวน -->
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
                 <div class="p-4 text-white bg-emerald-500 rounded-lg shadow">
                     <div class="text-sm font-medium uppercase">รายงานทั้งหมด</div>
                     <div class="mt-1 text-3xl font-bold">${totalReports}</div>
                 </div>
-                <!-- You can add more summary cards here, e.g., total HAD incidents -->
+                <div class="p-4 text-white bg-red-500 rounded-lg shadow">
+                    <div class="text-sm font-medium uppercase">รายงาน HAD</div>
+                    <div class="mt-1 text-3xl font-bold">${hadReports}</div>
+                </div>
             </div>
             
-            <div class="grid grid-cols-1 gap-6 mt-8 lg:grid-cols-2">
-                <div class="p-4 bg-gray-100 rounded-lg shadow-sm">
-                    <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามเดือนที่เกิดเหตุการณ์</h3>
-                    <canvas id="monthChart"></canvas>
-                </div>
+            <!-- แผนภูมิแสดงข้อมูลตามช่วงเวลา -->
+            <div class="p-4 bg-gray-100 rounded-lg shadow-sm mb-6">
+                <h3 class="mb-4 text-lg font-bold text-gray-700">รายงานตามช่วงเวลา</h3>
+                <canvas id="timeChart" style="height: 300px;"></canvas>
+            </div>
+            
+            <!-- แผนภูมิแสดงข้อมูลตามเวรและประเภทผู้ป่วย -->
+            <div class="grid grid-cols-1 gap-6 mb-6 lg:grid-cols-2">
                 <div class="p-4 bg-gray-100 rounded-lg shadow-sm">
                     <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามเวร</h3>
                     <canvas id="shiftChart"></canvas>
-                </div>
-                <div class="p-4 bg-gray-100 rounded-lg shadow-sm">
-                    <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามสถานที่</h3>
-                    <canvas id="placeChart"></canvas>
                 </div>
                 <div class="p-4 bg-gray-100 rounded-lg shadow-sm">
                     <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามประเภทผู้ป่วย</h3>
                     <canvas id="patientTypeChart"></canvas>
                 </div>
             </div>
+            
+            <!-- แผนภูมิแสดงข้อมูลตามสถานที่และกระบวนการ -->
+            <div class="grid grid-cols-1 gap-6 mb-6">
+                <div class="p-4 bg-gray-100 rounded-lg shadow-sm">
+                    <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามสถานที่</h3>
+                    <canvas id="placeChart"></canvas>
+                </div>
+                <div class="p-4 bg-gray-100 rounded-lg shadow-sm">
+                    <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามกระบวนการ</h3>
+                    <canvas id="processChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- สถิติยาที่จัดผิด 10 อันดับ -->
+            <div class="p-4 bg-gray-100 rounded-lg shadow-sm">
+                <h3 class="mb-4 text-lg font-bold text-gray-700">10 อันดับยาที่จัดผิดบ่อย</h3>
+                <canvas id="topMedicinesChart" style="height: 400px;"></canvas>
+            </div>
         </div>
     `;
-
-    // --- Chart.js Initialization ---
+    
+    // เก็บข้อมูลเพื่อใช้ในการอัปเดต chart เมื่อมีการเปลี่ยนแปลงตัวเลือก
+    window.dashboardData = {
+        byMonthYear,
+        byYear,
+        byShift,
+        byPlace,
+        byPatientType,
+        byProcess,
+        topInvalidMedicines
+    };    // --- Chart.js Initialization ---
     
     // Function to create a Chart.js chart
-    const createChart = (elementId, type, labels, data, labelText, backgroundColor) => {
+    const createChart = (elementId, type, labels, data, labelText, backgroundColor, showLegend = false) => {
         const ctx = document.getElementById(elementId)?.getContext('2d');
         if (ctx) {
-            new Chart(ctx, {
+            return new Chart(ctx, {
                 type: type,
                 data: {
                     labels: labels,
@@ -709,20 +804,21 @@ function renderDashboard() {
                         label: labelText,
                         data: data,
                         backgroundColor: backgroundColor,
-                        borderColor: backgroundColor.map(color => color.replace('0.2)', '1)')), // Solid border
+                        borderColor: type === 'line' ? 'rgba(75, 192, 192, 1)' : backgroundColor.map(color => color.replace('0.6)', '1)')),
                         borderWidth: 1
                     }]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false, // Allows the chart to adapt to parent container size
+                    maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            display: false // Hide legend if only one dataset or self-explanatory
+                            display: showLegend,
+                            position: 'right'
                         },
                         title: {
                             display: true,
-                            text: labelText, // Use labelText as chart title
+                            text: labelText,
                             font: {
                                 size: 16
                             }
@@ -732,13 +828,14 @@ function renderDashboard() {
                         y: {
                             beginAtZero: true,
                             ticks: {
-                                precision: 0 // Ensure integer ticks for counts
+                                precision: 0
                             }
                         }
                     }
                 }
             });
         }
+        return null;
     };
 
     // Define consistent color palette
@@ -750,28 +847,145 @@ function renderDashboard() {
         'rgba(54, 162, 235, 0.6)', // Blue
         'rgba(201, 203, 207, 0.6)', // Grey
         'rgba(255, 205, 86, 0.6)', // Yellow
-        'rgba(75, 192, 192, 0.6)',
-        'rgba(153, 102, 255, 0.6)',
-        'rgba(255, 159, 64, 0.6)'
+        'rgba(22, 160, 133, 0.6)', // Green
+        'rgba(142, 68, 173, 0.6)', // Dark Purple
+        'rgba(243, 156, 18, 0.6)', // Yellow
+        'rgba(231, 76, 60, 0.6)', // Red
+        'rgba(52, 152, 219, 0.6)'  // Blue
     ];
+    
+    // รายงานตามช่วงเวลา - เริ่มต้นแสดงรายเดือน
+    const currentYear = new Date().getFullYear().toString();
+    let selectedYear = 'all'; // แสดงทุกปี
+    let viewType = 'monthly'; // แสดงรายเดือน
+    
+    function updateTimeChart() {
+        const timeChartElement = document.getElementById('timeChart');
+        if (!timeChartElement) return;
 
-    // Create Month Chart
-    const sortedMonths = Object.keys(byMonth).sort((a, b) => {
-        // Simple sort, for more complex date parsing consider moment.js or custom logic
-        const dateA = new Date(a.replace(' ', ' 1, ')); // Convert "เดือน ปี" to parseable date
-        const dateB = new Date(b.replace(' ', ' 1, '));
-        return dateA - dateB;
-    });
-    createChart('monthChart', 'bar', sortedMonths, sortedMonths.map(month => byMonth[month]), 'จำนวนรายงาน', chartColors.slice(0, sortedMonths.length));
+        // ถ้ามีกราฟอยู่แล้วให้ทำลายก่อน
+        const existingChart = Chart.getChart(timeChartElement);
+        if (existingChart) {
+            existingChart.destroy();
+        }
+        
+        let labels, data;
+        
+        if (viewType === 'yearly') {
+            // แสดงข้อมูลเป็นรายปี
+            labels = Object.keys(window.dashboardData.byYear).sort();
+            data = labels.map(year => window.dashboardData.byYear[year]);
+            
+            createChart('timeChart', 'bar', labels, data, 'จำนวนรายงานตามปี', chartColors);
+        } else {
+            // แสดงข้อมูลเป็นรายเดือน
+            let monthYearData;
+            
+            if (selectedYear === 'all') {
+                // รวมข้อมูลทุกปี
+                monthYearData = Object.values(window.dashboardData.byMonthYear)
+                    .reduce((acc, yearData) => {
+                        Object.entries(yearData).forEach(([month, count]) => {
+                            acc[month] = (acc[month] || 0) + count;
+                        });
+                        return acc;
+                    }, {});
+            } else {
+                // แสดงข้อมูลเฉพาะปีที่เลือก
+                monthYearData = window.dashboardData.byMonthYear[selectedYear] || {};
+            }
+            
+            // เรียงเดือนตามลำดับเวลา
+            const sortedMonthsYears = Object.keys(monthYearData).sort((a, b) => {
+                const dateA = new Date(a.replace(' ', ' 1, '));
+                const dateB = new Date(b.replace(' ', ' 1, '));
+                return dateA - dateB;
+            });
+            
+            labels = sortedMonthsYears;
+            data = labels.map(month => monthYearData[month]);
+            
+            createChart('timeChart', 'line', labels, data, 'จำนวนรายงานตามเดือน', chartColors);
+        }
+    }
+    
+    // สร้างกราฟแสดงข้อมูลตามเวรและประเภทผู้ป่วย
+    createChart('shiftChart', 'pie', Object.keys(byShift), Object.values(byShift), 'จำนวนรายงานตามเวร', chartColors.slice(0, Object.keys(byShift).length), true);
+    createChart('patientTypeChart', 'pie', Object.keys(byPatientType), Object.values(byPatientType), 'จำนวนรายงานตามประเภทผู้ป่วย', chartColors.slice(0, Object.keys(byPatientType).length), true);
 
-    // Create Shift Chart
-    createChart('shiftChart', 'pie', Object.keys(byShift), Object.values(byShift), 'จำนวนรายงานตามเวร', chartColors.slice(0, Object.keys(byShift).length));
-
-    // Create Place Chart
+    // สร้างกราฟแสดงข้อมูลตามสถานที่และกระบวนการ
     createChart('placeChart', 'bar', Object.keys(byPlace), Object.values(byPlace), 'จำนวนรายงานตามสถานที่', chartColors.slice(0, Object.keys(byPlace).length));
-
-    // Create Patient Type Chart
-    createChart('patientTypeChart', 'doughnut', Object.keys(byPatientType), Object.values(byPatientType), 'จำนวนรายงานตามประเภทผู้ป่วย', chartColors.slice(0, Object.keys(byPatientType).length));
+    createChart('processChart', 'bar', Object.keys(byProcess), Object.values(byProcess), 'จำนวนรายงานตามกระบวนการ', chartColors.slice(0, Object.keys(byProcess).length));    // สร้างกราฟแสดงยาที่จัดผิดบ่อย 10 อันดับแรก
+    const medicineLabels = topInvalidMedicines.map(item => item[0]);
+    const medicineCounts = topInvalidMedicines.map(item => item[1]);
+    
+    const ctx = document.getElementById('topMedicinesChart')?.getContext('2d');
+    if (ctx) {
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: medicineLabels,
+                datasets: [{
+                    label: '10 อันดับยาที่จัดผิดบ่อย',
+                    data: medicineCounts,
+                    backgroundColor: chartColors.slice(0, topInvalidMedicines.length),
+                    borderColor: chartColors.slice(0, topInvalidMedicines.length).map(color => color.replace('0.6)', '1)')),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: '10 อันดับยาที่จัดผิดบ่อย',
+                        font: {
+                            size: 16
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            autoSkip: false,
+                            callback: function(value) {
+                                // แสดงชื่อยาแบบย่อถ้าชื่อยาวเกินไป
+                                const label = this.getLabelForValue(value);
+                                if (label.length > 20) {
+                                    return label.substr(0, 20) + '...';
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // เพิ่ม event listeners สำหรับตัวเลือกแสดงข้อมูล
+    document.getElementById('display-year-select')?.addEventListener('change', function() {
+        selectedYear = this.value;
+        updateTimeChart();
+    });
+    
+    document.getElementById('display-view-type')?.addEventListener('change', function() {
+        viewType = this.value;
+        updateTimeChart();
+    });
+    
+    // เริ่มต้นด้วยการแสดงกราฟตามเวลา
+    updateTimeChart();
 }
 
 // Placeholder for User Management Page (if needed in future)
