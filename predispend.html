@@ -751,13 +751,13 @@ function renderDashboard() {
             
             <!-- แผนภูมิแสดงข้อมูลตามเวรและประเภทผู้ป่วย -->
             <div class="grid grid-cols-1 gap-6 mb-6 lg:grid-cols-2">
-                <div class="p-4 bg-gray-100 rounded-lg shadow-sm">
+                <div class="p-4 bg-gray-100 rounded-lg shadow-sm" style="height:400px;max-height:400px;">
                     <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามเวร</h3>
-                    <canvas id="shiftChart"></canvas>
+                    <canvas id="shiftChart" style="height:100%;max-height:400px;width:100%;"></canvas>
                 </div>
-                <div class="p-4 bg-gray-100 rounded-lg shadow-sm">
+                <div class="p-4 bg-gray-100 rounded-lg shadow-sm" style="height:400px;max-height:400px;">
                     <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามประเภทผู้ป่วย</h3>
-                    <canvas id="patientTypeChart"></canvas>
+                    <canvas id="patientTypeChart" style="height:100%;max-height:400px;width:100%;"></canvas>
                 </div>
             </div>
             
@@ -777,6 +777,20 @@ function renderDashboard() {
             <div class="p-4 bg-gray-100 rounded-lg shadow-sm">
                 <h3 class="mb-4 text-lg font-bold text-gray-700">10 อันดับยาที่จัดผิดบ่อย</h3>
                 <canvas id="topMedicinesChart" style="height: 400px;"></canvas>
+                <div class="overflow-x-auto mt-6">
+                    <table class="min-w-full bg-white divide-y divide-gray-200 rounded-lg">
+                        <thead class="bg-gray-200">
+                            <tr>
+                                <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ลำดับ</th>
+                                <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อยา</th>
+                                <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">จำนวน</th>
+                            </tr>
+                        </thead>
+                        <tbody id="top-medicine-table-body" class="divide-y divide-gray-200">
+                            <!-- ตารางนี้จะถูกเติมข้อมูลด้วย JS -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     `;
@@ -1018,6 +1032,18 @@ function renderDashboard() {
         }
     } else {
         console.log('No invalid medicines data available');
+    }
+    
+    // เติมข้อมูลตาราง 10 อันดับยาที่จัดผิดบ่อย
+    const tableBody = document.getElementById('top-medicine-table-body');
+    if (tableBody) {
+        tableBody.innerHTML = topInvalidMedicines.map((item, idx) => `
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap text-center">${idx + 1}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${item[0]}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-center">${item[1]}</td>
+            </tr>
+        `).join('');
     }
     
     // เพิ่ม event listeners สำหรับตัวเลือกแสดงข้อมูล
