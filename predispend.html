@@ -9,7 +9,7 @@
     <!-- Sarabun font for Thai language support and overall aesthetics -->
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Chart.js for data visualization in the dashboard -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <style>
         /* Custom font for the entire body */
         body {
@@ -792,48 +792,72 @@ function renderDashboard() {
         topInvalidMedicines
     };    // --- Chart.js Initialization ---
     
-    // Function to create a Chart.js chart
+    // Function to create a Chart.js chart - compatible with Chart.js 3.x
     const createChart = (elementId, type, labels, data, labelText, backgroundColor, showLegend = false) => {
-        const ctx = document.getElementById(elementId)?.getContext('2d');
+        const element = document.getElementById(elementId);
+        if (!element) {
+            console.warn(`Element with ID ${elementId} not found`);
+            return null;
+        }
+        
+        const ctx = element.getContext('2d');
         if (ctx) {
-            return new Chart(ctx, {
-                type: type,
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: labelText,
-                        data: data,
-                        backgroundColor: backgroundColor,
-                        borderColor: type === 'line' ? 'rgba(75, 192, 192, 1)' : backgroundColor.map(color => color.replace('0.6)', '1)')),
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: showLegend,
-                            position: 'right'
-                        },
-                        title: {
-                            display: true,
-                            text: labelText,
-                            font: {
-                                size: 16
-                            }
+            try {
+                // Ensure proper border color formatting for Chart.js 3.x
+                let borderColors = backgroundColor;
+                if (type === 'line') {
+                    borderColors = 'rgba(75, 192, 192, 1)';
+                } else if (Array.isArray(backgroundColor)) {
+                    borderColors = backgroundColor.map(color => {
+                        if (typeof color === 'string') {
+                            return color.replace(/rgba\((\d+,\s*\d+,\s*\d+),\s*[\d.]+\)/, 'rgba($1, 1)');
                         }
+                        return color;
+                    });
+                }
+                
+                return new Chart(ctx, {
+                    type: type,
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: labelText,
+                            data: data,
+                            backgroundColor: backgroundColor,
+                            borderColor: borderColors,
+                            borderWidth: 1
+                        }]
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                precision: 0
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: showLegend,
+                                position: 'right'
+                            },
+                            title: {
+                                display: true,
+                                text: labelText,
+                                font: {
+                                    size: 16
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                }
                             }
                         }
                     }
-                }
-            });
+                });
+            } catch (error) {
+                console.error(`Error creating chart ${elementId}:`, error);
+                return null;
+            }
         }
         return null;
     };
@@ -857,17 +881,29 @@ function renderDashboard() {
     // รายงานตามช่วงเวลา - เริ่มต้นแสดงรายเดือน
     const currentYear = new Date().getFullYear().toString();
     let selectedYear = 'all'; // แสดงทุกปี
-    let viewType = 'monthly'; // แสดงรายเดือน
-      // เก็บ chart instances ไว้อ้างอิงเพื่อทำลายเมื่อสร้างใหม่
+    let viewType = 'monthly'; // แสดงรายเดือน    // เก็บ chart instances ไว้อ้างอิงเพื่อทำลายเมื่อสร้างใหม่
     let timeChartInstance = null;
 
     function updateTimeChart() {
         const timeChartElement = document.getElementById('timeChart');
-        if (!timeChartElement) return;
+        if (!timeChartElement) {
+            console.warn('timeChart element not found');
+            return;
+        }
 
-        // ถ้ามีกราฟอยู่แล้วให้ทำลายก่อน
-        if (timeChartInstance) {
-            timeChartInstance.destroy();
+        try {
+            // ถ้ามีกราฟอยู่แล้วให้ทำลายก่อน
+            if (timeChartInstance) {
+                timeChartInstance.destroy();
+            }
+        } catch (error) {
+            console.error('Error destroying previous chart:', error);
+            // ถ้าไม่สามารถทำลายได้ ให้สร้าง canvas ใหม่แทน
+            const parent = timeChartElement.parentNode;
+            parent.removeChild(timeChartElement);
+            const newCanvas = document.createElement('canvas');
+            newCanvas.id = 'timeChart';
+            parent.appendChild(newCanvas);
         }
         
         let labels, data;
@@ -924,70 +960,58 @@ function renderDashboard() {
     
     if (document.getElementById('processChart')) {
         createChart('processChart', 'bar', Object.keys(byProcess), Object.values(byProcess), 'จำนวนรายงานตามกระบวนการ', chartColors.slice(0, Object.keys(byProcess).length));
-    }// สร้างกราฟแสดงยาที่จัดผิดบ่อย 10 อันดับแรก
+    }    // สร้างกราฟแสดงยาที่จัดผิดบ่อย 10 อันดับแรก
     if (topInvalidMedicines.length > 0) {
         const medicineLabels = topInvalidMedicines.map(item => item[0]);
         const medicineCounts = topInvalidMedicines.map(item => item[1]);
         
         const topMedicinesElement = document.getElementById('topMedicinesChart');
         if (topMedicinesElement) {
-            const ctx = topMedicinesElement.getContext('2d');
-            if (ctx) {
-                new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: medicineLabels,
-                        datasets: [{
-                            label: '10 อันดับยาที่จัดผิดบ่อย',
-                            data: medicineCounts,
-                            backgroundColor: chartColors.slice(0, topInvalidMedicines.length),
-                            borderColor: chartColors.slice(0, topInvalidMedicines.length).map(color => color.replace('0.6)', '1)')),
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            title: {
-                                display: true,
-                                text: '10 อันดับยาที่จัดผิดบ่อย',
-                                font: {
-                                    size: 16
-                                }
-                            }
+            try {
+                const ctx = topMedicinesElement.getContext('2d');
+                if (ctx) {
+                    // เตรียมสีสำหรับกราฟ
+                    const colors = chartColors.slice(0, topInvalidMedicines.length);
+                    const borderColors = colors.map(color => {
+                        if (typeof color === 'string') {
+                            return color.replace(/rgba\((\d+,\s*\d+,\s*\d+),\s*[\d.]+\)/, 'rgba($1, 1)');
+                        }
+                        return color;
+                    });
+                    
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: medicineLabels,
+                            datasets: [{
+                                label: '10 อันดับยาที่จัดผิดบ่อย',
+                                data: medicineCounts,
+                                backgroundColor: colors,
+                                borderColor: borderColors,
+                                borderWidth: 1
+                            }]
                         },
-                        scales: {
-                            x: {
-                                beginAtZero: true,
-                                ticks: {
-                                    precision: 0
-                                }
-                            },
-                            y: {
-                                ticks: {
-                                    autoSkip: false,
-                                    callback: function(value) {
-                                        try {
-                                            // แสดงชื่อยาแบบย่อถ้าชื่อยาวเกินไป
-                                            const label = this.getLabelForValue(value);
-                                            if (label && label.length > 20) {
-                                                return label.substr(0, 20) + '...';
-                                            }
-                                            return label || '';
-                                        } catch (e) {
-                                            console.log('Error in label callback:', e);
-                                            return '';
-                                        }
+                        options: {
+                            indexAxis: 'y', // แสดงแนวนอน
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                title: {
+                                    display: true,
+                                    text: '10 อันดับยาที่จัดผิดบ่อย',
+                                    font: {
+                                        size: 16
                                     }
                                 }
                             }
                         }
-                    }
-                });
+                    });
+                }
+            } catch (err) {
+                console.error('Error creating top medicines chart:', err);
             }
         } else {
             console.log('Element topMedicinesChart not found');
