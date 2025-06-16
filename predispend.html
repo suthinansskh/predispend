@@ -517,6 +517,7 @@ function renderRecordForm() {
                 <div>
                     <label for="shift" class="block text-sm font-medium text-gray-700">เวร</label>
                     <select id="shift" name="shift" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                        <option value="" selected>เลือก...</option>
                         <option value="เช้า">เช้า</option>
                         <option value="บ่าย">บ่าย</option>
                         <option value="ดึก">ดึก</option>
@@ -525,6 +526,7 @@ function renderRecordForm() {
                 <div>
                     <label for="patient_type" class="block text-sm font-medium text-gray-700">ประเภทผู้ป่วย</label>
                     <select id="patient_type" name="patient_type" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                        <option value="" selected>เลือก...</option>
                         <option value="นอก">นอก (OPD)</option>
                         <option value="ใน">ใน (IPD)</option>
                     </select>
@@ -532,12 +534,14 @@ function renderRecordForm() {
                 <div>
                     <label for="place" class="block text-sm font-medium text-gray-700">สถานที่</label>
                     <select id="place" name="place" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                        <option value="" selected>เลือก...</option>
                         ${masterData.places.map(p => `<option value="${p.Name}">${p.Name}</option>`).join('')}
                     </select>
                 </div>
                 <div>
                     <label for="process" class="block text-sm font-medium text-gray-700">กระบวนการ</label>
                     <select id="process" name="process" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                        <option value="" selected>เลือก...</option>
                         ${masterData.processes.map(p => `<option value="${p.Name}">${p.Name}</option>`).join('')}
                         <option value="อื่นๆ">อื่นๆ (โปรดระบุ)</option>
                     </select>
@@ -656,54 +660,23 @@ function renderRecordForm() {
             if (dateInput) {
                 dateInput.valueAsDate = new Date();
             }
+            // รีเซ็ต select ให้เลือก option แรก ("เลือก...")
+            ['shift','patient_type','place','process'].forEach(id => {
+                const sel = document.getElementById(id);
+                if (sel) sel.selectedIndex = 0;
+            });
             // รีเซ็ตสถานะ HAD (ถ้ามี)
             const hadStatus = document.getElementById('had_status');
             if (hadStatus) {
                 hadStatus.textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
                 hadStatus.parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
             }
-            // ซ่อนช่อง process_other (ถ้ามี)
+            // ซ่อนช่อง process_other/cause_other (ถ้ามี)
             const processOtherInput = document.getElementById('process_other');
             if (processOtherInput) {
                 processOtherInput.classList.add('hidden');
                 processOtherInput.value = '';
             }
-            // ซ่อนช่อง cause_other (ถ้ามี)
-            const causeOtherInput = document.getElementById('cause_other');
-            if (causeOtherInput) {
-                causeOtherInput.classList.add('hidden');
-                causeOtherInput.value = '';
-            }
-            // --- Enable ปุ่มล้างข้อมูลเสมอ ---
-            const resetBtn = document.getElementById('reset-form-btn');
-            if (resetBtn) {
-                resetBtn.disabled = false;
-            }
-        }
-    });
-    // เติมหลัง renderRecordForm เสมอ เพื่อให้ปุ่มล้างข้อมูลทำงาน
-    document.getElementById('reset-form-btn')?.addEventListener('click', function() {
-        const form = document.getElementById('record-form');
-        if (form) {
-            form.reset();
-            // รีเซ็ตวันที่ให้เป็นวันนี้ (ถ้ามี input date)
-            const dateInput = document.getElementById('event_date');
-            if (dateInput) {
-                dateInput.valueAsDate = new Date();
-            }
-            // รีเซ็ตสถานะ HAD (ถ้ามี)
-            const hadStatus = document.getElementById('had_status');
-            if (hadStatus) {
-                hadStatus.textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
-                hadStatus.parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
-            }
-            // ซ่อนช่อง process_other (ถ้ามี)
-            const processOtherInput = document.getElementById('process_other');
-            if (processOtherInput) {
-                processOtherInput.classList.add('hidden');
-                processOtherInput.value = '';
-            }
-            // ซ่อนช่อง cause_other (ถ้ามี)
             const causeOtherInput = document.getElementById('cause_other');
             if (causeOtherInput) {
                 causeOtherInput.classList.add('hidden');
