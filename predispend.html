@@ -647,6 +647,11 @@ function renderRecordForm() {
                 processOtherInput.classList.add('hidden');
                 processOtherInput.value = '';
             }
+            // --- Enable ปุ่มล้างข้อมูลเสมอ ---
+            const resetBtn = document.getElementById('reset-form-btn');
+            if (resetBtn) {
+                resetBtn.disabled = false;
+            }
         }
     });
     // เติมหลัง renderRecordForm เสมอ เพื่อให้ปุ่มล้างข้อมูลทำงาน
@@ -664,6 +669,17 @@ function renderRecordForm() {
             if (hadStatus) {
                 hadStatus.textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
                 hadStatus.parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
+            }
+            // ซ่อนช่อง process_other (ถ้ามี)
+            const processOtherInput = document.getElementById('process_other');
+            if (processOtherInput) {
+                processOtherInput.classList.add('hidden');
+                processOtherInput.value = '';
+            }
+            // --- Enable ปุ่มล้างข้อมูลเสมอ ---
+            const resetBtn = document.getElementById('reset-form-btn');
+            if (resetBtn) {
+                resetBtn.disabled = false;
             }
         }
     });
