@@ -558,8 +558,9 @@ function renderRecordForm() {
                     <textarea id="details" name="details" rows="4" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"></textarea>
                 </div>
 
-                <div class="md:col-span-2 text-right">
-                    <button type="submit" class="px-6 py-2 font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700">บันทึกข้อมูล</button>
+                <div class="md:col-span-2 flex justify-end gap-2 mt-4">
+                    <button type="button" id="reset-form-btn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">ล้างข้อมูล</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700">บันทึกข้อมูล</button>
                 </div>
             </form>
         </div>
@@ -614,6 +615,33 @@ function renderRecordForm() {
 
     // Attach event listener for form submission
     document.getElementById('record-form').addEventListener('submit', handleRecordSubmit);
+
+    // Attach event listener for reset button
+    document.getElementById('reset-form-btn').addEventListener('click', () => {
+        document.getElementById('record-form').reset();
+        document.getElementById('event_date').valueAsDate = new Date(); // Reset date to today
+        // Clear HAD status
+        document.getElementById('had_status').textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
+        document.getElementById('had_status').parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
+    });
+    // เพิ่ม event สำหรับปุ่มล้างข้อมูล
+    document.getElementById('reset-form-btn')?.addEventListener('click', function() {
+        const form = document.getElementById('record-form');
+        if (form) {
+            form.reset();
+            // รีเซ็ตวันที่ให้เป็นวันนี้ (ถ้ามี input date)
+            const dateInput = document.getElementById('event_date');
+            if (dateInput) {
+                dateInput.valueAsDate = new Date();
+            }
+            // รีเซ็ตสถานะ HAD (ถ้ามี)
+            const hadStatus = document.getElementById('had_status');
+            if (hadStatus) {
+                hadStatus.textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
+                hadStatus.parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
+            }
+        }
+    });
 }
 
 /**
@@ -630,12 +658,12 @@ function renderDashboard() {
     // --- Data Aggregation for Charts ---
     const totalReports = masterData.records.length;
     
-    // นับจำนวนรายงานที่เกี่ยวกับ HAD (High Alert Drug)
+    // นับจำนวนรายงานที่เกี่ยวกับ HAD (High Alert Drug) แบบไม่สนใจตัวพิมพ์เล็ก/ใหญ่ และตัดช่องว่าง
     const hadReports = masterData.records.filter(rec => {
-        // ตรวจสอบว่ารายการยาที่ผิดอยู่ในรายการ HAD หรือไม่
-        const incorrectMedicine = rec.รายการยาที่ผิด || '';
-        const medicine = masterData.medicines.find(med => med.Name === incorrectMedicine);
-        return medicine && medicine.HAD === 'Yes';
+        const incorrectMedicine = (rec.รายการยาที่ผิด || '').trim().toLowerCase();
+        // ค้นหาชื่อยาใน masterData.medicines แบบไม่สนใจตัวพิมพ์เล็ก/ใหญ่ และตัดช่องว่าง
+        const medicine = masterData.medicines.find(med => (med.Name || '').trim().toLowerCase() === incorrectMedicine);
+        return medicine && (med.HAD === 'Yes' || med.HAD === 'ใช่');
     }).length;
 
     // รวบรวมข้อมูลตามปี
