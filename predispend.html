@@ -261,6 +261,16 @@ async function handleRecordSubmit(e) {
         recordData['กระบวนการ'] = processSelect.value;
     }
 
+    // --- เพิ่มการคำนวณค่า HAD ---
+    const correctMedName = document.getElementById('correct_medicine_search').value;
+    const incorrectMedName = document.getElementById('incorrect_medicine_search').value;
+    const correctMed = masterData.medicines.find(m => m.Name === correctMedName);
+    const incorrectMed = masterData.medicines.find(m => m.Name === incorrectMedName);
+    const isHad = (correctMed && correctMed.HAD && String(correctMed.HAD).toLowerCase() === 'yes') ||
+                  (incorrectMed && incorrectMed.HAD && String(incorrectMed.HAD).toLowerCase() === 'yes');
+    recordData['HAD'] = isHad ? 'HAD' : '';
+    // --- จบการเพิ่ม HAD ---
+
     // Prepare data to send as query parameters
     const dataToSend = {
         action: 'addrecord', // Action for Apps Script
@@ -271,6 +281,7 @@ async function handleRecordSubmit(e) {
         'กระบวนการ': recordData['กระบวนการ'], // Use the processed value
         'รายการยาที่ถูกต้อง': recordData['correct_medicine_search'],
         'รายการยาที่ผิด': recordData['incorrect_medicine_search'],
+        'HAD': recordData['HAD'], // --- ส่งค่า HAD ---
         'สาเหตุ': recordData['cause'],
         'รายละเอียดเพิ่มเติม': recordData['details'],
         'ผู้รายงาน': 'ไม่ระบุ' // ผู้รายงานถูกตั้งค่าเป็น 'ไม่ระบุ' เนื่องจากไม่มีระบบล็อกอินแล้ว
