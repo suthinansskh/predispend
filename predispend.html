@@ -271,6 +271,15 @@ async function handleRecordSubmit(e) {
     recordData['HAD'] = isHad ? 'HAD' : '';
     // --- จบการเพิ่ม HAD ---
 
+    // Handle "other" cause input if selected
+    const causeSelect = document.getElementById('cause');
+    const causeOtherInput = document.getElementById('cause_other');
+    if (causeSelect.value === 'อื่นๆ') {
+        recordData['cause'] = causeOtherInput.value;
+    } else {
+        recordData['cause'] = causeSelect.value;
+    }
+
     // Prepare data to send as query parameters
     const dataToSend = {
         action: 'addrecord', // Action for Apps Script
@@ -559,7 +568,9 @@ function renderRecordForm() {
                     <label for="cause" class="block text-sm font-medium text-gray-700">สาเหตุ</label>
                     <select id="cause" name="cause" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
                        ${masterData.causes.map(c => `<option value="${c.Name}">${c.Name}</option>`).join('')}
+                       <option value="อื่นๆ">อื่นๆ (โปรดระบุ)</option>
                     </select>
+                    <input type="text" id="cause_other" name="cause_other" class="hidden w-full px-3 py-2 mt-2 border border-gray-300 rounded-md" placeholder="ระบุสาเหตุอื่นๆ">
                 </div>
 
                 <div class="md:col-span-2">
@@ -586,6 +597,16 @@ function renderRecordForm() {
         // Clear value if hidden
         if (processOtherInput.classList.contains('hidden')) {
             processOtherInput.value = '';
+        }
+    });
+
+    // Logic to show/hide "other" input for cause field
+    const causeSelect = document.getElementById('cause');
+    const causeOtherInput = document.getElementById('cause_other');
+    causeSelect.addEventListener('change', () => {
+        causeOtherInput.classList.toggle('hidden', causeSelect.value !== 'อื่นๆ');
+        if (causeOtherInput.classList.contains('hidden')) {
+            causeOtherInput.value = '';
         }
     });
 
@@ -647,6 +668,12 @@ function renderRecordForm() {
                 processOtherInput.classList.add('hidden');
                 processOtherInput.value = '';
             }
+            // ซ่อนช่อง cause_other (ถ้ามี)
+            const causeOtherInput = document.getElementById('cause_other');
+            if (causeOtherInput) {
+                causeOtherInput.classList.add('hidden');
+                causeOtherInput.value = '';
+            }
             // --- Enable ปุ่มล้างข้อมูลเสมอ ---
             const resetBtn = document.getElementById('reset-form-btn');
             if (resetBtn) {
@@ -675,6 +702,12 @@ function renderRecordForm() {
             if (processOtherInput) {
                 processOtherInput.classList.add('hidden');
                 processOtherInput.value = '';
+            }
+            // ซ่อนช่อง cause_other (ถ้ามี)
+            const causeOtherInput = document.getElementById('cause_other');
+            if (causeOtherInput) {
+                causeOtherInput.classList.add('hidden');
+                causeOtherInput.value = '';
             }
             // --- Enable ปุ่มล้างข้อมูลเสมอ ---
             const resetBtn = document.getElementById('reset-form-btn');
