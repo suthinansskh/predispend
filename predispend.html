@@ -624,7 +624,7 @@ function renderRecordForm() {
         document.getElementById('had_status').textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
         document.getElementById('had_status').parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
     });
-    // เพิ่ม event สำหรับปุ่มล้างข้อมูล
+    // เติมหลัง renderRecordForm เสมอ เพื่อให้ปุ่มล้างข้อมูลทำงาน
     document.getElementById('reset-form-btn')?.addEventListener('click', function() {
         const form = document.getElementById('record-form');
         if (form) {
@@ -658,12 +658,8 @@ function renderDashboard() {
     // --- Data Aggregation for Charts ---
     const totalReports = masterData.records.length;
     
-    // นับจำนวนรายงานที่เกี่ยวกับ HAD (High Alert Drug) แบบไม่สนใจตัวพิมพ์เล็ก/ใหญ่ และตัดช่องว่าง
-    const hadReports = masterData.records.filter(rec => {
-        const incorrectMedicine = (rec.รายการยาที่ผิด || '').trim().toLowerCase();
-        const medicine = masterData.medicines.find(med => (med.Name || '').trim().toLowerCase() === incorrectMedicine);
-        return medicine && (medicine.HAD === 'Yes' || medicine.HAD === 'ใช่');
-    }).length;
+    // นับจำนวนรายงานที่มีค่า HAD ใน record โดยตรง (คอลัมน์ HAD ไม่ว่างและไม่ใช่ null)
+    const hadReports = masterData.records.filter(rec => (rec.HAD || '').toString().trim().toUpperCase() === 'HAD').length;
 
     // รวบรวมข้อมูลตามปี
     const byYear = masterData.records.reduce((acc, rec) => {
@@ -1050,7 +1046,6 @@ function renderDashboard() {
                                     }
                                 }
                             }
-                        }
                     });
                 }
             } catch (err) {
