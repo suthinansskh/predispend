@@ -4,9 +4,79 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <h1>ประวัติ</h1>
     <p>ข้อมูลเกี่ยวกับยาและแพ้ยา</p>
+
+    <h1>Dashboard</h1>
+    <div id="charts">
+        <canvas id="pieChart"></canvas>
+        <canvas id="lineChart"></canvas>
+        <canvas id="barChart"></canvas>
+    </div>
+    <table id="dataTable" border="1">
+        <thead>
+            <tr>
+                <th>Column 1</th>
+                <th>Column 2</th>
+                <th>Column 3</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Data 1</td>
+                <td>Data 2</td>
+                <td>Data 3</td>
+            </tr>
+            <tr>
+                <td>Data 4</td>
+                <td>Data 5</td>
+                <td>Data 6</td>
+            </tr>
+        </tbody>
+    </table>
+    <script>
+        const pieCtx = document.getElementById('pieChart').getContext('2d');
+        const lineCtx = document.getElementById('lineChart').getContext('2d');
+        const barCtx = document.getElementById('barChart').getContext('2d');
+
+        new Chart(pieCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Red', 'Blue', 'Yellow'],
+                datasets: [{
+                    data: [300, 50, 100],
+                    backgroundColor: ['red', 'blue', 'yellow']
+                }]
+            }
+        });
+
+        new Chart(lineCtx, {
+            type: 'line',
+            data: {
+                labels: ['January', 'February', 'March'],
+                datasets: [{
+                    label: 'Line Data',
+                    data: [65, 59, 80],
+                    borderColor: 'blue',
+                    fill: false
+                }]
+            }
+        });
+
+        new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: ['A', 'B', 'C'],
+                datasets: [{
+                    label: 'Bar Data',
+                    data: [12, 19, 3],
+                    backgroundColor: ['green', 'orange', 'purple']
+                }]
+            }
+        });
+    </script>
 </body>
 </html>
