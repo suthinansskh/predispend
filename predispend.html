@@ -704,8 +704,8 @@ function renderRecordForm() {
                 </div>
                 
                 <div class="md:col-span-2">
-                    <label for="cause" class="block text-sm font-medium text-gray-700">สาเหตุ</label>
-                    <select id="cause" name="cause" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                    <label for="cause" class="block text-sm font-medium text-gray-700">สาเหตุ</label>                    <select id="cause" name="cause" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                       <option value="" selected>เลือก...</option>
                        ${(masterData.causes || []).map(c => `<option value="${c.Name || c.name || ''}">${c.Name || c.name || ''}</option>`).join('')}
                        <option value="อื่นๆ">อื่นๆ (โปรดระบุ)</option>
                     </select>
