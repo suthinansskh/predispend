@@ -76,11 +76,31 @@
                         <span class="font-bold text-emerald-600">Med Error Report</span>
                         <div class="hidden md:block">
                             <div class="flex items-baseline ml-10 space-x-4">
-                                <!-- Navigation links for different pages -->
-                                <button data-page="records-list-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">รายการที่บันทึก</button>
-                                <button data-page="record-form-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">บันทึกรายการใหม่</button>
+                                <!-- Navigation links for different pages in specified order -->
+                                <button data-page="login-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">ลงชื่อเข้าใช้งาน</button>
+                                <button data-page="record-form-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">บันทึกข้อมูล</button>
+                                <button data-page="records-list-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">รายการล่าสุด</button>
                                 <button data-page="dashboard-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">Dashboard</button>
-                                <!-- Admin-specific links are removed or hidden since there's no login -->
+                                <!-- Dropdown for Settings -->
+                                <div class="relative group">
+                                    <button class="px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200 flex items-center">
+                                        การตั้งค่า
+                                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </button>
+                                    <div class="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                        <div class="py-1">
+                                            <button data-page="users-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ผู้ใช้งาน</button>
+                                            <button data-page="medicines-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">รายการยา</button>
+                                            <button data-page="shifts-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">เวร</button>
+                                            <button data-page="patient-types-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ประเภทผู้ป่วย</button>
+                                            <button data-page="places-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">สถานที่</button>
+                                            <button data-page="processes-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">กระบวนการ</button>
+                                            <button data-page="causes-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">สาเหตุ</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -95,12 +115,18 @@
         <!-- Main content area where different pages are rendered -->
         <main class="p-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
             <!-- Content Pages (each is a placeholder, filled by JavaScript) -->
-            <div id="records-list-page" class="page-content"></div>
+            <!-- Main pages in order: บันทึกข้อมูล, รายการล่าสุด, Dashboard -->
             <div id="record-form-page" class="page-content hidden"></div>
+            <div id="records-list-page" class="page-content hidden"></div>
             <div id="dashboard-page" class="page-content hidden"></div>
-            <!-- Admin-only pages are removed/hidden if no longer needed -->
+            <!-- Settings pages in order: ผู้ใช้งาน, รายการยา, เวร, ประเภทผู้ป่วย, สถานที่, กระบวนการ, สาเหตุ -->
             <div id="users-page" class="page-content hidden"></div>
             <div id="medicines-page" class="page-content hidden"></div>
+            <div id="shifts-page" class="page-content hidden"></div>
+            <div id="patient-types-page" class="page-content hidden"></div>
+            <div id="places-page" class="page-content hidden"></div>
+            <div id="processes-page" class="page-content hidden"></div>
+            <div id="causes-page" class="page-content hidden"></div>
         </main>
     </div>
 
@@ -221,11 +247,19 @@ function showPage(pageId) {
         }
     });    /* Render content specific to the selected page */
     switch (pageId) {
+        case 'login-page':
+            // Don't render anything special for login page, it's already in HTML
+            break;
         case 'records-list-page': renderRecordsList(); break;
         case 'record-form-page': renderRecordForm(); break;
         case 'dashboard-page': renderDashboard(); break;
-        case 'users-page': renderUsersPage(); break; // These pages will be accessible without login
-        case 'medicines-page': renderMedicinesPage(); break; // These pages will be accessible without login
+        case 'users-page': renderUsersPage(); break;
+        case 'medicines-page': renderMedicinesPage(); break;
+        case 'shifts-page': renderShiftsPage(); break;
+        case 'patient-types-page': renderPatientTypesPage(); break;
+        case 'places-page': renderPlacesPage(); break;
+        case 'processes-page': renderProcessesPage(); break;
+        case 'causes-page': renderCausesPage(); break;
     }
 }
 
@@ -1277,6 +1311,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     loginPage.classList.remove('hidden');
     appPage.classList.add('hidden');
     
+    // Set login page as active navigation
+    navLinks.forEach(link => {
+        if (link.dataset.page === 'login-page') {
+            link.classList.add('bg-gray-200', 'font-bold');
+        } else {
+            link.classList.remove('bg-gray-200', 'font-bold');
+        }
+    });
+    
     // Load all master data in background
     await loadAllMasterData();
     
@@ -1310,6 +1353,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Update navigation to show user info and logout button
             updateNavigationForLoggedInUser(user);
             
+            // Show first main page after login (บันทึกข้อมูล)
             showPage('record-form-page');
         } else {
             await Swal.fire({
@@ -1321,6 +1365,149 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
+
+// Additional Settings Pages Functions
+function renderShiftsPage() {
+    const container = document.getElementById('shifts-page');
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการเวร</h2>
+            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลเวรการทำงาน</p>
+            <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full bg-white divide-y divide-gray-200">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">เวร</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายละเอียด</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr class="hover:bg-gray-100">
+                            <td class="px-6 py-4 whitespace-nowrap">เช้า</td>
+                            <td class="px-6 py-4 whitespace-nowrap">06:00 - 14:00</td>
+                        </tr>
+                        <tr class="hover:bg-gray-100">
+                            <td class="px-6 py-4 whitespace-nowrap">บ่าย</td>
+                            <td class="px-6 py-4 whitespace-nowrap">14:00 - 22:00</td>
+                        </tr>
+                        <tr class="hover:bg-gray-100">
+                            <td class="px-6 py-4 whitespace-nowrap">ดึก</td>
+                            <td class="px-6 py-4 whitespace-nowrap">22:00 - 06:00</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function renderPatientTypesPage() {
+    const container = document.getElementById('patient-types-page');
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการประเภทผู้ป่วย</h2>
+            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลประเภทผู้ป่วย</p>
+            <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full bg-white divide-y divide-gray-200">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ประเภท</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">คำอธิบาย</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr class="hover:bg-gray-100">
+                            <td class="px-6 py-4 whitespace-nowrap">นอก (OPD)</td>
+                            <td class="px-6 py-4 whitespace-nowrap">ผู้ป่วยนอก</td>
+                        </tr>
+                        <tr class="hover:bg-gray-100">
+                            <td class="px-6 py-4 whitespace-nowrap">ใน (IPD)</td>
+                            <td class="px-6 py-4 whitespace-nowrap">ผู้ป่วยใน</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function renderPlacesPage() {
+    const container = document.getElementById('places-page');
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการสถานที่</h2>
+            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลสถานที่</p>
+            <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full bg-white divide-y divide-gray-200">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อสถานที่</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        ${masterData.places.length > 0 ? masterData.places.map(place => `
+                            <tr class="hover:bg-gray-100">
+                                <td class="px-6 py-4 whitespace-nowrap">${place.Name || ''}</td>
+                            </tr>
+                        `).join('') : `<tr><td class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูลสถานที่</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function renderProcessesPage() {
+    const container = document.getElementById('processes-page');
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการกระบวนการ</h2>
+            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลกระบวนการ</p>
+            <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full bg-white divide-y divide-gray-200">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อกระบวนการ</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        ${masterData.processes.length > 0 ? masterData.processes.map(process => `
+                            <tr class="hover:bg-gray-100">
+                                <td class="px-6 py-4 whitespace-nowrap">${process.Name || ''}</td>
+                            </tr>
+                        `).join('') : `<tr><td class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูลกระบวนการ</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function renderCausesPage() {
+    const container = document.getElementById('causes-page');
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการสาเหตุ</h2>
+            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลสาเหตุ</p>
+            <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full bg-white divide-y divide-gray-200">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อสาเหตุ</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        ${masterData.causes.length > 0 ? masterData.causes.map(cause => `
+                            <tr class="hover:bg-gray-100">
+                                <td class="px-6 py-4 whitespace-nowrap">${cause.Name || ''}</td>
+                            </tr>
+                        `).join('') : `<tr><td class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูลสาเหตุ</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
 </script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </body>
