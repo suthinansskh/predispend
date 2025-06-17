@@ -1250,283 +1250,363 @@ function renderUsersPage() {
     `;
 }
 
-// Placeholder for Medicine Management Page (if needed in future)
+// --- Example: Medicines Management Page ---
 function renderMedicinesPage() {
     const container = document.getElementById('medicines-page');
-    // NOTE: This page will be accessible by anyone since login is removed.
-    // Consider adding a simple form for direct user input for "ผู้รายงาน" if needed.
     container.innerHTML = `
         <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการยา</h2>
-            <p class="text-gray-600">หน้านี้สำหรับดูข้อมูลยาเท่านั้น เนื่องจากระบบล็อกอินถูกนำออกไปแล้ว.</p>
-            <!-- Content for medicine management, e.g., table of medicines -->
-            <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-                    <thead class="bg-gray-200">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">จัดการรายการยา</h2>
+                <button id="add-medicine-btn" class="px-4 py-2 bg-emerald-600 text-white rounded-md">เพิ่มยา</button>
+            </div>
+            <table class="min-w-full bg-white divide-y divide-gray-200">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="px-6 py-3">ชื่อยา</th>
+                        <th class="px-6 py-3">HAD</th>
+                        <th class="px-6 py-3">การจัดการ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${masterData.medicines.map((med, idx) => `
                         <tr>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อยา</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">HAD</th>
+                            <td class="px-6 py-4">${med.Name}</td>
+                            <td class="px-6 py-4">${med.HAD}</td>
+                            <td class="px-6 py-4">
+                                <button class="edit-medicine-btn text-blue-600" data-idx="${idx}">แก้ไข</button>
+                                <button class="delete-medicine-btn text-red-600" data-idx="${idx}">ลบ</button>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody id="medicines-table-body" class="divide-y divide-gray-200">
-                        ${masterData.medicines.length > 0 ? masterData.medicines.map(med => `
-                            <tr class="hover:bg-gray-100">
-                                <td class="px-6 py-4 whitespace-nowrap">${med.Name || ''}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${med.HAD || ''}</td>
-                            </tr>
-                        `).join('') : `<tr><td colspan="2" class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูลยา</td></tr>`}
-                    </tbody>
-                </table>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+        <div id="medicine-modal" class="modal" style="display:none;">
+            <div class="modal-content">
+                <h3 id="medicine-modal-title" class="mb-4 text-lg font-bold"></h3>
+                <input id="medicine-name" class="w-full mb-2 px-3 py-2 border rounded" placeholder="ชื่อยา">
+                <select id="medicine-had" class="w-full mb-4 px-3 py-2 border rounded">
+                    <option value="yes">HAD</option>
+                    <option value="no">ไม่ใช่ HAD</option>
+                </select>
+                <div class="flex justify-end gap-2">
+                    <button id="medicine-modal-cancel" class="px-4 py-2 bg-gray-300 rounded">ยกเลิก</button>
+                    <button id="medicine-modal-save" class="px-4 py-2 bg-emerald-600 text-white rounded">บันทึก</button>
+                </div>
             </div>
         </div>
     `;
-}
-
-/**
- * Updates the navigation bar to show user information and logout button
- * @param {Object} user - The logged-in user object
- */
-function updateNavigationForLoggedInUser(user) {
-    const userInfoContainer = document.querySelector('nav .flex.items-center:last-child');
-    if (userInfoContainer) {
-        userInfoContainer.innerHTML = `
-            <div class="flex items-center space-x-4">
-                <span class="text-sm text-gray-700">สวัสดี, ${user.ชื่อ || user.Name}</span>
-                <button id="logout-btn" class="px-3 py-1 text-sm text-white bg-red-500 rounded-md hover:bg-red-600">ออกจากระบบ</button>
-            </div>
-        `;
-        
-        // Add logout functionality
-        document.getElementById('logout-btn').addEventListener('click', async () => {
-            const confirmLogout = confirm('ต้องการออกจากระบบ?');
-            
-            if (confirmLogout) {
-                sessionStorage.removeItem('currentUser');
-                alert('ออกจากระบบสำเร็จ');
-                
-                // Redirect to login page
-                appPage.classList.add('hidden');
-                loginPage.style.display = 'flex';
-                
-                // Clear login form
-                document.getElementById('login-form').reset();
+    document.getElementById('add-medicine-btn').onclick = () => openMedicineModal('add');
+    container.querySelectorAll('.edit-medicine-btn').forEach(btn => {
+        btn.onclick = () => openMedicineModal('edit', masterData.medicines[btn.dataset.idx]);
+    });
+    container.querySelectorAll('.delete-medicine-btn').forEach(btn => {
+        btn.onclick = async () => {
+            if (confirm('ยืนยันการลบ?')) {
+                await fetch(`${SCRIPT_URL}?action=deleteMedicine&name=${encodeURIComponent(masterData.medicines[btn.dataset.idx].Name)}`);
+                await loadAllMasterData();
+                renderMedicinesPage();
             }
-        });
-    }
+        };
+    });
+    // ...modal logic (openMedicineModal) ...
 }
 
 /**
- * Get current logged-in user information from sessionStorage
- * @returns {Object|null} Current user object or null if not logged in
+ * Renders the shifts management page.
  */
-function getCurrentUser() {
-    const userStr = sessionStorage.getItem('currentUser');
-    return userStr ? JSON.parse(userStr) : null;
-}
-
-// Initialize the application when the page loads
-document.addEventListener('DOMContentLoaded', async () => {
-    // Initially show login page and hide app content
-    loginPage.style.display = 'flex';
-    appPage.classList.add('hidden');
-    
-    // Set login page as active navigation
-    navLinks.forEach(link => {
-        if (link.dataset.page === 'login-page') {
-            link.classList.add('bg-gray-200', 'font-bold');
-        } else {
-            link.classList.remove('bg-gray-200', 'font-bold');
-        }
-    });
-    
-    // Load all master data in background
-    await loadAllMasterData();
-    
-    // Login functionality script
-    loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-
-        // Validate login using Google Sheet user data
-        const user = masterData.users.find(u => 
-            u.ID13 === username && u.Password === password
-        );
-
-        if (user) {
-            // Store current user information
-            sessionStorage.setItem('currentUser', JSON.stringify(user));
-            
-            alert(`ยินดีต้อนรับ ${user.ชื่อ || user.Name}! เข้าสู่ระบบสำเร็จ`);
-            
-            loginPage.style.display = 'none';
-            appPage.style.display = 'block';
-            
-            // Update navigation to show user info and logout button
-            updateNavigationForLoggedInUser(user);
-            
-            // Show first main page after login (บันทึกข้อมูล)
-            showPage('record-form-page');
-        } else {
-            alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบข้อมูลและลองอีกครั้ง');
-        }
-    });
-});
-
-// --- แสดงชื่อผู้ใช้ใน navbar ---
-document.addEventListener('DOMContentLoaded', () => {
-    const userDisplay = document.getElementById('user-display');
-    let currentUser = {};
-    try {
-        currentUser = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
-    } catch (e) { currentUser = {}; }
-    if (userDisplay) {
-        userDisplay.textContent = currentUser.Name ? `ผู้ใช้: ${currentUser.Name}` : '';
-    }
-});
-
-// Additional Settings Pages Functions
 function renderShiftsPage() {
     const container = document.getElementById('shifts-page');
     container.innerHTML = `
         <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการเวร</h2>
-            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลเวรการทำงาน</p>
-            <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-                    <thead class="bg-gray-200">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">จัดการเวร</h2>
+                <button id="add-shift-btn" class="px-4 py-2 bg-emerald-600 text-white rounded-md">เพิ่มเวร</button>
+            </div>
+            <table class="min-w-full bg-white divide-y divide-gray-200">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="px-6 py-3">ชื่อเวร</th>
+                        <th class="px-6 py-3">รายละเอียด</th>
+                        <th class="px-6 py-3">การจัดการ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${masterData.shifts.map((shift, idx) => `
                         <tr>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">เวร</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายละเอียด</th>
+                            <td class="px-6 py-4">${shift.Name}</td>
+                            <td class="px-6 py-4">${shift.Details}</td>
+                            <td class="px-6 py-4">
+                                <button class="edit-shift-btn text-blue-600" data-idx="${idx}">แก้ไข</button>
+                                <button class="delete-shift-btn text-red-600" data-idx="${idx}">ลบ</button>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        <tr class="hover:bg-gray-100">
-                            <td class="px-6 py-4 whitespace-nowrap">เช้า</td>
-                            <td class="px-6 py-4 whitespace-nowrap">06:00 - 14:00</td>
-                        </tr>
-                        <tr class="hover:bg-gray-100">
-                            <td class="px-6 py-4 whitespace-nowrap">บ่าย</td>
-                            <td class="px-6 py-4 whitespace-nowrap">14:00 - 22:00</td>
-                        </tr>
-                        <tr class="hover:bg-gray-100">
-                                                       <td class="px-6 py-4 whitespace-nowrap">ดึก</td>
-                            <td class="px-6 py-4 whitespace-nowrap">22:00 - 06:00</td>
-                        </tr>
-                    </tbody>
-                </table>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+        <div id="shift-modal" class="modal" style="display:none;">
+            <div class="modal-content">
+                <h3 id="shift-modal-title" class="mb-4 text-lg font-bold"></h3>
+                <input id="shift-name" class="w-full mb-2 px-3 py-2 border rounded" placeholder="ชื่อเวร">
+                <input id="shift-details" class="w-full mb-4 px-3 py-2 border rounded" placeholder="รายละเอียด">
+                <div class="flex justify-end gap-2">
+                    <button id="shift-modal-cancel" class="px-4 py-2 bg-gray-300 rounded">ยกเลิก</button>
+                    <button id="shift-modal-save" class="px-4 py-2 bg-emerald-600 text-white rounded">บันทึก</button>
+                </div>
             </div>
         </div>
     `;
+    document.getElementById('add-shift-btn').onclick = () => openShiftModal('add');
+    container.querySelectorAll('.edit-shift-btn').forEach(btn => {
+        btn.onclick = () => openShiftModal('edit', masterData.shifts[btn.dataset.idx]);
+    });
+    container.querySelectorAll('.delete-shift-btn').forEach(btn => {
+        btn.onclick = async () => {
+            if (confirm('ยืนยันการลบ?')) {
+                await fetch(`${SCRIPT_URL}?action=deleteShift&name=${encodeURIComponent(masterData.shifts[btn.dataset.idx].Name)}`);
+                await loadAllMasterData();
+                renderShiftsPage();
+            }
+        };
+    });
+    // ...modal logic (openShiftModal) ...
 }
 
+/**
+ * Renders the patient types management page.
+ */
 function renderPatientTypesPage() {
     const container = document.getElementById('patient-types-page');
+   
     container.innerHTML = `
         <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการประเภทผู้ป่วย</h2>
-            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลประเภทผู้ป่วย</p>
-            <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-                    <thead class="bg-gray-200">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">จัดการประเภทผู้ป่วย</h2>
+                <button id="add-patient-type-btn" class="px-4 py-2 bg-emerald-600 text-white rounded-md">เพิ่มประเภทผู้ป่วย</button>
+            </div>
+            <table class="min-w-full bg-white divide-y divide-gray-200">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="px-6 py-3">ประเภทผู้ป่วย</th>
+                        <th class="px-6 py-3">คำอธิบาย</th>
+                        <th class="px-6 py-3">การจัดการ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${masterData.patientTypes.map((type, idx) => `
                         <tr>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ประเภท</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">คำอธิบาย</th>
+                            <td class="px-6 py-4">${type.Name}</td>
+                            <td class="px-6 py-4">${type.Description}</td>
+                            <td class="px-6 py-4">
+                                <button class="edit-patient-type-btn text-blue-600" data-idx="${idx}">แก้ไข</button>
+                                <button class="delete-patient-type-btn text-red-600" data-idx="${idx}">ลบ</button>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        <tr class="hover:bg-gray-100">
-                            <td class="px-6 py-4 whitespace-nowrap">นอก (OPD)</td>
-                            <td class="px-6 py-4 whitespace-nowrap">ผู้ป่วยนอก</td>
-                        </tr>
-                        <tr class="hover:bg-gray-100">
-                            <td class="px-6 py-4 whitespace-nowrap">ใน (IPD)</td>
-                            <td class="px-6 py-4 whitespace-nowrap">ผู้ป่วยใน</td>
-                        </tr>
-                    </tbody>
-                </table>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+        <div id="patient-type-modal" class="modal" style="display:none;">
+            <div class="modal-content">
+                <h3 id="patient-type-modal-title" class="mb-4 text-lg font-bold"></h3>
+                <input id="patient-type-name" class="w-full mb-2 px-3 py-2 border rounded" placeholder="ชื่อประเภทผู้ป่วย">
+                <input id="patient-type-description" class="w-full mb-4 px-3 py-2 border rounded" placeholder="คำอธิบาย">
+                <div class="flex justify-end gap-2">
+                    <button id="patient-type-modal-cancel" class="px-4 py-2 bg-gray-300 rounded">ยกเลิก</button>
+                    <button id="patient-type-modal-save" class="px-4 py-2 bg-emerald-600 text-white rounded">บันทึก</button>
+                </div>
             </div>
         </div>
     `;
+    document.getElementById('add-patient-type-btn').onclick = () => openPatientTypeModal('add');
+    container.querySelectorAll('.edit-patient-type-btn').forEach(btn => {
+        btn.onclick = () => openPatientTypeModal('edit', masterData.patientTypes[btn.dataset.idx]);
+    });
+    container.querySelectorAll('.delete-patient-type-btn').forEach(btn => {
+        btn.onclick = async () => {
+            if (confirm('ยืนยันการลบ?')) {
+                await fetch(`${SCRIPT_URL}?action=deletePatientType&name=${encodeURIComponent(masterData.patientTypes[btn.dataset.idx].Name)}`);
+                await loadAllMasterData();
+                renderPatientTypesPage();
+            }
+        };
+    });
+    // ...modal logic (openPatientTypeModal) ...
 }
 
+/**
+ * Renders the places management page.
+ */
 function renderPlacesPage() {
     const container = document.getElementById('places-page');
     container.innerHTML = `
         <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการสถานที่</h2>
-            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลสถานที่</p>
-            <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-                    <thead class="bg-gray-200">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">จัดการสถานที่</h2>
+                <button id="add-place-btn" class="px-4 py-2 bg-emerald-600 text-white rounded-md">เพิ่มสถานที่</button>
+            </div>
+            <table class="min-w-full bg-white divide-y divide-gray-200">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="px-6 py-3">ชื่อสถานที่</th>
+                        <th class="px-6 py-3">การจัดการ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${masterData.places.map((place, idx) => `
                         <tr>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อสถานที่</th>
+                            <td class="px-6 py-4">${place.Name}</td>
+                            <td class="px-6 py-4">
+                                <button class="edit-place-btn text-blue-600" data-idx="${idx}">แก้ไข</button>
+                                <button class="delete-place-btn text-red-600" data-idx="${idx}">ลบ</button>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        ${masterData.places.length > 0 ? masterData.places.map(place => `
-                            <tr class="hover:bg-gray-100">
-                                <td class="px-6 py-4 whitespace-nowrap">${place.Name || ''}</td>
-                            </tr>
-                        `).join('') : `<tr><td class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูลสถานที่</td></tr>`}
-                    </tbody>
-                </table>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+        <div id="place-modal" class="modal" style="display:none;">
+            <div class="modal-content">
+                <h3 id="place-modal-title" class="mb-4 text-lg font-bold"></h3>
+                <input id="place-name" class="w-full mb-4 px-3 py-2 border rounded" placeholder="ชื่อสถานที่">
+                <div class="flex justify-end gap-2">
+                    <button id="place-modal-cancel" class="px-4 py-2 bg-gray-300 rounded">ยกเลิก</button>
+                    <button id="place-modal-save" class="px-4 py-2 bg-emerald-600 text-white rounded">บันทึก</button>
+                </div>
             </div>
         </div>
     `;
+    document.getElementById('add-place-btn').onclick = () => openPlaceModal('add');
+    container.querySelectorAll('.edit-place-btn').forEach(btn => {
+        btn.onclick = () => openPlaceModal('edit', masterData.places[btn.dataset.idx]);
+    });
+    container.querySelectorAll('.delete-place-btn').forEach(btn => {
+        btn.onclick = async () => {
+            if (confirm('ยืนยันการลบ?')) {
+                await fetch(`${SCRIPT_URL}?action=deletePlace&name=${encodeURIComponent(masterData.places[btn.dataset.idx].Name)}`);
+                await loadAllMasterData();
+                renderPlacesPage();
+            }
+        };
+    });
+    // ...modal logic (openPlaceModal) ...
 }
 
+/**
+ * Renders the processes management page.
+ */
 function renderProcessesPage() {
     const container = document.getElementById('processes-page');
     container.innerHTML = `
         <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการกระบวนการ</h2>
-            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลกระบวนการ</p>
-            <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-                    <thead class="bg-gray-200">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">จัดการกระบวนการ</h2>
+                <button id="add-process-btn" class="px-4 py-2 bg-emerald-600 text-white rounded-md">เพิ่มกระบวนการ</button>
+            </div>
+            <table class="min-w-full bg-white divide-y divide-gray-200">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="px-6 py-3">ชื่อกระบวนการ</th>
+                        <th class="px-6 py-3">การจัดการ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${masterData.processes.map((process, idx) => `
                         <tr>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อกระบวนการ</th>
+                            <td class="px-6 py-4">${process.Name}</td>
+                            <td class="px-6 py-4">
+                                <button class="edit-process-btn text-blue-600" data-idx="${idx}">แก้ไข</button>
+                                <button class="delete-process-btn text-red-600" data-idx="${idx}">ลบ</button>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        ${masterData.processes.length > 0 ? masterData.processes.map(process => `
-                            <tr class="hover:bg-gray-100">
-                                <td class="px-6 py-4 whitespace-nowrap">${process.Name || ''}</td>
-                            </tr>
-                        `).join('') : `<tr><td class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูลกระบวนการ</td></tr>`}
-                    </tbody>
-                </table>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+        <div id="process-modal" class="modal" style="display:none;">
+            <div class="modal-content">
+                <h3 id="process-modal-title" class="mb-4 text-lg font-bold"></h3>
+                <input id="process-name" class="w-full mb-4 px-3 py-2 border rounded" placeholder="ชื่อกระบวนการ">
+                <div class="flex justify-end gap-2">
+                    <button id="process-modal-cancel" class="px-4 py-2 bg-gray-300 rounded">ยกเลิก</button>
+                    <button id="process-modal-save" class="px-4 py-2 bg-emerald-600 text-white rounded">บันทึก</button>
+                </div>
             </div>
         </div>
     `;
+    document.getElementById('add-process-btn').onclick = () => openProcessModal('add');
+    container.querySelectorAll('.edit-process-btn').forEach(btn => {
+        btn.onclick = () => openProcessModal('edit', masterData.processes[btn.dataset.idx]);
+    });
+    container.querySelectorAll('.delete-process-btn').forEach(btn => {
+        btn.onclick = async () => {
+            if (confirm('ยืนยันการลบ?')) {
+                await fetch(`${SCRIPT_URL}?action=deleteProcess&name=${encodeURIComponent(masterData.processes[btn.dataset.idx].Name)}`);
+                await loadAllMasterData();
+                renderProcessesPage();
+            }
+        };
+    });
+    // ...modal logic (openProcessModal) ...
 }
 
+/**
+ * Renders the causes management page.
+ */
 function renderCausesPage() {
     const container = document.getElementById('causes-page');
     container.innerHTML = `
         <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการสาเหตุ</h2>
-            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลสาเหตุ</p>
-            <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-                    <thead class="bg-gray-200">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">จัดการสาเหตุ</h2>
+                <button id="add-cause-btn" class="px-4 py-2 bg-emerald-600 text-white rounded-md">เพิ่มสาเหตุ</button>
+            </div>
+            <table class="min-w-full bg-white divide-y divide-gray-200">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="px-6 py-3">ชื่อสาเหตุ</th>
+                        <th class="px-6 py-3">การจัดการ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${masterData.causes.map((cause, idx) => `
                         <tr>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อสาเหตุ</th>
+                            <td class="px-6 py-4">${cause.Name}</td>
+                            <td class="px-6 py-4">
+                                <button class="edit-cause-btn text-blue-600" data-idx="${idx}">แก้ไข</button>
+                                <button class="delete-cause-btn text-red-600" data-idx="${idx}">ลบ</button>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        ${masterData.causes.length > 0 ? masterData.causes.map(cause => `
-                            <tr class="hover:bg-gray-100">
-                                <td class="px-6 py-4 whitespace-nowrap">${cause.Name || ''}</td>
-                            </tr>
-                        `).join('') : `<tr><td class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูลสาเหตุ</td></tr>`}
-                    </tbody>
-                </table>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+        <div id="cause-modal" class="modal" style="display:none;">
+            <div class="modal-content">
+                <h3 id="cause-modal-title" class="mb-4 text-lg font-bold"></h3>
+                <input id="cause-name" class="w-full mb-4 px-3 py-2 border rounded" placeholder="ชื่อสาเหตุ">
+                <div class="flex justify-end gap-2">
+                    <button id="cause-modal-cancel" class="px-4 py-2 bg-gray-300 rounded">ยกเลิก</button>
+                    <button id="cause-modal-save" class="px-4 py-2 bg-emerald-600 text-white rounded">บันทึก</button>
+                </div>
             </div>
         </div>
     `;
+    document.getElementById('add-cause-btn').onclick = () => openCauseModal('add');
+    container.querySelectorAll('.edit-cause-btn').forEach(btn => {
+        btn.onclick = () => openCauseModal('edit', masterData.causes[btn.dataset.idx]);
+    });
+    container.querySelectorAll('.delete-cause-btn').forEach(btn => {
+        btn.onclick = async () => {
+            if (confirm('ยืนยันการลบ?')) {
+                await fetch(`${SCRIPT_URL}?action=deleteCause&name=${encodeURIComponent(masterData.causes[btn.dataset.idx].Name)}`);
+                await loadAllMasterData();
+                renderCausesPage();
+            }
+        };
+    });
+    // ...modal logic (openCauseModal) ...
 }
 
 // --- Event Listeners & Initialization ---
