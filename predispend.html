@@ -1235,12 +1235,21 @@ loginForm.addEventListener('submit', (e) => {
 
     // Mock login validation
     if (username === 'admin' && password === 'password') {
-        alert('เข้าสู่ระบบสำเร็จ!');
-        loginPage.classList.add('hidden');
-        appPage.classList.remove('hidden');
-        showPage('record-form-page');
+        Swal.fire({
+            title: 'เข้าสู่ระบบสำเร็จ!',
+            icon: 'success',
+            confirmButtonText: 'ตกลง'
+        }).then(() => {
+            loginPage.classList.add('hidden');
+            appPage.classList.remove('hidden');
+            showPage('record-form-page');
+        });
     } else {
-        alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+        Swal.fire({
+            title: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
+            icon: 'error',
+            confirmButtonText: 'ลองอีกครั้ง'
+        });
     }
 });
 
@@ -1248,5 +1257,6 @@ loginForm.addEventListener('submit', (e) => {
 loginPage.classList.remove('hidden');
 appPage.classList.add('hidden');
 </script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </body>
 </html>
