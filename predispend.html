@@ -1315,6 +1315,14 @@ function getCurrentUser() {
 
 // Initialize the application when the page loads
 document.addEventListener('DOMContentLoaded', async () => {
+    // ✅ แสดง SweetAlert เมื่อหน้าเว็บโหลดครั้งแรก
+    Swal.fire({
+        title: "ยินดีต้อนรับ",
+        text: "กรุณาเข้าสู่ระบบก่อนใช้งาน",
+        icon: "info",
+        confirmButtonText: "ตกลง"
+    });
+
     // Initially show login page and hide app content
     loginPage.classList.remove('hidden');
     appPage.classList.add('hidden');
