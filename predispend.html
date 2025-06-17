@@ -141,7 +141,7 @@
       </div>
     </div>
     
-    <!-- Success Modal: Displays upon successful data submission -->
+    <!-- Success Modal: Displays upon successful data submission (only after login) -->
     <div id="success-modal" class="modal">
       <div class="modal-content">
         <!-- SVG for a checkmark icon -->
@@ -224,7 +224,11 @@ function hideLoading() {
  * Displays the success modal.
  */
 function showSuccess() {
-    successModal.style.display = 'flex'; // Use flex to center the modal content
+    // Only show success modal if user is logged in
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+        successModal.style.display = 'flex'; // Use flex to center the modal content
+    }
 }
 
 /**
@@ -361,7 +365,11 @@ async function handleRecordSubmit(e) {
         const result = await response.json();
 
         if (result.status === 'success') {
-            showSuccess(); // Show success modal
+            // Only show success modal if user is logged in
+            const currentUser = getCurrentUser();
+            if (currentUser) {
+                showSuccess(); // Show success modal
+            }
             form.reset(); // Clear the form
             document.getElementById('event_date').valueAsDate = new Date(); // Reset date to today
             // Reload records data after successful submission
