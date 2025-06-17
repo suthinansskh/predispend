@@ -154,7 +154,7 @@
     </div>
 
     <!-- Login Page: Added for user login functionality -->
-    <div id="login-page" class="page-content">
+    <div id="login-page" class="fixed inset-0 bg-gray-100 flex items-center justify-center z-30">
         <div class="p-6 bg-white rounded-lg shadow-md max-w-md mx-auto">
             <h2 class="mb-6 text-xl font-bold text-gray-800">ลงชื่อเข้าใช้งาน</h2>
             <form id="login-form" class="space-y-4">
@@ -286,8 +286,11 @@ async function fetchDataFromSheet(action) {
         return data.result || []; 
     } catch (error) {
         console.error(`Error fetching ${action}:`, error);
-        // Display a user-friendly alert for network/API errors
-        alert(`เกิดข้อผิดพลาดในการดึงข้อมูล ${action.replace('get', 'ข้อมูล')}`);
+        // Only show alert if user is logged in to avoid disrupting login page
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            alert(`เกิดข้อผิดพลาดในการดึงข้อมูล ${action.replace('get', 'ข้อมูล')}`);
+        }
         return [];
     } finally {
         hideLoading();
@@ -1298,7 +1301,7 @@ function updateNavigationForLoggedInUser(user) {
                 
                 // Redirect to login page
                 appPage.classList.add('hidden');
-                loginPage.classList.remove('hidden');
+                loginPage.style.display = 'flex';
                 
                 // Clear login form
                 document.getElementById('login-form').reset();
@@ -1319,7 +1322,7 @@ function getCurrentUser() {
 // Initialize the application when the page loads
 document.addEventListener('DOMContentLoaded', async () => {
     // Initially show login page and hide app content
-    loginPage.classList.remove('hidden');
+    loginPage.style.display = 'flex';
     appPage.classList.add('hidden');
     
     // Set login page as active navigation
@@ -1352,7 +1355,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             alert(`ยินดีต้อนรับ ${user.ชื่อ || user.Name}! เข้าสู่ระบบสำเร็จ`);
             
-            loginPage.classList.add('hidden');
+            loginPage.style.display = 'none';
             appPage.classList.remove('hidden');
             
             // Update navigation to show user info and logout button
