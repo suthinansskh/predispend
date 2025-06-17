@@ -1127,7 +1127,12 @@ function renderDashboard() {
                         }
                         return color;
                     });
-                      new Chart(ctx, {
+                    
+                    // เตรียมข้อมูลสำหรับกราฟ
+                    const medicineLabels = topInvalidMedicines.map(item => item[0]);
+                    const medicineCounts = topInvalidMedicines.map(item => item[1]);
+                    
+                    new Chart(ctx, {
                         type: 'bar',
                         data: {
                             labels: medicineLabels,
@@ -1154,8 +1159,17 @@ function renderDashboard() {
                                         size: 16
                                     }
                                 }
+                            },
+                            scales: {
+                                x: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        precision: 0
+                                    }
+                                }
                             }
-                        });
+                        }
+                    });
                 }
             } catch (err) {
                 console.error('Error creating top medicines chart:', err);
