@@ -1220,42 +1220,41 @@ function renderMedicinesPage() {
 
 // Initialize the application when the page loads
 document.addEventListener('DOMContentLoaded', async () => {
-    // Load all master data immediately
+    // Initially show login page and hide app content
+    loginPage.classList.remove('hidden');
+    appPage.classList.add('hidden');
+    
+    // Load all master data in background
     await loadAllMasterData();
-    // Show the default page
-    showPage('records-list-page');
-});
+    
+    // Login functionality script
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
 
-// Login functionality script
-loginForm.addEventListener('submit', (e) => {
-    e.preventDefault();
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
 
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-
-    // Mock login validation
-    if (username === 'admin' && password === 'password') {
-        Swal.fire({
-            title: 'เข้าสู่ระบบสำเร็จ!',
-            icon: 'success',
-            confirmButtonText: 'ตกลง'
-        }).then(() => {
+        // Mock login validation
+        if (username === 'admin' && password === 'password') {
+            await Swal.fire({
+                title: 'เข้าสู่ระบบสำเร็จ!',
+                icon: 'success',
+                confirmButtonText: 'ตกลง',
+                timer: 2000
+            });
+            
             loginPage.classList.add('hidden');
             appPage.classList.remove('hidden');
             showPage('record-form-page');
-        });
-    } else {
-        Swal.fire({
-            title: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
-            icon: 'error',
-            confirmButtonText: 'ลองอีกครั้ง'
-        });
-    }
+        } else {
+            await Swal.fire({
+                title: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
+                icon: 'error',
+                confirmButtonText: 'ลองอีกครั้ง'
+            });
+        }
+    });
 });
-
-// Initially show login page and hide app content
-loginPage.classList.remove('hidden');
-appPage.classList.add('hidden');
 </script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </body>
