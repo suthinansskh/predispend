@@ -65,11 +65,12 @@
     </style>
 </head>
 <body class="bg-gray-100">
-
+    <!-- Top colored bar -->
+    <div style="height: 6px; background: linear-gradient(90deg, #10b981 0%, #2563eb 100%);"></div>
     <!-- Main Application: Now visible by default -->
     <div id="app">
         <!-- Navigation Bar -->
-        <nav class="bg-white shadow-md">
+        <nav class="bg-white shadow-md border-b-4 border-emerald-500">
             <div class="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
                     <div class="flex items-center">
@@ -1154,8 +1155,7 @@ function renderDashboard() {
                                     }
                                 }
                             }
-                        }
-                    });
+                        });
                 }
             } catch (err) {
                 console.error('Error creating top medicines chart:', err);
