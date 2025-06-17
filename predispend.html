@@ -123,7 +123,9 @@ let masterData = {
     places: [],       // List of places/locations where errors occur
     processes: [],    // List of processes involved in medication errors
     causes: [],       // List of causes for medication errors
-    records: []       // List of all recorded medication errors
+    records: [],      // List of all recorded medication errors
+    shifts: [],       // List of shifts
+    patientTypes: []  // List of patient types
 };
 let currentPage = 1;      // Current page number for pagination
 let itemsPerPage = 10;    // Number of items to display per page
@@ -460,13 +462,16 @@ async function loadAllMasterData() {
     );
     
     // Update global masterData object
-    masterData.users = users; // Users data is still fetched in case other parts of the app need it
-    masterData.medicines = medicines;
-    masterData.places = places;
-    masterData.processes = processes;
-    masterData.causes = causes;
-    // Sort records by date in descending order (most recent first)
-    masterData.records = records.sort((a,b) => new Date(b.วันที่เกิดเหตุการณ์) - new Date(a.วันที่เกิดเหตุการณ์));
+    masterData.users = users || [];
+    masterData.medicines = medicines || [];
+    masterData.places = places || [];
+    masterData.processes = processes || [];
+    masterData.causes = causes || [];
+    masterData.records = (records || []).sort((a,b) => new Date(b.วันที่เกิดเหตุการณ์) - new Date(a.วันที่เกิดเหตุการณ์));
+    
+    // Initialize empty arrays for shifts and patient types if not loaded from server
+    masterData.shifts = masterData.shifts || [];
+    masterData.patientTypes = masterData.patientTypes || [];
     
     hideLoading();
 }
@@ -661,14 +666,14 @@ function renderRecordForm() {
                     <label for="place" class="block text-sm font-medium text-gray-700">สถานที่</label>
                     <select id="place" name="place" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
                         <option value="" selected>เลือก...</option>
-                        ${masterData.places.map(p => `<option value="${p.Name}">${p.Name}</option>`).join('')}
+                        ${(masterData.places || []).map(p => `<option value="${p.Name || p.name || ''}">${p.Name || p.name || ''}</option>`).join('')}
                     </select>
                 </div>
                 <div>
                     <label for="process" class="block text-sm font-medium text-gray-700">กระบวนการ</label>
                     <select id="process" name="process" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
                         <option value="" selected>เลือก...</option>
-                        ${masterData.processes.map(p => `<option value="${p.Name}">${p.Name}</option>`).join('')}
+                        ${(masterData.processes || []).map(p => `<option value="${p.Name || p.name || ''}">${p.Name || p.name || ''}</option>`).join('')}
                         <option value="อื่นๆ">อื่นๆ (โปรดระบุ)</option>
                     </select>
                     <input type="text" id="process_other" name="process_other" class="hidden w-full px-3 py-2 mt-2 border border-gray-300 rounded-md" placeholder="ระบุกระบวนการอื่นๆ">
@@ -685,7 +690,7 @@ function renderRecordForm() {
                 </div>
                 <!-- Datalist provides suggestions for medicine inputs -->
                 <datalist id="medicine-list">
-                    ${masterData.medicines.map(m => `<option value="${m.Name}">`).join('')}
+                    ${(masterData.medicines || []).map(m => `<option value="${m.Name || m.name || ''}">`).join('')}
                 </datalist>
 
                 <!-- High Alert Drug (HAD) status display -->
@@ -697,7 +702,7 @@ function renderRecordForm() {
                 <div class="md:col-span-2">
                     <label for="cause" class="block text-sm font-medium text-gray-700">สาเหตุ</label>
                     <select id="cause" name="cause" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
-                       ${masterData.causes.map(c => `<option value="${c.Name}">${c.Name}</option>`).join('')}
+                       ${(masterData.causes || []).map(c => `<option value="${c.Name || c.name || ''}">${c.Name || c.name || ''}</option>`).join('')}
                        <option value="อื่นๆ">อื่นๆ (โปรดระบุ)</option>
                     </select>
                     <input type="text" id="cause_other" name="cause_other" class="hidden w-full px-3 py-2 mt-2 border border-gray-300 rounded-md" placeholder="ระบุสาเหตุอื่นๆ">
@@ -1299,7 +1304,7 @@ function renderUsersPage() {
                         </tr>
                     </thead>
                     <tbody id="users-table-body" class="divide-y divide-gray-200">
-                        ${masterData.users.length > 0 ? masterData.users.map(user => `
+                        ${(masterData.users || []).length > 0 ? (masterData.users || []).map(user => `
                             <tr class="hover:bg-gray-100">
                                 <td class="px-6 py-4 whitespace-nowrap">${user.ID13 || ''}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${user.Name || ''}</td>
@@ -1331,7 +1336,7 @@ function renderMedicinesPage() {
                     </tr>
                 </thead>
                 <tbody>
-                    ${masterData.medicines.map((med, idx) => `
+                    ${(masterData.medicines || []).map((med, idx) => `
                         <tr>
                             <td class="px-6 py-4">${med.Name}</td>
                             <td class="px-6 py-4">${med.HAD}</td>
@@ -1393,18 +1398,17 @@ function renderShiftsPage() {
                         <th class="px-6 py-3">รายละเอียด</th>
                         <th class="px-6 py-3">การจัดการ</th>
                     </tr>
-                </thead>
-                <tbody>
-                    ${masterData.shifts.map((shift, idx) => `
+                </thead>                <tbody>
+                    ${(masterData.shifts || []).map((shift, idx) => `
                         <tr>
-                            <td class="px-6 py-4">${shift.Name}</td>
-                            <td class="px-6 py-4">${shift.Details}</td>
+                            <td class="px-6 py-4">${shift.Name || shift.name || ''}</td>
+                            <td class="px-6 py-4">${shift.Details || shift.details || ''}</td>
                             <td class="px-6 py-4">
                                 <button class="edit-shift-btn text-blue-600" data-idx="${idx}">แก้ไข</button>
                                 <button class="delete-shift-btn text-red-600" data-idx="${idx}">ลบ</button>
                             </td>
                         </tr>
-                    `).join('')}
+                    `).join('') || '<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูล</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -1455,18 +1459,18 @@ function renderPatientTypesPage() {
                         <th class="px-6 py-3">คำอธิบาย</th>
                         <th class="px-6 py-3">การจัดการ</th>
                     </tr>
-                </thead>
-                <tbody>
-                    ${masterData.patientTypes.map((type, idx) => `
+                </thead>                <tbody>
+                    ${(masterData.patientTypes || []).map((type, idx) => `
                         <tr>
-                            <td class="px-6 py-4">${type.Name}</td>
-                            <td class="px-6 py-4">${type.Description}</td>
+                            <td class="px-6 py-4">${type.Name || type.name || ''}</td>
+                            <td class="px-6 py-4">${type.Description || type.description || ''}</td>
                             <td class="px-6 py-4">
                                 <button class="edit-patient-type-btn text-blue-600" data-idx="${idx}">แก้ไข</button>
                                 <button class="delete-patient-type-btn text-red-600" data-idx="${idx}">ลบ</button>
                             </td>
                         </tr>
-                    `).join('')}
+                    `).join('') || '<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูล</td></tr>'}
+                </tbody>
                 </tbody>
             </table>
         </div>
@@ -1517,7 +1521,7 @@ function renderPlacesPage() {
                     </tr>
                 </thead>
                 <tbody>
-                    ${masterData.places.map((place, idx) => `
+                    ${(masterData.places || []).map((place, idx) => `
                         <tr>
                             <td class="px-6 py-4">${place.Name}</td>
                             <td class="px-6 py-4">
@@ -1575,7 +1579,7 @@ function renderProcessesPage() {
                     </tr>
                 </thead>
                 <tbody>
-                    ${masterData.processes.map((process, idx) => `
+                    ${(masterData.processes || []).map((process, idx) => `
                         <tr>
                             <td class="px-6 py-4">${process.Name}</td>
                             <td class="px-6 py-4">
@@ -1633,7 +1637,7 @@ function renderCausesPage() {
                     </tr>
                 </thead>
                 <tbody>
-                    ${masterData.causes.map((cause, idx) => `
+                    ${(masterData.causes || []).map((cause, idx) => `
                         <tr>
                             <td class="px-6 py-4">${cause.Name}</td>
                             <td class="px-6 py-4">
