@@ -393,24 +393,10 @@ async function handleRecordSubmit(e) {
         recordData['กระบวนการ'] = processSelect.value;
     }
 
-    // --- เพิ่มการคำนวณค่า HAD ---
-    const correctMedName = document.getElementById('correct_medicine_search').value;
-    const incorrectMedName = document.getElementById('incorrect_medicine_search').value;
-    const correctMed = masterData.medicines.find(m => m.Name === correctMedName);
-    const incorrectMed = masterData.medicines.find(m => m.Name === incorrectMedName);
-    const isHad = (correctMed && correctMed.HAD && String(correctMed.HAD).toLowerCase() === 'yes') ||
-                  (incorrectMed && incorrectMed.HAD && String(incorrectMed.HAD).toLowerCase() === 'yes');
-    recordData['HAD'] = isHad ? 'HAD' : '';
-    // --- จบการเพิ่ม HAD ---
-
-    // Handle "other" cause input if selected
-    const causeSelect = document.getElementById('cause');
-    const causeOtherInput = document.getElementById('cause_other');
-    if (causeSelect.value === 'อื่นๆ') {
-        recordData['cause'] = causeOtherInput.value;
-    } else {
-        recordData['cause'] = causeSelect.value;
-    }
+    // --- เพิ่มชื่อผู้บันทึก ---
+    const userInfo = sessionStorage.getItem('currentUser');
+    recordData['ผู้บันทึก'] = userInfo || 'ไม่ระบุ';
+    // --- จบการเพิ่มผู้บันทึก ---
 
     // Prepare data to send as query parameters
     const dataToSend = {
@@ -422,10 +408,10 @@ async function handleRecordSubmit(e) {
         'กระบวนการ': recordData['กระบวนการ'], // Use the processed value
         'รายการยาที่ถูกต้อง': recordData['correct_medicine_search'],
         'รายการยาที่ผิด': recordData['incorrect_medicine_search'],
-        'HAD': recordData['HAD'], // --- ส่งค่า HAD ---
+        'HAD': recordData['HAD'],
         'สาเหตุ': recordData['cause'],
         'รายละเอียดเพิ่มเติม': recordData['details'],
-        'ผู้รายงาน': getCurrentUser() ? getCurrentUser().ชื่อ : 'ไม่ระบุ' // ใช้ชื่อผู้ใช้ที่ล็อกอิน
+        'ผู้บันทึก': recordData['ผู้บันทึก'] // --- ส่งชื่อผู้บันทึก ---
     };
 
     // Convert dataToSend object into URL query parameters
@@ -1436,7 +1422,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert(`ยินดีต้อนรับ ${user.ชื่อ || user.Name}! เข้าสู่ระบบสำเร็จ`);
             
             loginPage.style.display = 'none';
-            appPage.classList.remove('hidden');
+            appPage.style.display = 'block';
             
             // Update navigation to show user info and logout button
             updateNavigationForLoggedInUser(user);
@@ -1449,199 +1435,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 });
 
-// Additional Settings Pages Functions
-function renderShiftsPage() {
-    const container = document.getElementById('shifts-page');
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการเวร</h2>
-            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลเวรการทำงาน</p>
-            <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-                    <thead class="bg-gray-200">
-                        <tr>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">เวร</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายละเอียด</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        <tr class="hover:bg-gray-100">
-                            <td class="px-6 py-4 whitespace-nowrap">เช้า</td>
-                            <td class="px-6 py-4 whitespace-nowrap">06:00 - 14:00</td>
-                        </tr>
-                        <tr class="hover:bg-gray-100">
-                            <td class="px-6 py-4 whitespace-nowrap">บ่าย</td>
-                            <td class="px-6 py-4 whitespace-nowrap">14:00 - 22:00</td>
-                        </tr>
-                        <tr class="hover:bg-gray-100">
-                            <td class="px-6 py-4 whitespace-nowrap">ดึก</td>
-                            <td class="px-6 py-4 whitespace-nowrap">22:00 - 06:00</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-}
-
-function renderPatientTypesPage() {
-    const container = document.getElementById('patient-types-page');
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการประเภทผู้ป่วย</h2>
-            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลประเภทผู้ป่วย</p>
-            <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-                    <thead class="bg-gray-200">
-                        <tr>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ประเภท</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">คำอธิบาย</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        <tr class="hover:bg-gray-100">
-                            <td class="px-6 py-4 whitespace-nowrap">นอก (OPD)</td>
-                            <td class="px-6 py-4 whitespace-nowrap">ผู้ป่วยนอก</td>
-                        </tr>
-                        <tr class="hover:bg-gray-100">
-                            <td class="px-6 py-4 whitespace-nowrap">ใน (IPD)</td>
-                            <td class="px-6 py-4 whitespace-nowrap">ผู้ป่วยใน</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-}
-
-function renderPlacesPage() {
-    const container = document.getElementById('places-page');
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการสถานที่</h2>
-            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลสถานที่</p>
-            <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-                    <thead class="bg-gray-200">
-                        <tr>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อสถานที่</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        ${masterData.places.length > 0 ? masterData.places.map(place => `
-                            <tr class="hover:bg-gray-100">
-                                <td class="px-6 py-4 whitespace-nowrap">${place.Name || ''}</td>
-                            </tr>
-                        `).join('') : `<tr><td class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูลสถานที่</td></tr>`}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-}
-
-function renderProcessesPage() {
-    const container = document.getElementById('processes-page');
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการกระบวนการ</h2>
-            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลกระบวนการ</p>
-            <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-                    <thead class="bg-gray-200">
-                        <tr>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อกระบวนการ</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        ${masterData.processes.length > 0 ? masterData.processes.map(process => `
-                            <tr class="hover:bg-gray-100">
-                                <td class="px-6 py-4 whitespace-nowrap">${process.Name || ''}</td>
-                            </tr>
-                        `).join('') : `<tr><td class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูลกระบวนการ</td></tr>`}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-}
-
-function renderCausesPage() {
-    const container = document.getElementById('causes-page');
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการสาเหตุ</h2>
-            <p class="text-gray-600">หน้านี้สำหรับจัดการข้อมูลสาเหตุ</p>
-            <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-                    <thead class="bg-gray-200">
-                        <tr>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อสาเหตุ</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        ${masterData.causes.length > 0 ? masterData.causes.map(cause => `
-                            <tr class="hover:bg-gray-100">
-                                <td class="px-6 py-4 whitespace-nowrap">${cause.Name || ''}</td>
-                            </tr>
-                        `).join('') : `<tr><td class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูลสาเหตุ</td></tr>`}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-}
-
-// --- Event Listeners & Initialization ---
-
-/**
- * Initializes the application on page load.
- * Sets up event listeners and loads initial data.
- */
-async function initializeApp() {
-    // Load all master data first
-    await loadAllMasterData();
-    
-    // Check if user is already logged in
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-        // User is logged in, show main app
-        loginPage.style.display = 'none';
-        appPage.style.display = 'block';
-        showPage('record-form-page'); // Show default page
-    } else {
-        // User not logged in, show login page
-        loginPage.style.display = 'flex';
-        appPage.style.display = 'none';
-    }
-}
-
-// Attach event listeners when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     const userInfo = sessionStorage.getItem('currentUser');
-    const loginPage = document.getElementById('login-page');
-    const appPage = document.getElementById('app');
+    const userDisplay = document.getElementById('user-display');
 
-    if (userInfo) {
-        // ผู้ใช้เข้าสู่ระบบแล้ว
-        loginPage.style.display = 'none';
-        appPage.style.display = 'block';
-    } else {
-        // ผู้ใช้ยังไม่ได้เข้าสู่ระบบ
-        loginPage.style.display = 'block';
-        appPage.style.display = 'none';
+    if (userInfo && userDisplay) {
+        userDisplay.textContent = `ผู้ใช้: ${userInfo}`;
     }
-
-    // Initialize the application
-    initializeApp();
-    
-    // Attach navigation event listeners
-    navLinks.forEach(link => {
-        link.addEventListener('click', (e) => showPage(e.target.dataset.page));
-    });
-    
-    // Attach login form event listener
-    loginForm.addEventListener('submit', handleLogin);
 });
 </script>
 </body>
