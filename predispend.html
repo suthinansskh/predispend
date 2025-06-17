@@ -74,7 +74,7 @@
             <div class="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
                     <div class="flex items-center">
-                        <span class="font-bold text-emerald-600">Med Error Report</span>
+                        <span class="font-bold text-emerald-600">Pre-Dispensing Report</span>
                         <div class="hidden md:block">
                             <div class="flex items-baseline ml-10 space-x-4">
                                 <!-- Navigation links for different pages in specified order -->
@@ -149,6 +149,24 @@
         </main>
     </div>
 
+    <!-- Login Page: User authentication interface -->
+    <div id="login-page" class="fixed inset-0 bg-gray-100 flex items-center justify-center z-30">
+        <div class="p-6 bg-white rounded-lg shadow-md max-w-md mx-auto">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">ลงชื่อเข้าใช้งาน</h2>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700">ชื่อผู้ใช้</label>
+                    <input type="text" id="username" name="username" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">รหัสผ่าน</label>
+                    <input type="password" id="password" name="password" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                </div>
+                <button type="submit" class="w-full px-4 py-2 text-white bg-emerald-500 rounded-md hover:bg-emerald-600">เข้าสู่ระบบ</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal Components (UI Feedback) -->
     <!-- Loading Modal: Shows during data operations -->
     <div id="loading-modal" class="modal">
@@ -166,24 +184,6 @@
         <p class="mt-4 text-lg">บันทึกข้อมูลสำเร็จ!</p>
         <button onclick="document.getElementById('success-modal').style.display='none'" class="px-4 py-2 mt-4 text-white bg-emerald-500 rounded-md">ตกลง</button>
       </div>
-    </div>
-
-    <!-- Login Page: User authentication interface -->
-    <div id="login-page" class="fixed inset-0 bg-gray-100 flex items-center justify-center z-30">
-        <div class="p-6 bg-white rounded-lg shadow-md max-w-md mx-auto">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">ลงชื่อเข้าใช้งาน</h2>
-            <form id="login-form" class="space-y-4">
-                <div>
-                    <label for="username" class="block text-sm font-medium text-gray-700">ชื่อผู้ใช้</label>
-                    <input type="text" id="username" name="username" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
-                </div>
-                <div>
-                    <label for="password" class="block text-sm font-medium text-gray-700">รหัสผ่าน</label>
-                    <input type="password" id="password" name="password" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
-                </div>
-                <button type="submit" class="w-full px-4 py-2 text-white bg-emerald-500 rounded-md hover:bg-emerald-600">เข้าสู่ระบบ</button>
-            </form>
-        </div>
     </div>
 
 <script>
@@ -1447,6 +1447,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบข้อมูลและลองอีกครั้ง');
         }
     });
+    
+    const isLoginPage = window.location.pathname.includes("login.html");
+    if (isLoginPage) {
+        // ซ่อนองค์ประกอบที่ไม่ต้องการแสดงในหน้า Login
+        document.querySelectorAll("#dashboard, #record-form-page, #users-page, #medicines-page").forEach(el => {
+            el.style.display = "none";
+        });
+    }
 });
 
 // Additional Settings Pages Functions
