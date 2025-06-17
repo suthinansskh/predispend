@@ -313,7 +313,7 @@ async function handleRecordSubmit(e) {
         'HAD': recordData['HAD'], // --- ส่งค่า HAD ---
         'สาเหตุ': recordData['cause'],
         'รายละเอียดเพิ่มเติม': recordData['details'],
-        'ผู้รายงาน': 'ไม่ระบุ' // ผู้รายงานถูกตั้งค่าเป็น 'ไม่ระบุ' เนื่องจากไม่มีระบบล็อกอินแล้ว
+        'ผู้รายงาน': getCurrentUser() ? getCurrentUser().ชื่อ : 'ไม่ระบุ' // ใช้ชื่อผู้ใช้ที่ล็อกอิน
     };
 
     // Convert dataToSend object into URL query parameters
@@ -1218,6 +1218,59 @@ function renderMedicinesPage() {
     `;
 }
 
+/**
+ * Updates the navigation bar to show user information and logout button
+ * @param {Object} user - The logged-in user object
+ */
+function updateNavigationForLoggedInUser(user) {
+    const userInfoContainer = document.querySelector('nav .flex.items-center:last-child');
+    if (userInfoContainer) {
+        userInfoContainer.innerHTML = `
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-700">สวัสดี, ${user.ชื่อ || user.Name}</span>
+                <button id="logout-btn" class="px-3 py-1 text-sm text-white bg-red-500 rounded-md hover:bg-red-600">ออกจากระบบ</button>
+            </div>
+        `;
+        
+        // Add logout functionality
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            const result = await Swal.fire({
+                title: 'ต้องการออกจากระบบ?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'ออกจากระบบ',
+                cancelButtonText: 'ยกเลิก'
+            });
+            
+            if (result.isConfirmed) {
+                sessionStorage.removeItem('currentUser');
+                await Swal.fire({
+                    title: 'ออกจากระบบสำเร็จ',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                
+                // Redirect to login page
+                appPage.classList.add('hidden');
+                loginPage.classList.remove('hidden');
+                
+                // Clear login form
+                document.getElementById('login-form').reset();
+            }
+        });
+    }
+}
+
+/**
+ * Get current logged-in user information from sessionStorage
+ * @returns {Object|null} Current user object or null if not logged in
+ */
+function getCurrentUser() {
+    const userStr = sessionStorage.getItem('currentUser');
+    return userStr ? JSON.parse(userStr) : null;
+}
+
 // Initialize the application when the page loads
 document.addEventListener('DOMContentLoaded', async () => {
     // Initially show login page and hide app content
@@ -1234,10 +1287,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
 
-        // Mock login validation
-        if (username === 'admin' && password === 'password') {
+        // Validate login using Google Sheet user data
+        const user = masterData.users.find(u => 
+            u.ID13 === username && u.Password === password
+        );
+
+        if (user) {
+            // Store current user information
+            sessionStorage.setItem('currentUser', JSON.stringify(user));
+            
             await Swal.fire({
-                title: 'เข้าสู่ระบบสำเร็จ!',
+                title: `ยินดีต้อนรับ ${user.ชื่อ || user.Name}!`,
+                text: 'เข้าสู่ระบบสำเร็จ',
                 icon: 'success',
                 confirmButtonText: 'ตกลง',
                 timer: 2000
@@ -1245,10 +1306,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             loginPage.classList.add('hidden');
             appPage.classList.remove('hidden');
+            
+            // Update navigation to show user info and logout button
+            updateNavigationForLoggedInUser(user);
+            
             showPage('record-form-page');
         } else {
             await Swal.fire({
                 title: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
+                text: 'กรุณาตรวจสอบข้อมูลและลองอีกครั้ง',
                 icon: 'error',
                 confirmButtonText: 'ลองอีกครั้ง'
             });
