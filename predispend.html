@@ -1717,9 +1717,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     loginForm.addEventListener('submit', handleLogin);
 
     // Add event listener for logout button
-    document.getElementById('logout-btn').addEventListener('click', logout);
-
-    // Add event listeners for navigation links
+    document.getElementById('logout-btn').addEventListener('click', logout);    // Add event listeners for navigation links
     navLinks.forEach(link => {
         link.addEventListener('click', () => {
             // Only allow navigation if logged in, otherwise redirect to login page
@@ -1731,7 +1729,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 loginPage.style.display = 'flex';
                 appPage.style.display = 'none';
             }
-        });});
+        });
+    });
+});
 </script>
 </body>
 </html>
