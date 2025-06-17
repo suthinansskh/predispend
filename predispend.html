@@ -10,8 +10,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Chart.js for data visualization in the dashboard -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    <!-- SweetAlert2 for beautiful alerts -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         /* Custom font for the entire body */
         body {
@@ -169,25 +167,6 @@
         </div>
     </div>
 
-    <!-- Modal Components (UI Feedback) -->
-    <!-- Loading Modal: Shows during data operations -->
-    <div id="loading-modal" class="modal">
-      <div class="modal-content">
-        <div class="loader"></div>
-        <p id="loading-text" class="mt-4 text-lg">กำลังบันทึกข้อมูล...</p>
-      </div>
-    </div>
-    
-    <!-- Success Modal: Shows after successful operations -->
-    <div id="success-modal" class="modal">
-      <div class="modal-content">
-        <!-- SVG checkmark icon -->
-        <svg class="w-16 h-16 mx-auto text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        <p class="mt-4 text-lg">บันทึกข้อมูลสำเร็จ!</p>
-        <button onclick="document.getElementById('success-modal').style.display='none'" class="px-4 py-2 mt-4 text-white bg-emerald-500 rounded-md">ตกลง</button>
-      </div>
-    </div>
-
 <script>
 // --- Configuration ---
 // Google Apps Script Web App URL for backend operations
@@ -214,8 +193,6 @@ let itemsPerPage = 10;    // Number of items to display per page
 // --- DOM Elements Caching ---
 const appPage = document.getElementById('app');
 const navLinks = document.querySelectorAll('.nav-link'); // All navigation buttons
-const loadingModal = document.getElementById('loading-modal');
-const successModal = document.getElementById('success-modal');
 const loginPage = document.getElementById('login-page');
 const loginForm = document.getElementById('login-form');
 
@@ -270,9 +247,8 @@ async function handleLogin(e) {
         loginPage.style.display = 'none';
         appPage.style.display = 'block';
         showPage('record-form-page'); // Show main page after login
-        showLoginSuccess(); // Show login success alert
     } else {
-        showError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+        alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
     }
 }
 
@@ -297,17 +273,11 @@ function hideLoading() {
 /**
  * Displays the success modal.
  */
-function showSuccess(message = 'ดำเนินการสำเร็จ!') {
+function showSuccess() {
     // Only show success modal if user is logged in
     const currentUser = getCurrentUser();
     if (currentUser) {
         successModal.style.display = 'flex'; // Use flex to center the modal content
-        Swal.fire({
-            title: 'สำเร็จ!',
-            text: message,
-            icon: 'success',
-            confirmButtonText: 'ตกลง'
-        });
     }
 }
 
@@ -368,7 +338,7 @@ async function fetchDataFromSheet(action) {
         // Only show alert if user is logged in to avoid disrupting login page
         const currentUser = getCurrentUser();
         if (currentUser) {
-            showError(`เกิดข้อผิดพลาดในการดึงข้อมูล ${action.replace('get', 'ข้อมูล')}`);
+            alert(`เกิดข้อผิดพลาดในการดึงข้อมูล ${action.replace('get', 'ข้อมูล')}`);
         }
         return [];
     } finally {
@@ -462,11 +432,11 @@ async function handleRecordSubmit(e) {
             document.getElementById('had_status').textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
             document.getElementById('had_status').parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
         } else {
-            showError(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${result.message}`); // Show error message
+            alert(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${result.message}`); // Show error message
         }
     } catch (error) {
         console.error('Error submitting record:', error);
-        showError(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error.message}`);
+        alert(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error.message}`);
     } finally {
         hideLoading();
     }
@@ -1121,7 +1091,7 @@ function renderDashboard() {
     
     // รายงานตามช่วงเวลา - เริ่มต้นแสดงรายเดือน
     const currentYear = new Date().getFullYear().toString();
-    let selectedYear = 'all'; // แทนที่ด้วยเงื่อนไขตรวจสอบการล็อกอินจริง
+    let selectedYear = 'all'; // แสดงทุกปี
     let viewType = 'monthly'; // แสดงรายเดือน    // เก็บ chart instances ไว้อ้างอิงเพื่อทำลายเมื่อสร้างใหม่
     let timeChartInstance = null;
 
@@ -1442,15 +1412,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Store current user information
             sessionStorage.setItem('currentUser', JSON.stringify(user));
             
-            Swal.fire({
-                title: 'เข้าสู่ระบบสำเร็จ!',
-                text: 'ยินดีต้อนรับเข้าสู่ระบบบันทึกความคลาดเคลื่อนทางยา',
-                icon: 'success',
-                confirmButtonText: 'ตกลง'
-            });
+            alert(`ยินดีต้อนรับ ${user.ชื่อ || user.Name}! เข้าสู่ระบบสำเร็จ`);
             
             loginPage.style.display = 'none';
-            appPage.style.display = 'block';
+            appPage.classList.remove('hidden');
             
             // Update navigation to show user info and logout button
             updateNavigationForLoggedInUser(user);
@@ -1458,7 +1423,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Show first main page after login (บันทึกข้อมูล)
             showPage('record-form-page');
         } else {
-            showError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบข้อมูลและลองอีกครั้ง');
+            alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบข้อมูลและลองอีกครั้ง');
         }
     });
 });
