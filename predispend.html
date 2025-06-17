@@ -391,12 +391,18 @@ async function handleRecordSubmit(e) {
     } else {
         recordData['cause'] = causeSelect.value;
     }    // --- เพิ่มชื่อผู้บันทึกตาม Login ---
+    const reporterField = document.getElementById('reporter');
     const currentUser = getCurrentUser();
-    recordData['ผู้รายงาน'] = currentUser ? (currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ') : 'ไม่ระบุ';
+    if (reporterField && reporterField.value) {
+        recordData['ผู้รายงาน'] = reporterField.value;
+        recordData['ผู้รายงาน_ID'] = reporterField.dataset.reporterId || '';
+    } else {
+        recordData['ผู้รายงาน'] = currentUser ? (currentUser.ชื่อจริง || currentUser.RealName || currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ') : 'ไม่ระบุ';
+        recordData['ผู้รายงาน_ID'] = currentUser ? (currentUser.ID13 || '') : '';
+    }
 
     // Prepare data to send as query parameters
-    const dataToSend = {
-        action: 'addrecord', // Action for Apps Script
+    const dataToSend = {        action: 'addrecord', // Action for Apps Script
         'วันที่เกิดเหตุการณ์': recordData['event_date'],
         'เวร': recordData['shift'],
         'ประเภทผู้ป่วย': recordData['patient_type'],
@@ -407,7 +413,8 @@ async function handleRecordSubmit(e) {
         'HAD': recordData['HAD'], // --- ส่งค่า HAD ---
         'สาเหตุ': recordData['cause'],
         'รายละเอียดเพิ่มเติม': recordData['details'],
-        'ผู้รายงาน': recordData['ผู้รายงาน']
+        'ผู้รายงาน': recordData['ผู้รายงาน'],
+        'ผู้รายงาน_ID': recordData['ผู้รายงาน_ID']
     };
 
     // Convert dataToSend object into URL query parameters
@@ -724,13 +731,15 @@ function renderRecordForm() {
             </form>
         </div>
     `;    // Set default date for new record form to today
-    document.getElementById('event_date').valueAsDate = new Date();
-
-    // แสดงชื่อผู้รายงานตาม login
+    document.getElementById('event_date').valueAsDate = new Date();    // แสดงชื่อผู้รายงานตาม login
     const currentUser = getCurrentUser();
     const reporterField = document.getElementById('reporter');
     if (reporterField && currentUser) {
-        reporterField.value = currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ';
+        // ใช้ชื่อจริงของผู้ใช้จาก login
+        const reporterName = currentUser.ชื่อจริง || currentUser.RealName || currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ';
+        reporterField.value = reporterName;
+        // เก็บค่าใน data attribute เพื่อใช้ตอน submit
+        reporterField.dataset.reporterId = currentUser.ID13 || '';
     }
 
     // Logic to show/hide "other" input for process field
