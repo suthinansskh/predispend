@@ -1276,22 +1276,11 @@ function updateNavigationForLoggedInUser(user) {
         
         // Add logout functionality
         document.getElementById('logout-btn').addEventListener('click', async () => {
-            const result = await Swal.fire({
-                title: 'ต้องการออกจากระบบ?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'ออกจากระบบ',
-                cancelButtonText: 'ยกเลิก'
-            });
+            const confirmLogout = confirm('ต้องการออกจากระบบ?');
             
-            if (result.isConfirmed) {
+            if (confirmLogout) {
                 sessionStorage.removeItem('currentUser');
-                await Swal.fire({
-                    title: 'ออกจากระบบสำเร็จ',
-                    icon: 'success',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
+                alert('ออกจากระบบสำเร็จ');
                 
                 // Redirect to login page
                 appPage.classList.add('hidden');
@@ -1315,14 +1304,6 @@ function getCurrentUser() {
 
 // Initialize the application when the page loads
 document.addEventListener('DOMContentLoaded', async () => {
-    // ✅ แสดง SweetAlert เมื่อหน้าเว็บโหลดครั้งแรก
-    Swal.fire({
-        title: "ยินดีต้อนรับ",
-        text: "กรุณาเข้าสู่ระบบก่อนใช้งาน",
-        icon: "info",
-        confirmButtonText: "ตกลง"
-    });
-
     // Initially show login page and hide app content
     loginPage.classList.remove('hidden');
     appPage.classList.add('hidden');
@@ -1355,13 +1336,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Store current user information
             sessionStorage.setItem('currentUser', JSON.stringify(user));
             
-            await Swal.fire({
-                title: `ยินดีต้อนรับ ${user.ชื่อ || user.Name}!`,
-                text: 'เข้าสู่ระบบสำเร็จ',
-                icon: 'success',
-                confirmButtonText: 'ตกลง',
-                timer: 2000
-            });
+            alert(`ยินดีต้อนรับ ${user.ชื่อ || user.Name}! เข้าสู่ระบบสำเร็จ`);
             
             loginPage.classList.add('hidden');
             appPage.classList.remove('hidden');
@@ -1372,12 +1347,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Show first main page after login (บันทึกข้อมูล)
             showPage('record-form-page');
         } else {
-            await Swal.fire({
-                title: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
-                text: 'กรุณาตรวจสอบข้อมูลและลองอีกครั้ง',
-                icon: 'error',
-                confirmButtonText: 'ลองอีกครั้ง'
-            });
+            alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบข้อมูลและลองอีกครั้ง');
         }
     });
 });
@@ -1525,6 +1495,5 @@ function renderCausesPage() {
     `;
 }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </body>
 </html>
