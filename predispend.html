@@ -174,7 +174,7 @@ async function handleLogin(e) {
     const password = document.getElementById('password').value.trim();
     
     if (!username || !password) {
-        alert('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
+        showError('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
         return;
     }
     
@@ -187,8 +187,45 @@ async function handleLogin(e) {
         appPage.style.display = 'block';
         showPage('record-form-page'); // Show main page after login
     } else {
-        alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+        showError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
     }
+}
+
+// ฟังก์ชันแจ้งเตือนด้วย SweetAlert2
+function showError(message) {
+    Swal.fire({
+        title: 'เกิดข้อผิดพลาด!',
+        text: message,
+        icon: 'error',
+        confirmButtonText: 'ตกลง'
+    });
+}
+function showSuccess(message = 'ดำเนินการสำเร็จ!') {
+    Swal.fire({
+        title: 'สำเร็จ!',
+        text: message,
+        icon: 'success',
+        confirmButtonText: 'ตกลง'
+    });
+}
+function showInfo(message) {
+    Swal.fire({
+        title: 'แจ้งเตือน',
+        text: message,
+        icon: 'info',
+        confirmButtonText: 'ตกลง'
+    });
+}
+async function showConfirm(message) {
+    const result = await Swal.fire({
+        title: 'ยืนยัน',
+        text: message,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'ตกลง',
+        cancelButtonText: 'ยกเลิก'
+    });
+    return result.isConfirmed;
 }
 
 // --- Utility Functions ---
@@ -277,7 +314,7 @@ async function fetchDataFromSheet(action) {
         // Only show alert if user is logged in to avoid disrupting login page
         const currentUser = getCurrentUser();
         if (currentUser) {
-            alert(`เกิดข้อผิดพลาดในการดึงข้อมูล ${action.replace('get', 'ข้อมูล')}`);
+            showError(`เกิดข้อผิดพลาดในการดึงข้อมูล ${action.replace('get', 'ข้อมูล')}`);
         }
         return [];
     } finally {
@@ -378,11 +415,11 @@ async function handleRecordSubmit(e) {
             document.getElementById('had_status').textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
             document.getElementById('had_status').parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
         } else {
-            alert(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${result.message}`); // Show error message
+            showError(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${result.message}`); // Show error message
         }
     } catch (error) {
         console.error('Error submitting record:', error);
-        alert(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error.message}`);
+        showError(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error.message}`);
     } finally {
         hideLoading();
     }
@@ -544,7 +581,7 @@ function renderRecordsList(searchTerm = '') {
  */
 function exportToCSV(data) {
     if (data.length === 0) {
-        alert("ไม่มีข้อมูลสำหรับส่งออก.");
+        showError("ไม่มีข้อมูลสำหรับส่งออก.");
         return;
     }
 
