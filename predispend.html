@@ -126,6 +126,24 @@
       </div>
     </div>
 
+    <!-- Login Page: Added for user login functionality -->
+    <div id="login-page" class="page-content">
+        <div class="p-6 bg-white rounded-lg shadow-md max-w-md mx-auto">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">ลงชื่อเข้าใช้งาน</h2>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700">ชื่อผู้ใช้</label>
+                    <input type="text" id="username" name="username" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">รหัสผ่าน</label>
+                    <input type="password" id="password" name="password" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                </div>
+                <button type="submit" class="w-full px-4 py-2 text-white bg-emerald-500 rounded-md hover:bg-emerald-600">เข้าสู่ระบบ</button>
+            </form>
+        </div>
+    </div>
+
 <script>
 // Google Apps Script Web App URL for backend operations
 // โปรดแทนที่ URL นี้ด้วย URL ของ Web App ที่คุณ Deploy จาก Google Apps Script ของคุณ
@@ -155,6 +173,8 @@ const appPage = document.getElementById('app');
 const navLinks = document.querySelectorAll('.nav-link'); // All navigation buttons
 const loadingModal = document.getElementById('loading-modal');
 const successModal = document.getElementById('success-modal');
+const loginPage = document.getElementById('login-page');
+const loginForm = document.getElementById('login-form');
 
 // --- Utility Functions ---
 
@@ -1205,6 +1225,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Show the default page
     showPage('records-list-page');
 });
+
+// Login functionality script
+loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+
+    // Mock login validation
+    if (username === 'admin' && password === 'password') {
+        alert('เข้าสู่ระบบสำเร็จ!');
+        loginPage.classList.add('hidden');
+        appPage.classList.remove('hidden');
+        showPage('record-form-page');
+    } else {
+        alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+    }
+});
+
+// Initially show login page and hide app content
+loginPage.classList.remove('hidden');
+appPage.classList.add('hidden');
 </script>
 </body>
 </html>
