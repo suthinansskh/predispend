@@ -56,8 +56,9 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="flex items-center">
+                    </div>                    <div class="flex items-center">
+                        <span id="user-display" class="ml-4 text-sm font-bold text-emerald-700"></span>
+                        <button id="logout-btn" class="ml-4 px-3 py-1 text-sm bg-red-500 text-white rounded-md hover:bg-red-600 hidden">ออกจากระบบ</button>
                     </div>
                 </div>
             </div>
@@ -159,8 +160,29 @@ function setCurrentUser(user) {
  */
 function logout() {
     sessionStorage.removeItem('currentUser');
+    updateUserDisplay(); // อัพเดตการแสดงชื่อผู้ใช้ใน navbar
     loginPage.style.display = 'flex';
     appPage.style.display = 'none';
+    // เคลียร์ฟอร์ม login
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+}
+
+/**
+ * อัพเดตการแสดงชื่อผู้ใช้ใน navbar
+ */
+function updateUserDisplay() {
+    const currentUser = getCurrentUser();
+    const userDisplay = document.getElementById('user-display');
+    const logoutBtn = document.getElementById('logout-btn');
+    
+    if (currentUser && userDisplay) {
+        userDisplay.textContent = `ผู้ใช้: ${currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ'}`;
+        logoutBtn.classList.remove('hidden');
+    } else if (userDisplay) {
+        userDisplay.textContent = '';
+        logoutBtn.classList.add('hidden');
+    }
 }
 
 /**
@@ -180,12 +202,13 @@ async function handleLogin(e) {
     
     // Find user in masterData.users array
     const user = masterData.users.find(u => u.ID13 === username && u.Password === password);
-    
-    if (user) {
+      if (user) {
         setCurrentUser(user);
+        updateUserDisplay(); // อัพเดตการแสดงชื่อผู้ใช้ใน navbar
         loginPage.style.display = 'none';
         appPage.style.display = 'block';
         showPage('record-form-page'); // Show main page after login
+        showSuccess('เข้าสู่ระบบสำเร็จ');
     } else {
         showError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
     }
@@ -365,14 +388,9 @@ async function handleRecordSubmit(e) {
         recordData['cause'] = causeOtherInput.value;
     } else {
         recordData['cause'] = causeSelect.value;
-    }
-
-    // --- เพิ่มชื่อผู้บันทึก ---
-    let currentUser = {};
-    try {
-        currentUser = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
-    } catch (e) { currentUser = {}; }
-    recordData['ผู้รายงาน'] = currentUser.Name || 'ไม่ระบุ';
+    }    // --- เพิ่มชื่อผู้บันทึกตาม Login ---
+    const currentUser = getCurrentUser();
+    recordData['ผู้รายงาน'] = currentUser ? (currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ') : 'ไม่ระบุ';
 
     // Prepare data to send as query parameters
     const dataToSend = {
@@ -683,11 +701,14 @@ function renderRecordForm() {
                        <option value="อื่นๆ">อื่นๆ (โปรดระบุ)</option>
                     </select>
                     <input type="text" id="cause_other" name="cause_other" class="hidden w-full px-3 py-2 mt-2 border border-gray-300 rounded-md" placeholder="ระบุสาเหตุอื่นๆ">
-                </div>
-
-                <div class="md:col-span-2">
+                </div>                <div class="md:col-span-2">
                     <label for="details" class="block text-sm font-medium text-gray-700">รายละเอียดเพิ่มเติม</label>
                     <textarea id="details" name="details" rows="4" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"></textarea>
+                </div>
+
+                <div>
+                    <label for="reporter" class="block text-sm font-medium text-gray-700">ผู้รายงาน</label>
+                    <input type="text" id="reporter" name="reporter" readonly class="w-full px-3 py-2 mt-1 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed">
                 </div>
 
                 <div class="md:col-span-2 flex justify-end gap-2 mt-4">
@@ -696,10 +717,15 @@ function renderRecordForm() {
                 </div>
             </form>
         </div>
-    `;
-
-    // Set default date for new record form to today
+    `;    // Set default date for new record form to today
     document.getElementById('event_date').valueAsDate = new Date();
+
+    // แสดงชื่อผู้รายงานตาม login
+    const currentUser = getCurrentUser();
+    const reporterField = document.getElementById('reporter');
+    if (reporterField && currentUser) {
+        reporterField.value = currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ';
+    }
 
     // Logic to show/hide "other" input for process field
     const processSelect = document.getElementById('process');
@@ -1670,33 +1696,42 @@ async function initializeApp() {
     }
 }
 
-// Attach event listeners when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    const userInfo = sessionStorage.getItem('currentUser');
-    const loginPage = document.getElementById('login-page');
-    const appPage = document.getElementById('app');
+// --- Main Application Initialization ---
+document.addEventListener('DOMContentLoaded', async () => {
+    // Load all master data when the page loads
+    await loadAllMasterData();
 
-    if (userInfo) {
-        // ผู้ใช้เข้าสู่ระบบแล้ว
+    // Check if user is already logged in
+    const currentUser = getCurrentUser();
+    if (currentUser) {
         loginPage.style.display = 'none';
         appPage.style.display = 'block';
+        updateUserDisplay(); // อัพเดตการแสดงชื่อผู้ใช้
+        showPage('record-form-page'); // Show the record form page if logged in
     } else {
-        // ผู้ใช้ยังไม่ได้เข้าสู่ระบบ
-        loginPage.style.display = 'block';
+        loginPage.style.display = 'flex'; // Show login page if not logged in
         appPage.style.display = 'none';
     }
 
-    // Initialize the application
-    initializeApp();
-    
-    // Attach navigation event listeners
-    navLinks.forEach(link => {
-        link.addEventListener('click', (e) => showPage(e.target.dataset.page));
-    });
-    
-    // Attach login form event listener
+    // Add event listener for login form submission
     loginForm.addEventListener('submit', handleLogin);
-});
+
+    // Add event listener for logout button
+    document.getElementById('logout-btn').addEventListener('click', logout);
+
+    // Add event listeners for navigation links
+    navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            // Only allow navigation if logged in, otherwise redirect to login page
+            if (getCurrentUser()) {
+                showPage(link.dataset.page);
+            } else {
+                showError('กรุณาเข้าสู่ระบบก่อนใช้งาน');
+                // Ensure login page is shown if not logged in
+                loginPage.style.display = 'flex';
+                appPage.style.display = 'none';
+            }
+        });});
 </script>
 </body>
 </html>
