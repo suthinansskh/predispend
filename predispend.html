@@ -502,15 +502,13 @@ function renderRecordForm() {
 function renderRecordsList(searchTerm = '') {
     const container = document.getElementById('records-list-page');
       // Filter records based on the search term
-    const filteredRecords = (masterData.records || []).filter(r => 
+    const filteredRecords = masterData.records.filter(r => 
         (r.เลขที่รายงาน && String(r.เลขที่รายงาน).toLowerCase().includes(searchTerm.toLowerCase())) ||
         (r.สถานที่ && String(r.สถานที่).toLowerCase().includes(searchTerm.toLowerCase())) ||
         (r.รายการยาที่ผิด && String(r.รายการยาที่ผิด).toLowerCase().includes(searchTerm.toLowerCase())) ||
         (r.กระบวนการ && String(r.กระบวนการ).toLowerCase().includes(searchTerm.toLowerCase())) ||
         (r.รายละเอียดเพิ่มเติม && String(r.รายละเอียดเพิ่มเติม).toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (r.ผู้รายงาน && String(r.ผู้รายงาน).toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (r.reporter && String(r.reporter).toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (r.Reporter && String(r.Reporter).toLowerCase().includes(searchTerm.toLowerCase()))
+        (r.ผู้รายงาน && String(r.ผู้รายงาน).toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     // Calculate pagination parameters
@@ -540,7 +538,8 @@ function renderRecordsList(searchTerm = '') {
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ผู้รายงาน</th>
                         </tr>
                     </thead>
-                    <tbody id="records-table-body" class="divide-y divide-gray-200">                        ${paginatedRecords.length > 0 ? paginatedRecords.map(r => `
+                    <tbody id="records-table-body" class="divide-y divide-gray-200">
+                        ${paginatedRecords.length > 0 ? paginatedRecords.map(r => `
                             <tr class="hover:bg-gray-100">
                                 <td class="px-6 py-4 whitespace-nowrap">${r.เลขที่รายงาน || ''}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${r.วันที่บันทึก ? new Date(r.วันที่บันทึก).toLocaleDateString('th-TH') : ''}</td>
@@ -549,7 +548,8 @@ function renderRecordsList(searchTerm = '') {
                                 <td class="px-6 py-4 whitespace-nowrap">${r.รายการยาที่ผิด || ''}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${r.กระบวนการ || ''}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${r.รายละเอียดเพิ่มเติม || ''}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${r.ผู้รายงาน || r.reporter || r.Reporter || 'ไม่ระบุ'}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${r.ผู้รายงาน || ''}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${r.ผู้รายงาน || ''}</td>
                             </tr>
                         `).join('') : `<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500">ไม่พบข้อมูล</td></tr>`}
                     </tbody>
