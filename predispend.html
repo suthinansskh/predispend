@@ -66,11 +66,11 @@
 </head>
 <body class="bg-gray-100">
     <!-- Top colored bar -->
-    <div style="height: 6px; background: linear-gradient(90deg, #10b981 0%, #2563eb 100%);"></div>
+    <div class="fixed top-0 left-0 right-0 z-50" style="height: 6px; background: linear-gradient(90deg, #10b981 0%, #2563eb 100%);"></div>
     <!-- Main Application: Now visible by default -->
-    <div id="app">
+    <div id="app" style="padding-top: 6px;">
         <!-- Navigation Bar -->
-        <nav class="bg-white shadow-md border-b-4 border-emerald-500">
+        <nav class="bg-white shadow-md border-b-4 border-emerald-500 sticky top-1.5 z-40">
             <div class="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
                     <div class="flex items-center">
