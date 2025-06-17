@@ -10,6 +10,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Chart.js for data visualization in the dashboard -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <!-- SweetAlert2 for beautiful alerts -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         /* Custom font for the entire body */
         body {
@@ -268,8 +270,9 @@ async function handleLogin(e) {
         loginPage.style.display = 'none';
         appPage.style.display = 'block';
         showPage('record-form-page'); // Show main page after login
+        showLoginSuccess(); // Show login success alert
     } else {
-        alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+        showError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
     }
 }
 
@@ -294,11 +297,17 @@ function hideLoading() {
 /**
  * Displays the success modal.
  */
-function showSuccess() {
+function showSuccess(message = 'ดำเนินการสำเร็จ!') {
     // Only show success modal if user is logged in
     const currentUser = getCurrentUser();
     if (currentUser) {
         successModal.style.display = 'flex'; // Use flex to center the modal content
+        Swal.fire({
+            title: 'สำเร็จ!',
+            text: message,
+            icon: 'success',
+            confirmButtonText: 'ตกลง'
+        });
     }
 }
 
@@ -359,7 +368,7 @@ async function fetchDataFromSheet(action) {
         // Only show alert if user is logged in to avoid disrupting login page
         const currentUser = getCurrentUser();
         if (currentUser) {
-            alert(`เกิดข้อผิดพลาดในการดึงข้อมูล ${action.replace('get', 'ข้อมูล')}`);
+            showError(`เกิดข้อผิดพลาดในการดึงข้อมูล ${action.replace('get', 'ข้อมูล')}`);
         }
         return [];
     } finally {
@@ -453,11 +462,11 @@ async function handleRecordSubmit(e) {
             document.getElementById('had_status').textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
             document.getElementById('had_status').parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
         } else {
-            alert(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${result.message}`); // Show error message
+            showError(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${result.message}`); // Show error message
         }
     } catch (error) {
         console.error('Error submitting record:', error);
-        alert(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error.message}`);
+        showError(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error.message}`);
     } finally {
         hideLoading();
     }
@@ -1112,7 +1121,7 @@ function renderDashboard() {
     
     // รายงานตามช่วงเวลา - เริ่มต้นแสดงรายเดือน
     const currentYear = new Date().getFullYear().toString();
-    let selectedYear = 'all'; // แสดงทุกปี
+    let selectedYear = 'all'; // แทนที่ด้วยเงื่อนไขตรวจสอบการล็อกอินจริง
     let viewType = 'monthly'; // แสดงรายเดือน    // เก็บ chart instances ไว้อ้างอิงเพื่อทำลายเมื่อสร้างใหม่
     let timeChartInstance = null;
 
@@ -1433,10 +1442,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Store current user information
             sessionStorage.setItem('currentUser', JSON.stringify(user));
             
-            alert(`ยินดีต้อนรับ ${user.ชื่อ || user.Name}! เข้าสู่ระบบสำเร็จ`);
+            Swal.fire({
+                title: 'เข้าสู่ระบบสำเร็จ!',
+                text: 'ยินดีต้อนรับเข้าสู่ระบบบันทึกความคลาดเคลื่อนทางยา',
+                icon: 'success',
+                confirmButtonText: 'ตกลง'
+            });
             
             loginPage.style.display = 'none';
-            appPage.classList.remove('hidden');
+            appPage.style.display = 'block';
             
             // Update navigation to show user info and logout button
             updateNavigationForLoggedInUser(user);
@@ -1444,17 +1458,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Show first main page after login (บันทึกข้อมูล)
             showPage('record-form-page');
         } else {
-            alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบข้อมูลและลองอีกครั้ง');
+            showError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบข้อมูลและลองอีกครั้ง');
         }
     });
-    
-    const isLoginPage = window.location.pathname.includes("login.html");
-    if (isLoginPage) {
-        // ซ่อนองค์ประกอบที่ไม่ต้องการแสดงในหน้า Login
-        document.querySelectorAll("#dashboard, #record-form-page, #users-page, #medicines-page").forEach(el => {
-            el.style.display = "none";
-        });
-    }
 });
 
 // Additional Settings Pages Functions
