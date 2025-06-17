@@ -70,44 +70,24 @@
     <!-- Main Application: Now visible by default -->
     <div id="app" style="padding-top: 6px;">
         <!-- Navigation Bar -->
-        <nav class="bg-white shadow-md border-b-4 border-emerald-500 sticky top-1.5 z-40">
+        <nav class="bg-white shadow-md">
             <div class="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
                     <div class="flex items-center">
-                        <span class="font-bold text-emerald-600">Pre-Dispensing Report</span>
+                        <span class="font-bold text-emerald-600">Med Error Report</span>
                         <div class="hidden md:block">
                             <div class="flex items-baseline ml-10 space-x-4">
-                                <!-- Navigation links for different pages in specified order -->
-                                <button data-page="login-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">ลงชื่อเข้าใช้งาน</button>
-                                <button data-page="record-form-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">บันทึกข้อมูล</button>
-                                <button data-page="records-list-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">รายการล่าสุด</button>
+                                <!-- Navigation links for different pages -->
+                                <button data-page="records-list-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">รายการที่บันทึก</button>
+                                <button data-page="record-form-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">บันทึกรายการใหม่</button>
                                 <button data-page="dashboard-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">Dashboard</button>
-                                <!-- Dropdown for Settings -->
-                                <div class="relative group">
-                                    <button class="px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200 flex items-center">
-                                        การตั้งค่า
-                                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                        </svg>
-                                    </button>
-                                    <div class="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                                        <div class="py-1">
-                                            <button data-page="users-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ผู้ใช้งาน</button>
-                                            <button data-page="medicines-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">รายการยา</button>
-                                            <button data-page="shifts-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">เวร</button>
-                                            <button data-page="patient-types-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ประเภทผู้ป่วย</button>
-                                            <button data-page="places-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">สถานที่</button>
-                                            <button data-page="processes-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">กระบวนการ</button>
-                                            <button data-page="causes-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">สาเหตุ</button>
-                                        </div>
-                                    </div>
-                                </div>
+                                <!-- Admin-specific links are removed or hidden since there's no login -->
                             </div>
                         </div>
                     </div>
                     <div class="flex items-center">
-                         <!-- User info display is removed as there's no current user -->
-                         <!-- Logout button is also removed -->
+                        <!-- User info display -->
+                        <span id="user-display" class="ml-4 text-sm font-bold text-emerald-700"></span>
                     </div>
                 </div>
             </div>
@@ -373,7 +353,7 @@ async function fetchDataFromSheet(action) {
  * @param {Event} e - The form submission event.
  */
 async function handleRecordSubmit(e) {
-    e.preventDefault();
+    e.preventDefault(); // Prevent default form submission
 
     const form = e.target;
     const formData = new FormData(form);
@@ -412,9 +392,12 @@ async function handleRecordSubmit(e) {
         recordData['cause'] = causeSelect.value;
     }
 
-    // Get current user information for 'ผู้บันทึก' field
-    const userInfo = sessionStorage.getItem('currentUser');
-    recordData['ผู้บันทึก'] = userInfo ? JSON.parse(userInfo).ชื่อ : 'ไม่ระบุ';
+    // --- เพิ่มชื่อผู้บันทึก ---
+    let currentUser = {};
+    try {
+        currentUser = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+    } catch (e) { currentUser = {}; }
+    recordData['ผู้รายงาน'] = currentUser.Name || 'ไม่ระบุ';
 
     // Prepare data to send as query parameters
     const dataToSend = {
@@ -429,7 +412,7 @@ async function handleRecordSubmit(e) {
         'HAD': recordData['HAD'], // --- ส่งค่า HAD ---
         'สาเหตุ': recordData['cause'],
         'รายละเอียดเพิ่มเติม': recordData['details'],
-        'ผู้บันทึก': recordData['ผู้บันทึก']
+        'ผู้รายงาน': recordData['ผู้รายงาน']
     };
 
     // Convert dataToSend object into URL query parameters
@@ -1440,11 +1423,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert(`ยินดีต้อนรับ ${user.ชื่อ || user.Name}! เข้าสู่ระบบสำเร็จ`);
             
             loginPage.style.display = 'none';
-            appPage.classList.remove('hidden');
+            appPage.style.display = 'block';
             
             // Update navigation to show user info and logout button
             updateNavigationForLoggedInUser(user);
-            
             
             // Show first main page after login (บันทึกข้อมูล)
             showPage('record-form-page');
@@ -1454,12 +1436,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 });
 
+// --- แสดงชื่อผู้ใช้ใน navbar ---
 document.addEventListener('DOMContentLoaded', () => {
-    const userInfo = sessionStorage.getItem('currentUser');
     const userDisplay = document.getElementById('user-display');
-
-    if (userInfo && userDisplay) {
-        userDisplay.textContent = `ผู้ใช้: ${userInfo}`;
+    let currentUser = {};
+    try {
+        currentUser = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+    } catch (e) { currentUser = {}; }
+    if (userDisplay) {
+        userDisplay.textContent = currentUser.Name ? `ผู้ใช้: ${currentUser.Name}` : '';
     }
 });
 
@@ -1488,7 +1473,7 @@ function renderShiftsPage() {
                             <td class="px-6 py-4 whitespace-nowrap">14:00 - 22:00</td>
                         </tr>
                         <tr class="hover:bg-gray-100">
-                            <td class="px-6 py-4 whitespace-nowrap">ดึก</td>
+                                                       <td class="px-6 py-4 whitespace-nowrap">ดึก</td>
                             <td class="px-6 py-4 whitespace-nowrap">22:00 - 06:00</td>
                         </tr>
                     </tbody>
@@ -1631,15 +1616,6 @@ async function initializeApp() {
 }
 
 // Attach event listeners when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    const userInfo = sessionStorage.getItem('currentUser');
-    const userDisplay = document.getElementById('user-display');
-
-    if (userInfo && userDisplay) {
-        userDisplay.textContent = `ผู้ใช้: ${userInfo}`;
-    }
-});
-
 document.addEventListener('DOMContentLoaded', () => {
     const userInfo = sessionStorage.getItem('currentUser');
     const loginPage = document.getElementById('login-page');
