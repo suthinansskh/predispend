@@ -167,6 +167,25 @@
         </div>
     </div>
 
+    <!-- Modal Components (UI Feedback) -->
+    <!-- Loading Modal: Shows during data operations -->
+    <div id="loading-modal" class="modal">
+      <div class="modal-content">
+        <div class="loader"></div>
+        <p id="loading-text" class="mt-4 text-lg">กำลังบันทึกข้อมูล...</p>
+      </div>
+    </div>
+    
+    <!-- Success Modal: Shows after successful operations -->
+    <div id="success-modal" class="modal">
+      <div class="modal-content">
+        <!-- SVG checkmark icon -->
+        <svg class="w-16 h-16 mx-auto text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <p class="mt-4 text-lg">บันทึกข้อมูลสำเร็จ!</p>
+        <button onclick="document.getElementById('success-modal').style.display='none'" class="px-4 py-2 mt-4 text-white bg-emerald-500 rounded-md">ตกลง</button>
+      </div>
+    </div>
+
 <script>
 // --- Configuration ---
 // Google Apps Script Web App URL for backend operations
@@ -193,6 +212,8 @@ let itemsPerPage = 10;    // Number of items to display per page
 // --- DOM Elements Caching ---
 const appPage = document.getElementById('app');
 const navLinks = document.querySelectorAll('.nav-link'); // All navigation buttons
+const loadingModal = document.getElementById('loading-modal');
+const successModal = document.getElementById('success-modal');
 const loginPage = document.getElementById('login-page');
 const loginForm = document.getElementById('login-form');
 
@@ -1597,6 +1618,20 @@ async function initializeApp() {
 
 // Attach event listeners when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+    const userInfo = sessionStorage.getItem('currentUser');
+    const loginPage = document.getElementById('login-page');
+    const appPage = document.getElementById('app');
+
+    if (userInfo) {
+        // ผู้ใช้เข้าสู่ระบบแล้ว
+        loginPage.style.display = 'none';
+        appPage.style.display = 'block';
+    } else {
+        // ผู้ใช้ยังไม่ได้เข้าสู่ระบบ
+        loginPage.style.display = 'block';
+        appPage.style.display = 'none';
+    }
+
     // Initialize the application
     initializeApp();
     
