@@ -393,12 +393,11 @@ async function handleRecordSubmit(e) {
     }    // --- เพิ่มชื่อผู้บันทึกตาม Login ---
     const reporterField = document.getElementById('reporter');
     const currentUser = getCurrentUser();
-    if (reporterField && reporterField.value) {
-        recordData['ผู้รายงาน'] = reporterField.value;
-        recordData['ผู้รายงาน_ID'] = reporterField.dataset.reporterId || '';
+    if (reporterField && reporterField.value) {        recordData['ผู้บันทึก'] = reporterField.value;
+        recordData['ผู้บันทึก_ID'] = reporterField.dataset.reporterId || '';
     } else {
-        recordData['ผู้รายงาน'] = currentUser ? (currentUser.ชื่อจริง || currentUser.RealName || currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ') : 'ไม่ระบุ';
-        recordData['ผู้รายงาน_ID'] = currentUser ? (currentUser.ID13 || '') : '';
+        recordData['ผู้บันทึก'] = currentUser ? (currentUser.ชื่อจริง || currentUser.RealName || currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ') : 'ไม่ระบุ';
+        recordData['ผู้บันทึก_ID'] = currentUser ? (currentUser.ID13 || '') : '';
     }
 
     // Prepare data to send as query parameters
@@ -412,9 +411,8 @@ async function handleRecordSubmit(e) {
         'รายการยาที่ผิด': recordData['incorrect_medicine_search'],
         'HAD': recordData['HAD'], // --- ส่งค่า HAD ---
         'สาเหตุ': recordData['cause'],
-        'รายละเอียดเพิ่มเติม': recordData['details'],
-        'ผู้รายงาน': recordData['ผู้รายงาน'],
-        'ผู้รายงาน_ID': recordData['ผู้รายงาน_ID']
+        'รายละเอียดเพิ่มเติม': recordData['details'],        'ผู้บันทึก': recordData['ผู้บันทึก'],
+        'ผู้บันทึก_ID': recordData['ผู้บันทึก_ID']
     };
 
     // Convert dataToSend object into URL query parameters
@@ -515,7 +513,7 @@ function renderRecordsList(searchTerm = '') {
         (r.รายการยาที่ผิด && String(r.รายการยาที่ผิด).toLowerCase().includes(searchTerm.toLowerCase())) ||
         (r.กระบวนการ && String(r.กระบวนการ).toLowerCase().includes(searchTerm.toLowerCase())) ||
         (r.รายละเอียดเพิ่มเติม && String(r.รายละเอียดเพิ่มเติม).toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (r.ผู้รายงาน && String(r.ผู้รายงาน).toLowerCase().includes(searchTerm.toLowerCase()))
+        (r.ผู้บันทึก && String(r.ผู้บันทึก).toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     // Calculate pagination parameters
@@ -542,7 +540,7 @@ function renderRecordsList(searchTerm = '') {
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายการยาที่ผิด</th>
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">กระบวนการ</th>
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายละเอียดเพิ่มเติม</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ผู้รายงาน</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ผู้บันทึก</th>
                         </tr>
                     </thead>
                     <tbody id="records-table-body" class="divide-y divide-gray-200">
@@ -554,9 +552,7 @@ function renderRecordsList(searchTerm = '') {
                                 <td class="px-6 py-4 whitespace-nowrap">${r.สถานที่ || ''}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${r.รายการยาที่ผิด || ''}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${r.กระบวนการ || ''}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${r.รายละเอียดเพิ่มเติม || ''}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${r.ผู้รายงาน || ''}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${r.ผู้รายงาน || ''}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${r.รายละเอียดเพิ่มเติม || ''}</td>                                <td class="px-6 py-4 whitespace-nowrap">${r.ผู้บันทึก || ''}</td>
                             </tr>
                         `).join('') : `<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500">ไม่พบข้อมูล</td></tr>`}
                     </tbody>
@@ -720,7 +716,7 @@ function renderRecordForm() {
                 </div>
 
                 <div>
-                    <label for="reporter" class="block text-sm font-medium text-gray-700">ผู้รายงาน</label>
+                    <label for="reporter" class="block text-sm font-medium text-gray-700">ผู้บันทึก</label>
                     <input type="text" id="reporter" name="reporter" readonly class="w-full px-3 py-2 mt-1 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed">
                 </div>
 
