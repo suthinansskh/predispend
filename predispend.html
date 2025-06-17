@@ -115,26 +115,42 @@
         
         <!-- Main content area where different pages are rendered -->
         <main class="p-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
-            <!-- Content Pages (each is a placeholder, filled by JavaScript) -->
-            <!-- Main pages in order: บันทึกข้อมูล, รายการล่าสุด, Dashboard -->
+            <!-- Content Pages (ordered by navigation sequence) -->
+            <!-- 1. บันทึกข้อมูล -->
             <div id="record-form-page" class="page-content hidden"></div>
+            
+            <!-- 2. รายการล่าสุด -->
             <div id="records-list-page" class="page-content hidden"></div>
+            
+            <!-- 3. Dashboard -->
             <div id="dashboard-page" class="page-content hidden"></div>
-            <!-- Settings pages in order: ผู้ใช้งาน, รายการยา, เวร, ประเภทผู้ป่วย, สถานที่, กระบวนการ, สาเหตุ -->
+            
+            <!-- Settings pages (การตั้งค่า dropdown order) -->
+            <!-- 4.1 ผู้ใช้งาน -->
             <div id="users-page" class="page-content hidden"></div>
+            
+            <!-- 4.2 รายการยา -->
             <div id="medicines-page" class="page-content hidden"></div>
+            
+            <!-- 4.3 เวร -->
             <div id="shifts-page" class="page-content hidden"></div>
+            
+            <!-- 4.4 ประเภทผู้ป่วย -->
             <div id="patient-types-page" class="page-content hidden"></div>
+            
+            <!-- 4.5 สถานที่ -->
             <div id="places-page" class="page-content hidden"></div>
+            
+            <!-- 4.6 กระบวนการ -->
             <div id="processes-page" class="page-content hidden"></div>
+            
+            <!-- 4.7 สาเหตุ -->
             <div id="causes-page" class="page-content hidden"></div>
         </main>
     </div>
 
-
-    
-
-    <!-- Loading Modal: Displays while data is being fetched or processed -->
+    <!-- Modal Components (UI Feedback) -->
+    <!-- Loading Modal: Shows during data operations -->
     <div id="loading-modal" class="modal">
       <div class="modal-content">
         <div class="loader"></div>
@@ -142,18 +158,17 @@
       </div>
     </div>
     
-    <!-- Success Modal: Displays upon successful data submission (only after login) -->
+    <!-- Success Modal: Shows after successful operations -->
     <div id="success-modal" class="modal">
       <div class="modal-content">
-        <!-- SVG for a checkmark icon -->
+        <!-- SVG checkmark icon -->
         <svg class="w-16 h-16 mx-auto text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
         <p class="mt-4 text-lg">บันทึกข้อมูลสำเร็จ!</p>
-        <!-- Button to close the success modal -->
         <button onclick="document.getElementById('success-modal').style.display='none'" class="px-4 py-2 mt-4 text-white bg-emerald-500 rounded-md">ตกลง</button>
       </div>
     </div>
 
-    <!-- Login Page: Added for user login functionality -->
+    <!-- Login Page: User authentication interface -->
     <div id="login-page" class="fixed inset-0 bg-gray-100 flex items-center justify-center z-30">
         <div class="p-6 bg-white rounded-lg shadow-md max-w-md mx-auto">
             <h2 class="mb-6 text-xl font-bold text-gray-800">ลงชื่อเข้าใช้งาน</h2>
@@ -172,21 +187,21 @@
     </div>
 
 <script>
+// --- Configuration ---
 // Google Apps Script Web App URL for backend operations
-// โปรดแทนที่ URL นี้ด้วย URL ของ Web App ที่คุณ Deploy จาก Google Apps Script ของคุณ
-// หากต้องการรับ URL นี้:
-// 1. ใน Apps Script editor, คลิก "Deploy" (ปรับใช้) > "New deployment" (การทำให้ใช้งานได้ใหม่).
-// 2. เลือกประเภทเป็น "Web app" (เว็บแอป).
-// 3. ตั้งค่า "Execute as" (เรียกใช้ในฐานะ) เป็น "Me" (ฉัน) และ "Who has access" (ใครมีสิทธิ์เข้าถึง) เป็น "Anyone" (ทุกคน).
-// 4. คลิก "Deploy" (ปรับใช้) และคัดลอก "Web app URL" (URL ของเว็บแอป) ที่ปรากฏขึ้นมา
+// Replace this URL with your deployed Google Apps Script Web App URL
+// To get this URL:
+// 1. In Apps Script editor, click "Deploy" > "New deployment"
+// 2. Choose type as "Web app"
+// 3. Set "Execute as" to "Me" and "Who has access" to "Anyone"
+// 4. Click "Deploy" and copy the "Web app URL"
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzFrW_xMdCukPq_nx3FsoYHxxq3hH5hSRtvIKfAioJfqet_MKAJjACugUQ-X6ngZ1NqyQ/exec";
 
 // --- Global State Variables ---
-// currentUser is no longer needed as login is removed
 let masterData = {
-    users: [],        // List of all users (still fetched for other purposes like dropdowns if needed)
-    medicines: [],    // List of all medicines
-    places: [],       // List of places/locations
+    users: [],        // List of all users for authentication and dropdowns
+    medicines: [],    // List of all medicines with HAD status
+    places: [],       // List of places/locations where errors occur
     processes: [],    // List of processes involved in medication errors
     causes: [],       // List of causes for medication errors
     records: []       // List of all recorded medication errors
@@ -195,13 +210,68 @@ let currentPage = 1;      // Current page number for pagination
 let itemsPerPage = 10;    // Number of items to display per page
 
 // --- DOM Elements Caching ---
-// loginPage, loginForm, loginError, userInfo, logoutBtn are removed as login is removed
 const appPage = document.getElementById('app');
 const navLinks = document.querySelectorAll('.nav-link'); // All navigation buttons
 const loadingModal = document.getElementById('loading-modal');
 const successModal = document.getElementById('success-modal');
 const loginPage = document.getElementById('login-page');
 const loginForm = document.getElementById('login-form');
+
+// --- Authentication & Session Management ---
+
+/**
+ * Gets the current logged-in user from sessionStorage.
+ * @returns {Object|null} - The current user object or null if not logged in.
+ */
+function getCurrentUser() {
+    const userData = sessionStorage.getItem('currentUser');
+    return userData ? JSON.parse(userData) : null;
+}
+
+/**
+ * Sets the current logged-in user in sessionStorage.
+ * @param {Object} user - The user object to set as current user.
+ */
+function setCurrentUser(user) {
+    sessionStorage.setItem('currentUser', JSON.stringify(user));
+}
+
+/**
+ * Logs out the current user by clearing session data and showing login page.
+ */
+function logout() {
+    sessionStorage.removeItem('currentUser');
+    loginPage.style.display = 'flex';
+    appPage.style.display = 'none';
+}
+
+/**
+ * Handles user login authentication.
+ * @param {Event} e - The form submission event.
+ */
+async function handleLogin(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    
+    if (!username || !password) {
+        alert('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
+        return;
+    }
+    
+    // Find user in masterData.users array
+    const user = masterData.users.find(u => u.ID13 === username && u.Password === password);
+    
+    if (user) {
+        setCurrentUser(user);
+        loginPage.style.display = 'none';
+        appPage.style.display = 'block';
+        showPage('record-form-page'); // Show main page after login
+    } else {
+        alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+    }
+}
 
 // --- Utility Functions ---
 
@@ -421,12 +491,24 @@ async function loadAllMasterData() {
     hideLoading();
 }
 
-// Attach event listeners to all navigation links to switch pages
-navLinks.forEach(link => {
-    link.addEventListener('click', (e) => showPage(e.target.dataset.page));
-});
-
 // --- Page Rendering Functions ---
+// Order: บันทึกข้อมูล, รายการล่าสุด, Dashboard, Settings (ผู้ใช้งาน, รายการยา, เวร, ประเภทผู้ป่วย, สถานที่, กระบวนการ, สาเหตุ)
+
+/**
+ * Renders the record form page for entering medication error data.
+ */
+function renderRecordForm() {
+    const container = document.getElementById('record-form-page');
+    
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">บันทึกความคลาดเคลื่อนทางยา</h2>
+            <form id="record-form" class="space-y-6">
+                <!-- Form content will be here -->
+            </form>
+        </div>
+    `;
+}
 
 /**
  * Renders the list of medication error records, including search and pagination.
@@ -565,10 +647,8 @@ function exportToCSV(data) {
     URL.revokeObjectURL(link.href); // Clean up
 }
 
-
 /**
- * Renders the form for submitting a new medication error record.
- * Populates dropdowns with master data and handles HAD status checking.
+ * Renders the dashboard page with charts and statistics.
  */
 function renderRecordForm() {
     const container = document.getElementById('record-form-page');
@@ -1511,6 +1591,44 @@ function renderCausesPage() {
         </div>
     `;
 }
+
+// --- Event Listeners & Initialization ---
+
+/**
+ * Initializes the application on page load.
+ * Sets up event listeners and loads initial data.
+ */
+async function initializeApp() {
+    // Load all master data first
+    await loadAllMasterData();
+    
+    // Check if user is already logged in
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+        // User is logged in, show main app
+        loginPage.style.display = 'none';
+        appPage.style.display = 'block';
+        showPage('record-form-page'); // Show default page
+    } else {
+        // User not logged in, show login page
+        loginPage.style.display = 'flex';
+        appPage.style.display = 'none';
+    }
+}
+
+// Attach event listeners when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize the application
+    initializeApp();
+    
+    // Attach navigation event listeners
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => showPage(e.target.dataset.page));
+    });
+    
+    // Attach login form event listener
+    loginForm.addEventListener('submit', handleLogin);
+});
 </script>
 </body>
 </html>
