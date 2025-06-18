@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>บันทึกกิจกรรมชั่วโมงประชุม</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f3f4f6;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start; /* Align to top */
+      min-height: 100vh; /* Full viewport height */
+      overflow-y: auto; /* Enable scrolling for content */
+    }
+    #root {
+      width: 100%;
+      max-width: 1200px; /* Max width for larger screens */
+      background-color: #ffffff;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      border-radius: 0.75rem; /* rounded-xl */
+      padding: 1.5rem; /* p-6 */
+      margin-top: 2rem; /* mt-8 */
+      margin-bottom: 2rem;
+      min-height: calc(100vh - 4rem); /* Adjust min-height to account for margin */
+      display: flex;
+      flex-direction: column;
+    }
+    /* Custom styles for tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    th, td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    th {
+      background-color: #f9fafb;
+      font-weight: 600;
+      color: #374151;
+    }
+    tr:hover {
+      background-color: #f3f4f6;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    // Helper function for google.script.run
+    function runGoogleScript(functionName, ...args) {
+      return new Promise((resolve, reject) => {
+        // Ensure google.script.run exists before calling it
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+          reject(new Error("google.script.run is not available. Ensure this app is deployed as a Google Apps Script Web App."));
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          [functionName](...args);
+      });
+    }
+
+    // Modal Component
+    const Modal = ({ show, title, message, onClose }) => {
+      if (!show) return null;
+      return (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-96">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">{title}</h2>
+            <p className="text-gray-700 mb-6">{message}</p>
+            <div className="flex justify-end">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
+              >
+                ปิด
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // Loading Spinner Component
+    const LoadingSpinner = () => (
+      <div className="flex justify-center items-center h-full">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    );
+
+    // Dashboard Component
+    const Dashboard = ({ summary }) => {
+      if (!summary) {
+        return <LoadingSpinner />;
+      }
+
+      // Convert objects to arrays for easier mapping
+      const hoursPerPersonArray = Object.entries(summary.hoursPerPerson || {}).sort(([, a], [, b]) => b - a);
+      const activitiesCountArray = Object.entries(summary.activitiesCount || {}).sort(([, a], [, b]) => b - a);
+
+      return (
+        <div className="space-y-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">ภาพรวม Dashboard</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-5 rounded-lg shadow-lg flex flex-col items-start transform hover:scale-105 transition-transform duration-300">
+              <div className="text-sm font-medium opacity-90">จำนวนบันทึกกิจกรรมทั้งหมด</div>
+              <div className="text-3xl font-bold mt-2">{summary.totalRecords}</div>
+            </div>
+            <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-5 rounded-lg shadow-lg flex flex-col items-start transform hover:scale-105 transition-transform duration-300">
+              <div className="text-sm font-medium opacity-90">รวมชั่วโมงที่บันทึก</div>
+              <div className="text-3xl font-bold mt-2">{summary.totalHoursRecorded.toFixed(2)}</div>
+            </div>
+            <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white p-5 rounded-lg shadow-lg flex flex-col items-start transform hover:scale-105 transition-transform duration-300">
+              <div className="text-sm font-medium opacity-90">จำนวนประเภทกิจกรรม</div>
+              <div className="text-3xl font-bold mt-2">{summary.totalActivitiesType}</div>
+            </div>
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-5 rounded-lg shadow-lg flex flex-col items-start transform hover:scale-105 transition-transform duration-300">
+              <div className="text-sm font-medium opacity-90">จำนวนรายชื่อ (Active)</div>
+              <div className="text-3xl font-bold mt-2">{summary.activeNames}</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">ชั่วโมงกิจกรรมต่อบุคคล</h3>
+              {hoursPerPersonArray.length > 0 ? (
+                <table className="min-w-full divide-y divide-gray-200 rounded-md overflow-hidden">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ผู้บันทึก</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รวมชั่วโมง</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {hoursPerPersonArray.map(([person, hours]) => (
+                      <tr key={person}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{person}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{hours.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-gray-500">ยังไม่มีข้อมูลชั่วโมงกิจกรรม</p>
+              )}
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">จำนวนครั้งที่บันทึกกิจกรรม</h3>
+              {activitiesCountArray.length > 0 ? (
+                <table className="min-w-full divide-y divide-gray-200 rounded-md overflow-hidden">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อกิจกรรม</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนครั้ง</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {activitiesCountArray.map(([activity, count]) => (
+                      <tr key={activity}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{activity}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-gray-500">ยังไม่มีข้อมูลกิจกรรม</p>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ActivityRecordForm Component
+    const ActivityRecordForm = ({ activityList, onSaveSuccess }) => {
+      const [recordDate, setRecordDate] = React.useState('');
+      const [activityName, setActivityName] = React.useState('');
+      const [isLoading, setIsLoading] = React.useState(false);
+      const [modal, setModal] = React.useState({ show: false, title: '', message: '' });
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsLoading(true);
+        try {
+          // Generate a simple record number based on timestamp for now
+          const recordNumber = `REC-${Date.now()}`;
+          const data = {
+            recordNumber,
+            recordDate,
+            activityName
+          };
+          const result = await runGoogleScript('saveActivityRecord', data);
+          setModal({ show: true, title: 'สำเร็จ!', message: result });
+          setRecordDate('');
+          setActivityName('');
+          if (onSaveSuccess) onSaveSuccess();
+        } catch (error) {
+          setModal({ show: true, title: 'ข้อผิดพลาด', message: error.message });
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      return (
+        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200 max-w-lg mx-auto">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">บันทึกกิจกรรมใหม่</h2>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="recordDate" className="block text-sm font-medium text-gray-700 mb-1">
+                วันที่บันทึก:
+              </label>
+              <input
+                type="date"
+                id="recordDate"
+                value={recordDate}
+                onChange={(e) => setRecordDate(e.target.value)}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="activityName" className="block text-sm font-medium text-gray-700 mb-1">
+                รายการกิจกรรม:
+              </label>
+              <select
+                id="activityName"
+                value={activityName}
+                onChange={(e) => setActivityName(e.target.value)}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="">-- เลือกกิจกรรม --</option>
+                {activityList.map((activity) => (
+                  <option key={activity.รหัสกิจกรรม} value={activity.ชื่อกิจกรรม}>
+                    {activity.ชื่อกิจกรรม} ({activity['ชั่วโมงประชุม']} ชม.)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                isLoading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
+              }`}
+            >
+              {isLoading ? 'กำลังบันทึก...' : 'บันทึกกิจกรรม'}
+            </button>
+          </form>
+          <Modal
+            show={modal.show}
+            title={modal.title}
+            message={modal.message}
+            onClose={() => setModal({ show: false, title: '', message: '' })}
+          />
+        </div>
+      );
+    };
+
+    // ManageNames Component
+    const ManageNames = ({ names, onSaveSuccess }) => {
+      const [newName, setNewName] = React.useState('');
+      const [newIdCard, setNewIdCard] = React.useState('');
+      const [newPosition, setNewPosition] = React.useState('เจ้าหน้าที่');
+      const [newLevel, setNewLevel] = React.useState('user');
+      const [newEmail, setNewEmail] = React.useState('');
+      const [newPassword, setNewPassword] = React.useState(''); // Note: Storing password directly is not secure in real apps
+      const [newStatus, setNewStatus] = React.useState('yes');
+      const [isLoading, setIsLoading] = React.useState(false);
+      const [modal, setModal] = React.useState({ show: false, title: '', message: '' });
+
+      const positionOptions = ['เภสัชกร', 'เจ้าพนักงานเภสัชกรรม', 'เจ้าหน้าที่'];
+      const levelOptions = ['admin', 'user'];
+      const statusOptions = ['yes', 'no'];
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsLoading(true);
+        try {
+          const data = {
+            name: newName,
+            idCard: newIdCard,
+            position: newPosition,
+            level: newLevel,
+            email: newEmail,
+            password: newPassword,
+            status: newStatus
+          };
+          const result = await runGoogleScript('saveName', data);
+          setModal({ show: true, title: 'สำเร็จ!', message: result });
+          setNewName('');
+          setNewIdCard('');
+          setNewPosition('เจ้าหน้าที่');
+          setNewLevel('user');
+          setNewEmail('');
+          setNewPassword('');
+          setNewStatus('yes');
+          if (onSaveSuccess) onSaveSuccess();
+        } catch (error) {
+          setModal({ show: true, title: 'ข้อผิดพลาด', message: error.message });
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      return (
+        <div className="space-y-6">
+          <h2 className="text-2xl font-bold text-gray-800 text-center mb-4">จัดการรายชื่อผู้ใช้งาน</h2>
+
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200 max-w-xl mx-auto mb-8">
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">เพิ่มรายชื่อใหม่</h3>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="newName" className="block text-sm font-medium text-gray-700 mb-1">ชื่อ:</label>
+                <input type="text" id="newName" value={newName} onChange={(e) => setNewName(e.target.value)} required className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              </div>
+              <div>
+                <label htmlFor="newIdCard" className="block text-sm font-medium text-gray-700 mb-1">เลข 13 หลัก:</label>
+                <input type="text" id="newIdCard" value={newIdCard} onChange={(e) => setNewIdCard(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              </div>
+              <div>
+                <label htmlFor="newPosition" className="block text-sm font-medium text-gray-700 mb-1">ตำแหน่ง:</label>
+                <select id="newPosition" value={newPosition} onChange={(e) => setNewPosition(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  {positionOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="newLevel" className="block text-sm font-medium text-gray-700 mb-1">Level:</label>
+                <select id="newLevel" value={newLevel} onChange={(e) => setNewLevel(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  {levelOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="newEmail" className="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+                <input type="email" id="newEmail" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              </div>
+              <div>
+                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">Password:</label>
+                <input type="password" id="newPassword" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              </div>
+              <div>
+                <label htmlFor="newStatus" className="block text-sm font-medium text-gray-700 mb-1">Status:</label>
+                <select id="newStatus" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  {statusOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                  isLoading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
+                }`}
+              >
+                {isLoading ? 'กำลังบันทึก...' : 'เพิ่มรายชื่อ'}
+              </button>
+            </form>
+          </div>
+
+          <h3 className="text-xl font-semibold text-gray-800 mb-4">รายชื่อผู้ใช้งานปัจจุบัน</h3>
+          {names.length > 0 ? (
+            <div className="overflow-x-auto bg-white rounded-lg shadow-md border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Id</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อ</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ตำแหน่ง</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {names.map((name) => (
+                    <tr key={name.Id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{name.Id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{name.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{name.position}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{name.Level}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{name.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{name.Status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center">ยังไม่มีรายชื่อผู้ใช้งาน</p>
+          )}
+          <Modal
+            show={modal.show}
+            title={modal.title}
+            message={modal.message}
+            onClose={() => setModal({ show: false, title: '', message: '' })}
+          />
+        </div>
+      );
+    };
+
+    // ManageActivities Component
+    const ManageActivities = ({ activities, onSaveSuccess }) => {
+      const [newActivityName, setNewActivityName] = React.useState('');
+      const [newActivityDate, setNewActivityDate] = React.useState('');
+      const [newHours, setNewHours] = React.useState('');
+      const [newEvalRound, setNewEvalRound] = React.useState('1');
+      const [newFiscalYear, setNewFiscalYear] = React.useState('');
+      const [newStatus, setNewStatus] = React.useState('yes');
+      const [isLoading, setIsLoading] = React.useState(false);
+      const [modal, setModal] = React.useState({ show: false, title: '', message: '' });
+
+      const evalRoundOptions = ['1', '2'];
+      const statusOptions = ['yes', 'no'];
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsLoading(true);
+        try {
+          const data = {
+            activityName: newActivityName,
+            activityDate: newActivityDate,
+            hours: parseFloat(newHours),
+            evalRound: newEvalRound,
+            fiscalYear: newFiscalYear,
+            status: newStatus
+          };
+          const result = await runGoogleScript('saveActivity', data);
+          setModal({ show: true, title: 'สำเร็จ!', message: result });
+          setNewActivityName('');
+          setNewActivityDate('');
+          setNewHours('');
+          setNewEvalRound('1');
+          setNewFiscalYear('');
+          setNewStatus('yes');
+          if (onSaveSuccess) onSaveSuccess();
+        } catch (error) {
+          setModal({ show: true, title: 'ข้อผิดพลาด', message: error.message });
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      return (
+        <div className="space-y-6">
+          <h2 className="text-2xl font-bold text-gray-800 text-center mb-4">จัดการรายการกิจกรรม</h2>
+
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200 max-w-xl mx-auto mb-8">
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">เพิ่มกิจกรรมใหม่</h3>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="newActivityName" className="block text-sm font-medium text-gray-700 mb-1">ชื่อกิจกรรม:</label>
+                <input type="text" id="newActivityName" value={newActivityName} onChange={(e) => setNewActivityName(e.target.value)} required className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              </div>
+              <div>
+                <label htmlFor="newActivityDate" className="block text-sm font-medium text-gray-700 mb-1">วันที่จัด:</label>
+                <input type="date" id="newActivityDate" value={newActivityDate} onChange={(e) => setNewActivityDate(e.target.value)} required className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              </div>
+              <div>
+                <label htmlFor="newHours" className="block text-sm font-medium text-gray-700 mb-1">ชั่วโมงประชุม:</label>
+                <input type="number" id="newHours" value={newHours} onChange={(e) => setNewHours(e.target.value)} required min="0" step="0.5" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              </div>
+              <div>
+                <label htmlFor="newEvalRound" className="block text-sm font-medium text-gray-700 mb-1">รอบประเมิน:</label>
+                <select id="newEvalRound" value={newEvalRound} onChange={(e) => setNewEvalRound(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  {evalRoundOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="newFiscalYear" className="block text-sm font-medium text-gray-700 mb-1">ปีงบประมาณ พ.ศ.:</label>
+                <input type="number" id="newFiscalYear" value={newFiscalYear} onChange={(e) => setNewFiscalYear(e.target.value)} required min="2500" max="3000" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              </div>
+              <div>
+                <label htmlFor="newStatus" className="block text-sm font-medium text-gray-700 mb-1">Status:</label>
+                <select id="newStatus" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  {statusOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                  isLoading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
+                }`}
+              >
+                {isLoading ? 'กำลังบันทึก...' : 'เพิ่มกิจกรรม'}
+              </button>
+            </form>
+          </div>
+
+          <h3 className="text-xl font-semibold text-gray-800 mb-4">รายการกิจกรรมปัจจุบัน</h3>
+          {activities.length > 0 ? (
+            <div className="overflow-x-auto bg-white rounded-lg shadow-md border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสกิจกรรม</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อกิจกรรม</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่จัด</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชั่วโมงประชุม</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รอบประเมิน</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ปีงบประมาณ พ.ศ.</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {activities.map((activity) => (
+                    <tr key={activity.รหัสกิจกรรม}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{activity.รหัสกิจกรรม}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{activity.ชื่อกิจกรรม}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{activity.วันที่จัด ? new Date(activity.วันที่จัด).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }) : ''}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{activity.ชั่วโมงประชุม}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{activity.รอบประเมิน}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{activity['ปีงบประมาณ พ.ศ.']}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{activity.Status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center">ยังไม่มีรายการกิจกรรม</p>
+          )}
+          <Modal
+            show={modal.show}
+            title={modal.title}
+            message={modal.message}
+            onClose={() => setModal({ show: false, title: '', message: '' })}
+          />
+        </div>
+      );
+    };
+
+    // Main App Component
+    const App = () => {
+      const [view, setView] = React.useState('dashboard'); // 'dashboard', 'recordActivity', 'manageNames', 'manageActivities'
+      const [dashboardSummary, setDashboardSummary] = React.useState(null);
+      const [activityList, setActivityList] = React.useState([]);
+      const [namesList, setNamesList] = React.useState([]);
+      const [isLoadingData, setIsLoadingData] = React.useState(true);
+      const [modal, setModal] = React.useState({ show: false, title: '', message: '' });
+
+      const fetchData = async () => {
+        setIsLoadingData(true);
+        try {
+          const [summary, activities, names] = await Promise.all([
+            runGoogleScript('getDashboardSummary'),
+            runGoogleScript('getActivityListData'),
+            runGoogleScript('getNamesData')
+          ]);
+          setDashboardSummary(summary);
+          setActivityList(activities);
+          setNamesList(names);
+        } catch (error) {
+          setModal({ show: true, title: 'ข้อผิดพลาดในการโหลดข้อมูล', message: error.message });
+          console.error("Error fetching data:", error);
+        } finally {
+          setIsLoadingData(false);
+        }
+      };
+
+      React.useEffect(() => {
+        // Only attempt to fetch data if google.script.run is available
+        const checkGoogleScript = () => {
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            fetchData();
+          } else {
+            // If not ready, retry after a short delay
+            setTimeout(checkGoogleScript, 100);
+          }
+        };
+        checkGoogleScript();
+      }, []);
+
+      const handleSaveSuccess = () => {
+        fetchData(); // Re-fetch data after a successful save
+      };
+
+      return (
+        <div className="flex flex-col h-full">
+          {/* Navigation Bar */}
+          <nav className="bg-indigo-700 p-4 rounded-t-xl shadow-md mb-6">
+            <ul className="flex flex-wrap justify-center space-x-4 md:space-x-8">
+              <li>
+                <button
+                  onClick={() => setView('dashboard')}
+                  className={`px-4 py-2 rounded-md transition-colors duration-200 ${
+                    view === 'dashboard' ? 'bg-indigo-800 text-white shadow-lg' : 'text-indigo-100 hover:bg-indigo-600'
+                  }`}
+                >
+                  Dashboard
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => setView('recordActivity')}
+                  className={`px-4 py-2 rounded-md transition-colors duration-200 ${
+                    view === 'recordActivity' ? 'bg-indigo-800 text-white shadow-lg' : 'text-indigo-100 hover:bg-indigo-600'
+                  }`}
+                >
+                  บันทึกกิจกรรม
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => setView('manageNames')}
+                  className={`px-4 py-2 rounded-md transition-colors duration-200 ${
+                    view === 'manageNames' ? 'bg-indigo-800 text-white shadow-lg' : 'text-indigo-100 hover:bg-indigo-600'
+                  }`}
+                >
+                  จัดการรายชื่อ
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => setView('manageActivities')}
+                  className={`px-4 py-2 rounded-md transition-colors duration-200 ${
+                    view === 'manageActivities' ? 'bg-indigo-800 text-white shadow-lg' : 'text-indigo-100 hover:bg-indigo-600'
+                  }`}
+                >
+                  จัดการรายการกิจกรรม
+                </button>
+              </li>
+            </ul>
+          </nav>
+
+          {/* Main Content Area */}
+          <main className="flex-grow p-4">
+            {isLoadingData ? (
+              <LoadingSpinner />
+            ) : (
+              <>
+                {view === 'dashboard' && <Dashboard summary={dashboardSummary} />}
+                {view === 'recordActivity' && <ActivityRecordForm activityList={activityList} onSaveSuccess={handleSaveSuccess} />}
+                {view === 'manageNames' && <ManageNames names={namesList} onSaveSuccess={handleSaveSuccess} />}
+                {view === 'manageActivities' && <ManageActivities activities={activityList} onSaveSuccess={handleSaveSuccess} />}
+              </>
+            )}
+          </main>
+
+          <Modal
+            show={modal.show}
+            title={modal.title}
+            message={modal.message}
+            onClose={() => setModal({ show: false, title: '', message: '' })}
+          />
+        </div>
+      );
+    };
+
+    // Defer ReactDOM.render until google.script.run is available
+    function renderAppWhenReady() {
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        ReactDOM.render(<App />, document.getElementById('root'));
+      } else {
+        setTimeout(renderAppWhenReady, 100); // Retry after 100ms
+      }
+    }
+
+    // Call this function when the window loads
+    window.onload = renderAppWhenReady;
+  </script>
+</body>
+</html>
