@@ -15,14 +15,14 @@
     <!-- SheetJS (Excel Export) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        body{font-family:'Sarabun',sans-serif;}
-        .swal2-container{z-index:2000!important;}/* ensure modal over nav */
+        body { font-family: 'Sarabun', sans-serif; }
+        .swal2-container { z-index: 2000 !important; } /* ensure modal over nav */
     </style>
 </head>
 <body class="bg-gray-100">
 
 <!-- =========================================
-        LOGIN PAGE
+     LOGIN PAGE
 ========================================= -->
 <div id="login-page" class="flex items-center justify-center min-h-screen">
     <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
@@ -43,7 +43,7 @@
 </div>
 
 <!-- =========================================
-        MAIN APP
+     MAIN APP
 ========================================= -->
 <div id="app" class="hidden">
     <!-- NAV BAR -->
@@ -79,114 +79,211 @@
 </div>
 
 <!-- =========================================
-        APP SCRIPT
+     APP SCRIPT
 ========================================= -->
 <script>
 // ====== CONFIG ======
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQn8y8dK6Vb3tJz-P6F6lR8k-p_fL_d2J3bB_c9X5bX9fS3yD6aA7fT8g/exec"; //เปลี่ยนเป็นของคุณ
+// You'll need to replace this with your actual Google Apps Script URL after deployment
+const SCRIPT_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID_HERE/exec";
+const SPREADSHEET_ID = "1hnluLUwyqtJMenP_xXarpsCbeRbEd46Kn-YOYUuMF-w"; // Your Google Sheets ID
+
+// Demo data for offline mode
+const DEMO_DATA = {
+    users: [
+        { ID13: '1234567890123', Password: 'admin123', Name: 'ผู้ดูแลระบบ', Level: 'admin' },
+        { ID13: '9876543210987', Password: 'user123', Name: 'เภสัชกร', Level: 'user' }
+    ],
+    medicines: [
+        { ID: 'MED001', Name: 'Paracetamol 500mg', Type: 'Tablet' },
+        { ID: 'MED002', Name: 'Aspirin 100mg', Type: 'Tablet' },
+        { ID: 'MED003', Name: 'Insulin 100U/ml', Type: 'Injection' }
+    ],
+    places: ['OPD', 'IPD', 'ICU', 'ER', 'Pharmacy'],
+    processes: ['Prescribing', 'Dispensing', 'Administration', 'Monitoring'],
+    causes: ['Wrong Drug', 'Wrong Dose', 'Wrong Patient', 'Wrong Time', 'Wrong Route'],
+    records: []
+};
 
 // ====== GLOBAL STATE ======
 let currentUser = null;
-let masterData   = { users:[], medicines:[], places:[], processes:[], causes:[], records:[] };
-let currentPage  = 1;
+let masterData = { users: [], medicines: [], places: [], processes: [], causes: [], records: [] };
+let currentPage = 1;
 let itemsPerPage = 10;
 
 // ====== DOM ======
 const loginPage = document.getElementById('login-page');
-const appPage   = document.getElementById('app');
+const appPage = document.getElementById('app');
 const loginForm = document.getElementById('login-form');
-const loginError= document.getElementById('login-error');
-const userInfo  = document.getElementById('user-info');
+const loginError = document.getElementById('login-error');
+const userInfo = document.getElementById('user-info');
 const logoutBtn = document.getElementById('logout-btn');
-const navLinks  = document.querySelectorAll('.nav-link');
+const navLinks = document.querySelectorAll('.nav-link');
 
 // ====== SWEETALERT HELPERS ======
-function showLoading(text='กำลังโหลดข้อมูล...'){
-    Swal.fire({title:text,allowOutsideClick:false,didOpen:Swal.showLoading});
+function showLoading(text = 'กำลังโหลดข้อมูล...') {
+    // Check if SweetAlert is available and DOM is ready
+    if (typeof Swal !== 'undefined' && document.body) {
+        Swal.fire({ 
+            title: text, 
+            allowOutsideClick: false, 
+            didOpen: () => {
+                if (Swal.showLoading) {
+                    Swal.showLoading();
+                }
+            }
+        });
+    }
 }
-function hideLoading(){Swal.close();}
-function showSuccess(text='ดำเนินการเสร็จสิ้น!'){
-    Swal.fire({icon:'success',title:'สำเร็จ',text:text,timer:2000,showConfirmButton:false});
+function hideLoading() { 
+    if (typeof Swal !== 'undefined') {
+        Swal.close(); 
+    }
 }
-function showError(title,html){Swal.fire({icon:'error',title,html});}
+function showSuccess(text = 'ดำเนินการเสร็จสิ้น!') {
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({ icon: 'success', title: 'สำเร็จ', text: text, timer: 2000, showConfirmButton: false });
+    }
+}
+function showError(title, html) { 
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({ icon: 'error', title, html });
+    } else {
+        alert(`${title}: ${html}`);
+    }
+}
 
 // ====== PAGE NAVIGATION ======
-function showPage(pageId){
-    document.querySelectorAll('.page-content').forEach(p=>p.classList.add('hidden'));
+function showPage(pageId) {
+    document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
     document.getElementById(pageId).classList.remove('hidden');
-    navLinks.forEach(l=>{
-        l.classList.toggle('bg-gray-200',l.dataset.page===pageId);
-        l.classList.toggle('font-bold',   l.dataset.page===pageId);
+    navLinks.forEach(l => {
+        l.classList.toggle('bg-gray-200', l.dataset.page === pageId);
+        l.classList.toggle('font-bold', l.dataset.page === pageId);
     });
     // render
-    switch(pageId){
-        case 'records-list-page': renderRecordsList();break;
-        case 'record-form-page':  renderRecordForm();break;
-        case 'dashboard-page':    renderDashboard();break;
-        case 'users-page':        renderUsersPage();break;
-        case 'medicines-page':    renderMedicinesPage();break;
+    switch (pageId) {
+        case 'records-list-page': renderRecordsList(); break;
+        case 'record-form-page': renderRecordForm(); break;
+        case 'dashboard-page': renderDashboard(); break;
+        case 'users-page': renderUsersPage(); break;
+        case 'medicines-page': renderMedicinesPage(); break;
     }
 }
 
 // ====== FETCH HELPERS ======
-async function fetchDataFromSheet(action){
-    const url = `${SCRIPT_URL}?action=${action}&t=${Date.now()}`;
-    const res = await fetch(url);
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    if(json.status!=='success') throw new Error(json.message||'Unknown');
-    return json.data||[];
+async function fetchDataFromSheet(action) {
+    try {
+        const url = `${SCRIPT_URL}?action=${action}&t=${Date.now()}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (json.status !== 'success') throw new Error(json.message || 'Unknown');
+        return json.result || [];
+    } catch (error) {
+        console.warn(`Failed to fetch ${action} from server, using demo data:`, error);
+        // Fallback to demo data when server is unavailable
+        switch (action) {
+            case 'getusers': return DEMO_DATA.users;
+            case 'getmedicines': return DEMO_DATA.medicines;
+            case 'getplaces': return DEMO_DATA.places;
+            case 'getprocesses': return DEMO_DATA.processes;
+            case 'getcauses': return DEMO_DATA.causes;
+            case 'getrecords': return DEMO_DATA.records;
+            default: return [];
+        }
+    }
 }
 
 // ====== AUTH ======
-loginForm.addEventListener('submit',async e=>{
-    e.preventDefault();loginError.textContent='';
+loginForm.addEventListener('submit', async e => {
+    e.preventDefault(); 
+    loginError.textContent = '';
     const id = document.getElementById('login-id').value.trim();
     const pw = document.getElementById('login-password').value;
-    try{
-        if(masterData.users.length===0){showLoading('กำลังตรวจสอบผู้ใช้...');masterData.users = await fetchDataFromSheet('getUsers');hideLoading();}
-        const user = masterData.users.find(u=>u.ID13===id && u.Password===pw);
-        if(!user){loginError.textContent='ID หรือรหัสผ่านไม่ถูกต้อง';return;}
-        currentUser=user;
+      try {
+        if (masterData.users.length === 0) { 
+            showLoading('กำลังตรวจสอบผู้ใช้...'); 
+            masterData.users = await fetchDataFromSheet('getusers'); 
+            hideLoading(); 
+        }
+        
+        const user = masterData.users.find(u => u.ID13 === id && u.Password === pw);
+        if (!user) { 
+            loginError.textContent = 'ID หรือรหัสผ่านไม่ถูกต้อง'; 
+            return; 
+        }
+        
+        currentUser = user;
         loginPage.classList.add('hidden');
         appPage.classList.remove('hidden');
-        userInfo.textContent=`ผู้ใช้: ${user.Name} (${user.Level})`;
-        if(user.Level==='admin'){document.getElementById('nav-users').classList.remove('hidden');document.getElementById('nav-medicines').classList.remove('hidden');}
+        userInfo.textContent = `ผู้ใช้: ${user.Name} (${user.Level})`;
+        
+        if (user.Level === 'admin') { 
+            document.getElementById('nav-users').classList.remove('hidden'); 
+            document.getElementById('nav-medicines').classList.remove('hidden'); 
+        }
+        
         await loadAllMasterData();
         showPage('records-list-page');
-    }catch(err){hideLoading();loginError.textContent='เกิดข้อผิดพลาดในการเข้าสู่ระบบ';console.error(err);} 
+        
+    } catch (err) { 
+        hideLoading(); 
+        loginError.textContent = 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ - ใช้ข้อมูลตัวอย่าง'; 
+        console.error('Login error:', err);
+        
+        // Show demo credentials hint
+        if (masterData.users.length === 0) {
+            masterData.users = DEMO_DATA.users;
+            loginError.textContent += ' (ลอง ID: 1234567890123, Password: admin123)';
+        }
+    }
 });
-logoutBtn.addEventListener('click',()=>{currentUser=null;appPage.classList.add('hidden');loginPage.classList.remove('hidden');loginForm.reset();loginError.textContent='';});
+logoutBtn.addEventListener('click', () => { currentUser = null; appPage.classList.add('hidden'); loginPage.classList.remove('hidden'); loginForm.reset(); loginError.textContent = ''; });
 
 // ====== LOAD MASTER DATA ======
-async function loadAllMasterData(){
-    showLoading();
-    try{
-        const [medicines,places,processes,causes,records] = await Promise.all([
-            fetchDataFromSheet('getMedicines'),
-            fetchDataFromSheet('getPlaces'),
-            fetchDataFromSheet('getProcesses'),
-            fetchDataFromSheet('getCauses'),
-            fetchDataFromSheet('getRecords')
+async function loadAllMasterData() {
+    showLoading();    try {
+        const [medicines, places, processes, causes, records] = await Promise.all([
+            fetchDataFromSheet('getmedicines'),
+            fetchDataFromSheet('getplaces'),
+            fetchDataFromSheet('getprocesses'),
+            fetchDataFromSheet('getcauses'),
+            fetchDataFromSheet('getrecords')
         ]);
-        Object.assign(masterData,{medicines,places,processes,causes,records:records.sort((a,b)=>new Date(b.วันที่เกิดเหตุการณ์)-new Date(a.วันที่เกิดเหตุการณ์))});
-    }catch(e){console.error(e);showError('โหลดข้อมูลล้มเหลว',e.message);}finally{hideLoading();}
+        Object.assign(masterData, { 
+            medicines, 
+            places, 
+            processes, 
+            causes, 
+            records: records.sort((a, b) => {
+                const dateA = new Date(a.วันที่เกิดเหตุการณ์ || a.date || '1970-01-01');
+                const dateB = new Date(b.วันที่เกิดเหตุการณ์ || b.date || '1970-01-01');
+                return dateB - dateA;
+            })
+        });
+    } catch (e) { 
+        console.error('Load master data error:', e); 
+        showError('โหลดข้อมูลล้มเหลว - ใช้ข้อมูลตัวอย่าง', 'กำลังทำงานในโหมดออฟไลน์'); 
+    } finally { 
+        hideLoading(); 
+    }
 }
 
 // ====== NAV LINKS ======
-navLinks.forEach(l=>l.addEventListener('click',e=>showPage(e.target.dataset.page)));
+navLinks.forEach(l => l.addEventListener('click', e => showPage(e.target.dataset.page)));
 
 // ====== RENDER FUNCTIONS =========
-function renderRecordsList(searchTerm=''){
-    const container=document.getElementById('records-list-page');
+function renderRecordsList(searchTerm = '') {
+    const container = document.getElementById('records-list-page');
     // filter
-    const filtered = masterData.records.filter(r=>{
-        const term=searchTerm.toLowerCase();
-        return ['เลขที่รายงาน','สถานที่','รายการยาที่ผิด','กระบวนการ'].some(k=>((r[k]||'').toLowerCase().includes(term)));});
-    const totalPages=Math.max(1,Math.ceil(filtered.length/itemsPerPage));
-    const display=filtered.slice((currentPage-1)*itemsPerPage,currentPage*itemsPerPage);
+    const filtered = masterData.records.filter(r => {
+        const term = searchTerm.toLowerCase();
+        return ['เลขที่รายงาน', 'สถานที่', 'รายการยาที่ผิด', 'กระบวนการ'].some(k => ((r[k] || '').toLowerCase().includes(term)));
+    });
+    const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+    const display = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-    container.innerHTML=`
+    container.innerHTML = `
     <div class="p-6 bg-white rounded-lg shadow-md">
         <div class="flex flex-col items-center justify-between gap-4 mb-4 md:flex-row">
             <h2 class="text-xl font-bold text-gray-800">รายการที่บันทึก</h2>
@@ -199,47 +296,47 @@ function renderRecordsList(searchTerm=''){
         <div class="overflow-x-auto">
             <table class="min-w-full bg-white">
                 <thead class="bg-gray-200">
-                    <tr>${['เลขที่รายงาน','วันที่เกิดเหตุการณ์','สถานที่','รายการยาที่ผิด','กระบวนการ'].map(h=>`<th class="px-6 py-3 text-xs font-medium text-left text-gray-500 uppercase">${h}</th>`).join('')}</tr>
+                    <tr>${['เลขที่รายงาน', 'วันที่เกิดเหตุการณ์', 'สถานที่', 'รายการยาที่ผิด', 'กระบวนการ'].map(h => `<th class="px-6 py-3 text-xs font-medium text-left text-gray-500 uppercase">${h}</th>`).join('')}</tr>
                 </thead>
-                <tbody>${display.map(r=>`
+                <tbody>${display.map(r => `
                     <tr class="hover:bg-gray-100">
-                        <td class="px-6 py-4">${r.เลขที่รายงาน||''}</td>
-                        <td class="px-6 py-4">${r.วันที่เกิดเหตุการณ์?new Date(r.วันที่เกิดเหตุการณ์).toLocaleDateString('th-TH'):''}</td>
-                        <td class="px-6 py-4">${r.สถานที่||''}</td>
-                        <td class="px-6 py-4">${r.รายการยาที่ผิด||''}</td>
-                        <td class="px-6 py-4">${r.กระบวนการ||''}</td>
+                        <td class="px-6 py-4">${r.เลขที่รายงาน || ''}</td>
+                        <td class="px-6 py-4">${r.วันที่เกิดเหตุการณ์ ? new Date(r.วันที่เกิดเหตุการณ์).toLocaleDateString('th-TH') : ''}</td>
+                        <td class="px-6 py-4">${r.สถานที่ || ''}</td>
+                        <td class="px-6 py-4">${r.รายการยาที่ผิด || ''}</td>
+                        <td class="px-6 py-4">${r.กระบวนการ || ''}</td>
                     </tr>`).join('')}</tbody>
             </table>
         </div>
         <div class="flex items-center justify-between mt-4">
             <div class="flex items-center gap-2"><label>แสดง:</label>
-                <select id="items-per-page" class="p-1 border border-gray-300 rounded-md">${[10,30,50].map(n=>`<option value="${n}" ${itemsPerPage===n?'selected':''}>${n}</option>`).join('')}</select><span>รายการ</span></div>
+                <select id="items-per-page" class="p-1 border border-gray-300 rounded-md">${[10, 30, 50].map(n => `<option value="${n}" ${itemsPerPage === n ? 'selected' : ''}>${n}</option>`).join('')}</select><span>รายการ</span></div>
             <div class="flex items-center gap-2">
-                <button id="prev-page" class="px-3 py-1 bg-gray-200 rounded-md" ${currentPage===1?'disabled':''}>ก่อนหน้า</button>
+                <button id="prev-page" class="px-3 py-1 bg-gray-200 rounded-md" ${currentPage === 1 ? 'disabled' : ''}>ก่อนหน้า</button>
                 <span>หน้า ${currentPage} จาก ${totalPages}</span>
-                <button id="next-page" class="px-3 py-1 bg-gray-200 rounded-md" ${currentPage===totalPages?'disabled':''}>ถัดไป</button>
+                <button id="next-page" class="px-3 py-1 bg-gray-200 rounded-md" ${currentPage === totalPages ? 'disabled' : ''}>ถัดไป</button>
             </div>
         </div>
     </div>`;
 
     // events
-    document.getElementById('search-record').addEventListener('input',e=>{currentPage=1;renderRecordsList(e.target.value);});
-    document.getElementById('export-csv').addEventListener('click',()=>exportToCSV(filtered));
-    document.getElementById('export-excel').addEventListener('click',()=>exportToExcel(filtered));
-    document.getElementById('items-per-page').addEventListener('change',e=>{itemsPerPage=parseInt(e.target.value);currentPage=1;renderRecordsList(searchTerm);});
-    document.getElementById('prev-page').addEventListener('click',()=>{if(currentPage>1){currentPage--;renderRecordsList(searchTerm);}});
-    document.getElementById('next-page').addEventListener('click',()=>{if(currentPage<totalPages){currentPage++;renderRecordsList(searchTerm);}});
+    document.getElementById('search-record').addEventListener('input', e => { currentPage = 1; renderRecordsList(e.target.value); });
+    document.getElementById('export-csv').addEventListener('click', () => exportToCSV(filtered));
+    document.getElementById('export-excel').addEventListener('click', () => exportToExcel(filtered));
+    document.getElementById('items-per-page').addEventListener('change', e => { itemsPerPage = parseInt(e.target.value); currentPage = 1; renderRecordsList(searchTerm); });
+    document.getElementById('prev-page').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderRecordsList(searchTerm); } });
+    document.getElementById('next-page').addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; renderRecordsList(searchTerm); } });
 }
 
-function renderRecordForm(){
-    const container=document.getElementById('record-form-page');
-    container.innerHTML=`<div class="p-6 bg-white rounded-lg shadow-md">กำลังโหลด...</div>`;
+function renderRecordForm() {
+    const container = document.getElementById('record-form-page');
+    container.innerHTML = `<div class="p-6 bg-white rounded-lg shadow-md">กำลังโหลด...</div>`;
     // build options only once master data loaded
-    const placeOpts = masterData.places.map(p=>`<option value="${p.Name}">${p.Name}</option>`).join('');
-    const procOpts  = masterData.processes.map(p=>`<option value="${p.Name}">${p.Name}</option>`).join('');
-    const causeOpts = masterData.causes.map(c=>`<option value="${c.Name}">${c.Name}</option>`).join('');
-    const medOpts   = masterData.medicines.map(m=>`<option value="${m.Name}">`).join('');
-    container.innerHTML=`
+    const placeOpts = masterData.places.map(p => `<option value="${p.Name}">${p.Name}</option>`).join('');
+    const procOpts = masterData.processes.map(p => `<option value="${p.Name}">${p.Name}</option>`).join('');
+    const causeOpts = masterData.causes.map(c => `<option value="${c.Name}">${c.Name}</option>`).join('');
+    const medOpts = masterData.medicines.map(m => `<option value="${m.Name}"></option>`).join('');
+    container.innerHTML = `
     <div class="p-6 bg-white rounded-lg shadow-md">
         <h2 class="mb-6 text-xl font-bold text-gray-800">บันทึกรายการความคลาดเคลื่อนทางยา</h2>
         <form id="record-form" class="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -260,37 +357,37 @@ function renderRecordForm(){
         </form>
     </div>`;
     // listeners
-    const processSel=document.getElementById('process');
-    const processOther=document.getElementById('process_other');
-    processSel.addEventListener('change',()=>processOther.classList.toggle('hidden',processSel.value!=='อื่นๆ'));
-    const correct=document.getElementById('correct_medicine_search');
-    const incorrect=document.getElementById('incorrect_medicine_search');
-    const hadStatus=document.getElementById('had_status');
-    const hadBox=document.getElementById('had_box');
-    function updateHAD(){
-        const c=masterData.medicines.find(m=>m.Name===correct.value);
-        const i=masterData.medicines.find(m=>m.Name===incorrect.value);
-        const isHad=(c&&c.HAD==='yes')||(i&&i.HAD==='yes');
-        hadStatus.textContent=isHad?'ใช่ - เป็น High Alert Drug':'ไม่ใช่';
-        hadBox.className=isHad?'p-3 bg-red-100 border-l-4 border-red-500 rounded-md md:col-span-2':'p-3 bg-green-100 border-l-4 border-green-500 rounded-md md:col-span-2';
+    const processSel = document.getElementById('process');
+    const processOther = document.getElementById('process_other');
+    processSel.addEventListener('change', () => processOther.classList.toggle('hidden', processSel.value !== 'อื่นๆ'));
+    const correct = document.getElementById('correct_medicine_search');
+    const incorrect = document.getElementById('incorrect_medicine_search');
+    const hadStatus = document.getElementById('had_status');
+    const hadBox = document.getElementById('had_box');
+    function updateHAD() {
+        const c = masterData.medicines.find(m => m.Name === correct.value);
+        const i = masterData.medicines.find(m => m.Name === incorrect.value);
+        const isHad = (c && c.HAD === 'yes') || (i && i.HAD === 'yes');
+        hadStatus.textContent = isHad ? 'ใช่ - เป็น High Alert Drug' : 'ไม่ใช่';
+        hadBox.className = isHad ? 'p-3 bg-red-100 border-l-4 border-red-500 rounded-md md:col-span-2' : 'p-3 bg-green-100 border-l-4 border-green-500 rounded-md md:col-span-2';
     }
-    correct.addEventListener('change',updateHAD);incorrect.addEventListener('change',updateHAD);
-    document.getElementById('record-form').addEventListener('submit',handleRecordSubmit);
+    correct.addEventListener('change', updateHAD); incorrect.addEventListener('change', updateHAD);
+    document.getElementById('record-form').addEventListener('submit', handleRecordSubmit);
 }
 
-function renderDashboard(){
-    const c=document.getElementById('dashboard-page');
-    if(masterData.records.length===0){c.innerHTML='<p class="p-6 bg-white rounded-lg shadow-md">ไม่มีข้อมูล</p>';return;}
+function renderDashboard() {
+    const c = document.getElementById('dashboard-page');
+    if (masterData.records.length === 0) { c.innerHTML = '<p class="p-6 bg-white rounded-lg shadow-md">ไม่มีข้อมูล</p>'; return; }
     // aggregate
-    const total=masterData.records.length;
-    const byMonth={},byShift={},byPlace={},byType={};
-    masterData.records.forEach(r=>{
-        if(r.วันที่เกิดเหตุการณ์){const k=new Date(r.วันที่เกิดเหตุการณ์).toLocaleString('th-TH',{month:'short',year:'numeric'});byMonth[k]=(byMonth[k]||0)+1;}
-        byShift[r.เวร]=(byShift[r.เวร]||0)+1;
-        byPlace[r.สถานที่]=(byPlace[r.สถานที่]||0)+1;
-        byType[r.ประเภทผู้ป่วย]=(byType[r.ประเภทผู้ป่วย]||0)+1;
+    const total = masterData.records.length;
+    const byMonth = {}, byShift = {}, byPlace = {}, byType = {};
+    masterData.records.forEach(r => {
+        if (r.วันที่เกิดเหตุการณ์) { const k = new Date(r.วันที่เกิดเหตุการณ์).toLocaleString('th-TH', { month: 'short', year: 'numeric' }); byMonth[k] = (byMonth[k] || 0) + 1; }
+        byShift[r.เวร] = (byShift[r.เวร] || 0) + 1;
+        byPlace[r.สถานที่] = (byPlace[r.สถานที่] || 0) + 1;
+        byType[r.ประเภทผู้ป่วย] = (byType[r.ประเภทผู้ป่วย] || 0) + 1;
     });
-    c.innerHTML=`<div class="p-6 bg-white rounded-lg shadow-md">
+    c.innerHTML = `<div class="p-6 bg-white rounded-lg shadow-md">
         <h2 class="mb-6 text-xl font-bold">Dashboard</h2>
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"><div class="p-4 text-white bg-blue-500 rounded-lg shadow"><div class="text-sm uppercase">รายงานทั้งหมด</div><div class="mt-1 text-3xl font-bold">${total}</div></div></div>
         <div class="grid grid-cols-1 gap-6 mt-8 lg:grid-cols-2">
@@ -301,75 +398,77 @@ function renderDashboard(){
         </div>
     </div>`;
     // destroy old charts if exist
-    ['monthChart','shiftChart','placeChart','typeChart'].forEach(id=>{if(window[id])window[id].destroy();});
-    window.monthChart=new Chart(document.getElementById('monthChart'),{type:'bar',data:{labels:Object.keys(byMonth),datasets:[{data:Object.values(byMonth)}]}});
-    window.shiftChart=new Chart(document.getElementById('shiftChart'),{type:'pie',data:{labels:Object.keys(byShift),datasets:[{data:Object.values(byShift)}]}});
-    window.placeChart=new Chart(document.getElementById('placeChart'),{type:'bar',data:{labels:Object.keys(byPlace),datasets:[{data:Object.values(byPlace)}]},options:{indexAxis:'y'}});
-    window.typeChart=new Chart(document.getElementById('typeChart'),{type:'doughnut',data:{labels:Object.keys(byType),datasets:[{data:Object.values(byType)}]}});
+    ['monthChart', 'shiftChart', 'placeChart', 'typeChart'].forEach(id => { if (window[id]) window[id].destroy(); });
+    window.monthChart = new Chart(document.getElementById('monthChart'), { type: 'bar', data: { labels: Object.keys(byMonth), datasets: [{ data: Object.values(byMonth), label: 'จำนวน' }] } });
+    window.shiftChart = new Chart(document.getElementById('shiftChart'), { type: 'pie', data: { labels: Object.keys(byShift), datasets: [{ data: Object.values(byShift) }] } });
+    window.placeChart = new Chart(document.getElementById('placeChart'), { type: 'bar', data: { labels: Object.keys(byPlace), datasets: [{ data: Object.values(byPlace), label: 'จำนวน' }] }, options: { indexAxis: 'y' } });
+    window.typeChart = new Chart(document.getElementById('typeChart'), { type: 'doughnut', data: { labels: Object.keys(byType), datasets: [{ data: Object.values(byType) }] } });
 }
 
-function renderUsersPage(){
-    const c=document.getElementById('users-page');
-    if(masterData.users.length===0){c.innerHTML='<p class="p-6 bg-white rounded-lg shadow-md">ไม่มีข้อมูลผู้ใช้</p>';return;}
-    c.innerHTML=`<div class="p-6 bg-white rounded-lg shadow-md overflow-x-auto">
+function renderUsersPage() {
+    const c = document.getElementById('users-page');
+    if (masterData.users.length === 0) { c.innerHTML = '<p class="p-6 bg-white rounded-lg shadow-md">ไม่มีข้อมูลผู้ใช้</p>'; return; }
+    c.innerHTML = `<div class="p-6 bg-white rounded-lg shadow-md overflow-x-auto">
         <h2 class="mb-4 text-xl font-bold">ผู้ใช้งาน</h2>
-        <table class="min-w-full bg-white"><thead class="bg-gray-200"><tr>${['ID13','ชื่อ','ตำแหน่ง','Level'].map(h=>`<th class='px-4 py-2 text-left'>${h}</th>`).join('')}<th></th></tr></thead><tbody>${masterData.users.map(u=>`<tr class='hover:bg-gray-50'><td class='px-4 py-2'>${u.ID13}</td><td class='px-4 py-2'>${u.Name}</td><td class='px-4 py-2'>${u.Position}</td><td class='px-4 py-2'>${u.Level}</td><td class='px-4 py-2 text-right text-sm text-indigo-600 cursor-pointer' data-id='${u.ID13}'>แก้ไข</td></tr>`).join('')}</tbody></table>
+        <table class="min-w-full bg-white"><thead class="bg-gray-200"><tr>${['ID13', 'ชื่อ', 'ตำแหน่ง', 'Level'].map(h => `<th class='px-4 py-2 text-left'>${h}</th>`).join('')}<th></th></tr></thead><tbody>${masterData.users.map(u => `<tr class='hover:bg-gray-50'><td class='px-4 py-2'>${u.ID13}</td><td class='px-4 py-2'>${u.Name}</td><td class='px-4 py-2'>${u.Position}</td><td class='px-4 py-2'>${u.Level}</td><td class='px-4 py-2 text-right text-sm text-indigo-600 cursor-pointer' data-id='${u.ID13}'>แก้ไข</td></tr>`).join('')}</tbody></table>
         <p class="mt-4 text-sm text-gray-500 italic">* ฟังก์ชันแก้ไข/เพิ่ม กำลังพัฒนา</p>
     </div>`;
 }
-function renderMedicinesPage(){document.getElementById('medicines-page').innerHTML='<div class="p-6 bg-white rounded-lg shadow-md"><h2 class="text-xl font-bold">จัดการยา</h2><p>อยู่ระหว่างพัฒนา</p></div>';}
+function renderMedicinesPage() { document.getElementById('medicines-page').innerHTML = '<div class="p-6 bg-white rounded-lg shadow-md"><h2 class="text-xl font-bold">จัดการยา</h2><p>อยู่ระหว่างพัฒนา</p></div>'; }
 
 // ====== FORM SUBMIT ======
-async function handleRecordSubmit(e){
-    e.preventDefault();showLoading('กำลังบันทึก...');
-    const processSel=document.getElementById('process');
-    const processVal=processSel.value==='อื่นๆ'?document.getElementById('process_other').value:processSel.value;
-    const correct=document.getElementById('correct_medicine_search').value;
-    const incorrect=document.getElementById('incorrect_medicine_search').value;
-    const cObj=masterData.medicines.find(m=>m.Name===correct);
-    const iObj=masterData.medicines.find(m=>m.Name===incorrect);
-    const isHad=(cObj&&cObj.HAD==='yes')||(iObj&&iObj.HAD==='yes');
-    const payload={action:'addRecord',data:{
-        วันที่เกิดเหตุการณ์:document.getElementById('event_date').value,
-        เวร:document.getElementById('shift').value,
-        สถานที่:document.getElementById('place').value,
-        ประเภทผู้ป่วย:document.getElementById('patient_type').value,
-        กระบวนการ:processVal,
-        รายการยาที่ถูกต้อง:correct,
-        รายการยาที่ผิด:incorrect,
-        HAD:isHad?'yes':'no',
-        สาเหตุ:document.getElementById('cause').value,
-        รายละเอียด:document.getElementById('details').value,
-        ผู้บันทึก:currentUser.Name
-    }};
-    try{
-        const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-        if(!res.ok)throw new Error(`HTTP ${res.status}`);
-        const j=await res.json();
-        if(j.status!=='success')throw new Error(j.message);
+async function handleRecordSubmit(e) {
+    e.preventDefault(); showLoading('กำลังบันทึก...');
+    const processSel = document.getElementById('process');
+    const processVal = processSel.value === 'อื่นๆ' ? document.getElementById('process_other').value : processSel.value;
+    const correct = document.getElementById('correct_medicine_search').value;
+    const incorrect = document.getElementById('incorrect_medicine_search').value;
+    const cObj = masterData.medicines.find(m => m.Name === correct);
+    const iObj = masterData.medicines.find(m => m.Name === incorrect);
+    const isHad = (cObj && cObj.HAD === 'yes') || (iObj && iObj.HAD === 'yes');
+    const payload = {
+        action: 'addRecord', data: {
+            วันที่เกิดเหตุการณ์: document.getElementById('event_date').value,
+            เวร: document.getElementById('shift').value,
+            สถานที่: document.getElementById('place').value,
+            ประเภทผู้ป่วย: document.getElementById('patient_type').value,
+            กระบวนการ: processVal,
+            รายการยาที่ถูกต้อง: correct,
+            รายการยาที่ผิด: incorrect,
+            HAD: isHad ? 'yes' : 'no',
+            สาเหตุ: document.getElementById('cause').value,
+            รายละเอียด: document.getElementById('details').value,
+            ผู้บันทึก: currentUser.Name
+        }
+    };
+    try {
+        const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const j = await res.json();
+        if (j.status !== 'success') throw new Error(j.message);
         showSuccess();
         await loadAllMasterData();
         showPage('records-list-page');
-    }catch(err){console.error(err);showError('บันทึกล้มเหลว',err.message);}finally{hideLoading();}
+    } catch (err) { console.error(err); showError('บันทึกล้มเหลว', err.message); } finally { hideLoading(); }
 }
 
 // ====== EXPORT HELPERS ======
-function exportToCSV(rows){
-    if(rows.length===0)return;
-    const headers=Object.keys(rows[0]);
-    const data=[headers.join(',')].concat(rows.map(r=>headers.map(h=>`"${(r[h]||'').toString().replace(/"/g,'"')}`+`"`).join(','))).join('\n');
-    const blob=new Blob(["\uFEFF"+data],{type:'text/csv;charset=utf-8;'});
-    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='med-error.csv';a.click();URL.revokeObjectURL(url);
+function exportToCSV(rows) {
+    if (rows.length === 0) return;
+    const headers = Object.keys(rows[0]);
+    const data = [headers.join(',')].concat(rows.map(r => headers.map(h => `"${(r[h] || '').toString().replace(/"/g, '""')}"`).join(','))).join('\n');
+    const blob = new Blob(["\uFEFF" + data], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'med-error.csv'; a.click(); URL.revokeObjectURL(url);
 }
-function exportToExcel(rows){
-    if(rows.length===0){showError('ไม่พบข้อมูล','');return;}
+function exportToExcel(rows) {
+    if (rows.length === 0) { showError('ไม่พบข้อมูล', 'ไม่มีข้อมูลสำหรับส่งออก'); return; }
     const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'รายงาน');
-    XLSX.writeFile(wb,`med-error-${new Date().toISOString().substring(0,10)}.xlsx`);
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'รายงาน');
+    XLSX.writeFile(wb, `med-error-${new Date().toISOString().substring(0, 10)}.xlsx`);
 }
 
 // ====== INIT ======
-document.addEventListener('DOMContentLoaded',()=>{loginPage.classList.remove('hidden');});
+document.addEventListener('DOMContentLoaded', () => { loginPage.classList.remove('hidden'); });
 </script>
 </body>
-</html>
+</ht
