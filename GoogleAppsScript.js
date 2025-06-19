@@ -3,7 +3,7 @@
  * This is your actual working Google Apps Script code
  */
 
-const SPREADSHEET_ID = "1hnluLUwyqtJMenP_xXarpsCbeRbEd46Kn-YOYUuMF-w";
+const SPREADSHEET_ID = "1UowKSMk6GLpof8GIJZWTn90JFpGcY3adqqBYBmMcIgo";
 const SPREADSHEET_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit`;
 
 const SHEET_NAMES = {
@@ -31,7 +31,12 @@ function createErrorResponse(message, errorObj) {
   }
   return ContentService
     .createTextOutput(JSON.stringify({ status: "error", message: message }))
-    .setMimeType(ContentService.MimeType.JSON);
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeaders({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
 }
 
 /**
@@ -84,14 +89,24 @@ function doGet(e) {
         addRecord(e.parameter); 
         return ContentService
             .createTextOutput(JSON.stringify({ status: "success", message: "Data saved successfully." }))
-            .setMimeType(ContentService.MimeType.JSON);
+            .setMimeType(ContentService.MimeType.JSON)
+            .setHeaders({
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type'
+            });
       default:
         throw new Error("Invalid action specified for GET request.");
     }
 
     return ContentService
       .createTextOutput(JSON.stringify({ status: "success", result: data }))
-      .setMimeType(ContentService.MimeType.JSON);
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeaders({
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      });
 
   } catch (error) {
     // Catch specific errors thrown by getDataFromSheet or invalid action
@@ -186,5 +201,18 @@ function addRecord(recordData) {
   });
 
   sheet.appendRow(newRow); // Append the new row to the sheet
+}
+
+/**
+ * Handle OPTIONS requests for CORS preflight
+ */
+function doOptions(e) {
+  return ContentService
+    .createTextOutput('')
+    .setHeaders({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
 }
 
