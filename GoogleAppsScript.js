@@ -31,12 +31,7 @@ function createErrorResponse(message, errorObj) {
   }
   return ContentService
     .createTextOutput(JSON.stringify({ status: "error", message: message }))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeaders({
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
-    });
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
@@ -83,30 +78,19 @@ function doGet(e) {
         break;
       case 'getcauses':
         data = getDataFromSheet(SHEET_NAMES.CAUSE);
-        break;
-      case 'addrecord': // Handle addrecord operation via GET request parameters
+        break;      case 'addrecord': // Handle addrecord operation via GET request parameters
         // e.parameter contains all the data sent as query parameters
         addRecord(e.parameter); 
         return ContentService
             .createTextOutput(JSON.stringify({ status: "success", message: "Data saved successfully." }))
-            .setMimeType(ContentService.MimeType.JSON)
-            .setHeaders({
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-              'Access-Control-Allow-Headers': 'Content-Type'
-            });
+            .setMimeType(ContentService.MimeType.JSON);
       default:
         throw new Error("Invalid action specified for GET request.");
     }
 
     return ContentService
       .createTextOutput(JSON.stringify({ status: "success", result: data }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setHeaders({
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      });
+      .setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
     // Catch specific errors thrown by getDataFromSheet or invalid action
@@ -209,10 +193,6 @@ function addRecord(recordData) {
 function doOptions(e) {
   return ContentService
     .createTextOutput('')
-    .setHeaders({
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
-    });
+    .setMimeType(ContentService.MimeType.TEXT);
 }
 
