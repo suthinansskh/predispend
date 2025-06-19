@@ -1,1307 +1,375 @@
 <!DOCTYPE html>
-
 <html lang="th">
-
 <head>
-
-    <meta charset="UTF-8">
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>ระบบบันทึกความคลาดเคลื่อนทางยา</title>
-
-    <!-- Tailwind CSS for styling -->
-
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Sarabun font for Thai language support and overall aesthetics -->
-
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
-
-    <!-- Chart.js for data visualization in the dashboard -->
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-
-    <style>
-
-        /* Custom font for the entire body */
-
-        body {
-
-            font-family: 'Sarabun', sans-serif;
-
-        }
-
-        /* Basic modal styles (hidden by default) */
-
-        .modal {
-
-            display: none; /* Hidden by default */
-
-            position: fixed; /* Stay in place */
-
-            z-index: 100; /* Sit on top of other content */
-
-            left: 0;
-
-            top: 0;
-
-            width: 100%; /* Full width */
-
-            height: 100%; /* Full height */
-
-            overflow: auto; /* Enable scroll if content is too large */
-
-            background-color: rgb(0,0,0); /* Fallback color */
-
-            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-
-            display: flex; /* Use flexbox for centering content */
-
-            align-items: center; /* Center vertically */
-
-            justify-content: center; /* Center horizontally */
-
-        }
-
-        /* Styles for the modal content box */
-
-        .modal-content {
-
-            background-color: #fefefe;
-
-            padding: 20px;
-
-            border: 1px solid #888;
-
-            width: 80%;
-
-            max-width: 500px; /* Max width for better appearance */
-
-            border-radius: 10px; /* Rounded corners */
-
-            text-align: center;
-
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-
-        }
-
-        /* Loader animation styles */
-
-        .loader {
-
-            border: 8px solid #f3f3f3; /* Light grey base */
-
-            border-top: 8px solid #3498db; /* Blue spinning part */
-
-            border-radius: 50%; /* Makes it circular */
-
-            width: 60px;
-
-            height: 60px;
-
-            animation: spin 2s linear infinite; /* Spin animation */
-
-            margin: 0 auto; /* Center the loader */
-
-        }
-
-        /* Keyframe animation for the spinner */
-
-        @keyframes spin {
-
-            0% { transform: rotate(0deg); }
-
-            100% { transform: rotate(360deg); }
-
-        }
-
-        /* Custom scrollbar for dropdowns if they exceed max-height */
-
-        .searchable-dropdown-list {
-
-            max-height: 200px;
-
-            overflow-y: auto;
-
-        }
-
-    </style>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบบันทึกความคลาดเคลื่อนทางยา</title>
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- SheetJS (Excel Export) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        body{font-family:'Sarabun',sans-serif;}
+        .swal2-container{z-index:2000!important;}/* ensure modal over nav */
+    </style>
 </head>
-
 <body class="bg-gray-100">
 
-    <!-- Top colored bar -->
-
-    <div class="fixed top-0 left-0 right-0 z-50" style="height: 6px; background: linear-gradient(90deg, #10b981 0%, #2563eb 100%);"></div>
-
-    <!-- Main Application: Now visible by default -->
-
-    <div id="app" style="padding-top: 6px;">
-
-        <!-- Navigation Bar -->
-
-        <nav class="bg-white shadow-md border-b-4 border-emerald-500 sticky top-1.5 z-40">
-
-            <div class="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
-
-                <div class="flex items-center justify-between h-16">
-
-                    <div class="flex items-center">
-
-                        <span class="font-bold text-emerald-600">Med Error Report</span>
-
-                        <div class="hidden md:block">
-
-                            <div class="flex items-baseline ml-10 space-x-4">
-
-                                <!-- Navigation links for different pages in specified order -->
-
-                                <button data-page="login-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">ลงชื่อเข้าใช้งาน</button>
-
-                                <button data-page="record-form-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">บันทึกข้อมูล</button>
-
-                                <button data-page="records-list-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">รายการล่าสุด</button>
-
-                                <button data-page="dashboard-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">Dashboard</button>
-
-                                <!-- Dropdown for Settings -->
-
-                                <div class="relative group">
-
-                                    <button class="px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200 flex items-center">
-
-                                        การตั้งค่า
-
-                                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-
-                                        </svg>
-
-                                    </button>
-
-                                    <div class="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-
-                                        <div class="py-1">
-
-                                            <button data-page="users-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ผู้ใช้งาน</button>
-
-                                            <button data-page="medicines-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">รายการยา</button>
-
-                                            <button data-page="shifts-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">เวร</button>
-
-                                            <button data-page="patient-types-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ประเภทผู้ป่วย</button>
-
-                                            <button data-page="places-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">สถานที่</button>
-
-                                            <button data-page="processes-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">กระบวนการ</button>
-
-                                            <button data-page="causes-page" class="nav-link block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">สาเหตุ</button>
-
-                                        </div>
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="flex items-center">
-
-                         <!-- User info display is removed as there's no current user -->
-
-                         <!-- Logout button is also removed -->
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </nav>
-
-        
-
-        <!-- Main content area where different pages are rendered -->
-
-        <main class="p-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
-
-            <!-- Content Pages (ordered by navigation sequence) -->
-
-            <!-- 1. บันทึกข้อมูล -->
-
-            <div id="record-form-page" class="page-content hidden"></div>
-
-            
-
-            <!-- 2. รายการล่าสุด -->
-
-            <div id="records-list-page" class="page-content hidden"></div>
-
-            
-
-            <!-- 3. Dashboard -->
-
-            <div id="dashboard-page" class="page-content hidden"></div>
-
-            
-
-            <!-- Settings pages (การตั้งค่า dropdown order) -->
-
-            <!-- 4.1 ผู้ใช้งาน -->
-
-            <div id="users-page" class="page-content hidden"></div>
-
-            
-
-            <!-- 4.2 รายการยา -->
-
-            <div id="medicines-page" class="page-content hidden"></div>
-
-            
-
-            <!-- 4.3 เวร -->
-
-            <div id="shifts-page" class="page-content hidden"></div>
-
-            
-
-            <!-- 4.4 ประเภทผู้ป่วย -->
-
-            <div id="patient-types-page" class="page-content hidden"></div>
-
-            
-
-            <!-- 4.5 สถานที่ -->
-
-            <div id="places-page" class="page-content hidden"></div>
-
-            
-
-            <!-- 4.6 กระบวนการ -->
-
-            <div id="processes-page" class="page-content hidden"></div>
-
-            
-
-            <!-- 4.7 สาเหตุ -->
-
-            <div id="causes-page" class="page-content hidden"></div>
-
-        </main>
-
-    </div>
-
-
-
-    <!-- Modal Components (UI Feedback) -->
-
-    <!-- Loading Modal: Shows during data operations -->
-
-    <div id="loading-modal" class="modal">
-
-      <div class="modal-content">
-
-        <div class="loader"></div>
-
-        <p id="loading-text" class="mt-4 text-lg">กำลังบันทึกข้อมูล...</p>
-
-      </div>
-
-    </div>
-
-    
-
-    <!-- Success Modal: Shows after successful operations -->
-
-    <div id="success-modal" class="modal">
-
-      <div class="modal-content">
-
-        <!-- SVG checkmark icon -->
-
-        <svg class="w-16 h-16 mx-auto text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-
-        <p class="mt-4 text-lg">บันทึกข้อมูลสำเร็จ!</p>
-
-        <button onclick="document.getElementById('success-modal').style.display='none'" class="px-4 py-2 mt-4 text-white bg-emerald-500 rounded-md">ตกลง</button>
-
-      </div>
-
-    </div>
-
-
-
-    <!-- Login Page: User authentication interface -->
-
-    <div id="login-page" class="fixed inset-0 bg-gray-100 flex items-center justify-center z-30">
-
-        <div class="p-6 bg-white rounded-lg shadow-md max-w-md mx-auto">
-
-            <h2 class="mb-6 text-xl font-bold text-gray-800">ลงชื่อเข้าใช้งาน</h2>
-
-            <form id="login-form" class="space-y-4">
-
-                <div>
-
-                    <label for="username" class="block text-sm font-medium text-gray-700">ชื่อผู้ใช้</label>
-
-                    <input type="text" id="username" name="username" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
-
-                </div>
-
-                <div>
-
-                    <label for="password" class="block text-sm font-medium text-gray-700">รหัสผ่าน</label>
-
-                    <input type="password" id="password" name="password" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
-
-                </div>
-
-                <button type="submit" class="w-full px-4 py-2 text-white bg-emerald-500 rounded-md hover:bg-emerald-600">เข้าสู่ระบบ</button>
-
-            </form>
-
-        </div>
-
-    </div>
-
-
-
+<!-- =========================================
+        LOGIN PAGE
+========================================= -->
+<div id="login-page" class="flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+        <h2 class="text-2xl font-bold text-center text-gray-700">ระบบบันทึกความคลาดเคลื่อนทางยา</h2>
+        <form id="login-form" class="space-y-6" autocomplete="off">
+            <div>
+                <label for="login-id" class="text-sm font-medium text-gray-700">ID (13 หลัก)</label>
+                <input id="login-id" type="text" required maxlength="13" pattern="\d{13}" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="กรุณากรอก ID">
+            </div>
+            <div>
+                <label for="login-password" class="text-sm font-medium text-gray-700">Password</label>
+                <input id="login-password" type="password" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="กรุณากรอกรหัสผ่าน">
+            </div>
+            <button type="submit" class="w-full px-4 py-2 font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">เข้าสู่ระบบ</button>
+            <p id="login-error" class="text-sm text-center text-red-500"></p>
+        </form>
+    </div>
+</div>
+
+<!-- =========================================
+        MAIN APP
+========================================= -->
+<div id="app" class="hidden">
+    <!-- NAV BAR -->
+    <nav class="bg-white shadow-md">
+        <div class="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <span class="font-bold text-indigo-600">Med Error Report</span>
+                    <div class="hidden md:block ml-10 space-x-4">
+                        <button data-page="records-list-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">รายการที่บันทึก</button>
+                        <button data-page="record-form-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">บันทึกรายการใหม่</button>
+                        <button data-page="dashboard-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">Dashboard</button>
+                        <button id="nav-users" data-page="users-page" class="nav-link hidden px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">จัดการผู้ใช้</button>
+                        <button id="nav-medicines" data-page="medicines-page" class="nav-link hidden px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">จัดการยา</button>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span id="user-info" class="mr-4 text-sm text-gray-600"></span>
+                    <button id="logout-btn" class="px-3 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600">ออกจากระบบ</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- CONTENT -->
+    <main class="p-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <div id="records-list-page" class="page-content"></div>
+        <div id="record-form-page" class="page-content hidden"></div>
+        <div id="dashboard-page" class="page-content hidden"></div>
+        <div id="users-page" class="page-content hidden"></div>
+        <div id="medicines-page" class="page-content hidden"></div>
+    </main>
+</div>
+
+<!-- =========================================
+        APP SCRIPT
+========================================= -->
 <script>
+// ====== CONFIG ======
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQn8y8dK6Vb3tJz-P6F6lR8k-p_fL_d2J3bB_c9X5bX9fS3yD6aA7fT8g/exec"; //เปลี่ยนเป็นของคุณ
 
-// --- Configuration ---
+// ====== GLOBAL STATE ======
+let currentUser = null;
+let masterData   = { users:[], medicines:[], places:[], processes:[], causes:[], records:[] };
+let currentPage  = 1;
+let itemsPerPage = 10;
 
-// Google Apps Script Web App URL for backend operations
-
-// Replace this URL with your deployed Google Apps Script Web App URL
-
-// To get this URL:
-
-// 1. In Apps Script editor, click "Deploy" > "New deployment"
-
-// 2. Choose type as "Web app"
-
-// 3. Set "Execute as" to "Me" and "Who has access" to "Anyone"
-
-// 4. Click "Deploy" and copy the "Web app URL"
-
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzFrW_xMdCukPq_nx3FsoYHxxq3hH5hSRtvIKfAioJfqet_MKAJjACugUQ-X6ngZ1NqyQ/exec";
-
-
-
-// --- Global State Variables ---
-
-let masterData = {
-
-    users: [],        // List of all users for authentication and dropdowns
-
-    medicines: [],    // List of all medicines with HAD status
-
-    places: [],       // List of places/locations where errors occur
-
-    processes: [],    // List of processes involved in medication errors
-
-    causes: [],       // List of causes for medication errors
-
-    records: []       // List of all recorded medication errors
-
-};
-
-let currentPage = 1;      // Current page number for pagination
-
-let itemsPerPage = 10;    // Number of items to display per page
-
-
-
-// --- DOM Elements Caching ---
-
-const appPage = document.getElementById('app');
-
-const navLinks = document.querySelectorAll('.nav-link'); // All navigation buttons
-
-const loadingModal = document.getElementById('loading-modal');
-
-const successModal = document.getElementById('success-modal');
-
+// ====== DOM ======
 const loginPage = document.getElementById('login-page');
-
+const appPage   = document.getElementById('app');
 const loginForm = document.getElementById('login-form');
+const loginError= document.getElementById('login-error');
+const userInfo  = document.getElementById('user-info');
+const logoutBtn = document.getElementById('logout-btn');
+const navLinks  = document.querySelectorAll('.nav-link');
 
+// ====== SWEETALERT HELPERS ======
+function showLoading(text='กำลังโหลดข้อมูล...'){
+    Swal.fire({title:text,allowOutsideClick:false,didOpen:Swal.showLoading});
+}
+function hideLoading(){Swal.close();}
+function showSuccess(text='ดำเนินการเสร็จสิ้น!'){
+    Swal.fire({icon:'success',title:'สำเร็จ',text:text,timer:2000,showConfirmButton:false});
+}
+function showError(title,html){Swal.fire({icon:'error',title,html});}
 
-
-// --- Authentication & Session Management ---
-
-
-
-/**
-
- * Gets the current logged-in user from sessionStorage.
-
- * @returns {Object|null} - The current user object or null if not logged in.
-
- */
-
-function getCurrentUser() {
-
-    const userData = sessionStorage.getItem('currentUser');
-
-    return userData ? JSON.parse(userData) : null;
-
+// ====== PAGE NAVIGATION ======
+function showPage(pageId){
+    document.querySelectorAll('.page-content').forEach(p=>p.classList.add('hidden'));
+    document.getElementById(pageId).classList.remove('hidden');
+    navLinks.forEach(l=>{
+        l.classList.toggle('bg-gray-200',l.dataset.page===pageId);
+        l.classList.toggle('font-bold',   l.dataset.page===pageId);
+    });
+    // render
+    switch(pageId){
+        case 'records-list-page': renderRecordsList();break;
+        case 'record-form-page':  renderRecordForm();break;
+        case 'dashboard-page':    renderDashboard();break;
+        case 'users-page':        renderUsersPage();break;
+        case 'medicines-page':    renderMedicinesPage();break;
+    }
 }
 
-
-
-/**
-
- * Sets the current logged-in user in sessionStorage.
-
- * @param {Object} user - The user object to set as current user.
-
- */
-
-function setCurrentUser(user) {
-
-    sessionStorage.setItem('currentUser', JSON.stringify(user));
-
+// ====== FETCH HELPERS ======
+async function fetchDataFromSheet(action){
+    const url = `${SCRIPT_URL}?action=${action}&t=${Date.now()}`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if(json.status!=='success') throw new Error(json.message||'Unknown');
+    return json.data||[];
 }
 
+// ====== AUTH ======
+loginForm.addEventListener('submit',async e=>{
+    e.preventDefault();loginError.textContent='';
+    const id = document.getElementById('login-id').value.trim();
+    const pw = document.getElementById('login-password').value;
+    try{
+        if(masterData.users.length===0){showLoading('กำลังตรวจสอบผู้ใช้...');masterData.users = await fetchDataFromSheet('getUsers');hideLoading();}
+        const user = masterData.users.find(u=>u.ID13===id && u.Password===pw);
+        if(!user){loginError.textContent='ID หรือรหัสผ่านไม่ถูกต้อง';return;}
+        currentUser=user;
+        loginPage.classList.add('hidden');
+        appPage.classList.remove('hidden');
+        userInfo.textContent=`ผู้ใช้: ${user.Name} (${user.Level})`;
+        if(user.Level==='admin'){document.getElementById('nav-users').classList.remove('hidden');document.getElementById('nav-medicines').classList.remove('hidden');}
+        await loadAllMasterData();
+        showPage('records-list-page');
+    }catch(err){hideLoading();loginError.textContent='เกิดข้อผิดพลาดในการเข้าสู่ระบบ';console.error(err);} 
+});
+logoutBtn.addEventListener('click',()=>{currentUser=null;appPage.classList.add('hidden');loginPage.classList.remove('hidden');loginForm.reset();loginError.textContent='';});
 
-
-/**
-
- * Logs out the current user by clearing session data and showing login page.
-
- */
-
-function logout() {
-
-    sessionStorage.removeItem('currentUser');
-
-    loginPage.style.display = 'flex';
-
-    appPage.style.display = 'none';
-
+// ====== LOAD MASTER DATA ======
+async function loadAllMasterData(){
+    showLoading();
+    try{
+        const [medicines,places,processes,causes,records] = await Promise.all([
+            fetchDataFromSheet('getMedicines'),
+            fetchDataFromSheet('getPlaces'),
+            fetchDataFromSheet('getProcesses'),
+            fetchDataFromSheet('getCauses'),
+            fetchDataFromSheet('getRecords')
+        ]);
+        Object.assign(masterData,{medicines,places,processes,causes,records:records.sort((a,b)=>new Date(b.วันที่เกิดเหตุการณ์)-new Date(a.วันที่เกิดเหตุการณ์))});
+    }catch(e){console.error(e);showError('โหลดข้อมูลล้มเหลว',e.message);}finally{hideLoading();}
 }
 
+// ====== NAV LINKS ======
+navLinks.forEach(l=>l.addEventListener('click',e=>showPage(e.target.dataset.page)));
 
+// ====== RENDER FUNCTIONS =========
+function renderRecordsList(searchTerm=''){
+    const container=document.getElementById('records-list-page');
+    // filter
+    const filtered = masterData.records.filter(r=>{
+        const term=searchTerm.toLowerCase();
+        return ['เลขที่รายงาน','สถานที่','รายการยาที่ผิด','กระบวนการ'].some(k=>((r[k]||'').toLowerCase().includes(term)));});
+    const totalPages=Math.max(1,Math.ceil(filtered.length/itemsPerPage));
+    const display=filtered.slice((currentPage-1)*itemsPerPage,currentPage*itemsPerPage);
 
-/**
+    container.innerHTML=`
+    <div class="p-6 bg-white rounded-lg shadow-md">
+        <div class="flex flex-col items-center justify-between gap-4 mb-4 md:flex-row">
+            <h2 class="text-xl font-bold text-gray-800">รายการที่บันทึก</h2>
+            <div class="flex gap-2">
+                <input type="text" id="search-record" placeholder="ค้นหารายการ..." class="px-3 py-2 border border-gray-300 rounded-md" value="${searchTerm}">
+                <button id="export-csv"    class="px-4 py-2 text-white bg-green-600 rounded-md hover:bg-green-700">CSV</button>
+                <button id="export-excel"  class="px-4 py-2 text-white bg-blue-600  rounded-md hover:bg-blue-700">Excel</button>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white">
+                <thead class="bg-gray-200">
+                    <tr>${['เลขที่รายงาน','วันที่เกิดเหตุการณ์','สถานที่','รายการยาที่ผิด','กระบวนการ'].map(h=>`<th class="px-6 py-3 text-xs font-medium text-left text-gray-500 uppercase">${h}</th>`).join('')}</tr>
+                </thead>
+                <tbody>${display.map(r=>`
+                    <tr class="hover:bg-gray-100">
+                        <td class="px-6 py-4">${r.เลขที่รายงาน||''}</td>
+                        <td class="px-6 py-4">${r.วันที่เกิดเหตุการณ์?new Date(r.วันที่เกิดเหตุการณ์).toLocaleDateString('th-TH'):''}</td>
+                        <td class="px-6 py-4">${r.สถานที่||''}</td>
+                        <td class="px-6 py-4">${r.รายการยาที่ผิด||''}</td>
+                        <td class="px-6 py-4">${r.กระบวนการ||''}</td>
+                    </tr>`).join('')}</tbody>
+            </table>
+        </div>
+        <div class="flex items-center justify-between mt-4">
+            <div class="flex items-center gap-2"><label>แสดง:</label>
+                <select id="items-per-page" class="p-1 border border-gray-300 rounded-md">${[10,30,50].map(n=>`<option value="${n}" ${itemsPerPage===n?'selected':''}>${n}</option>`).join('')}</select><span>รายการ</span></div>
+            <div class="flex items-center gap-2">
+                <button id="prev-page" class="px-3 py-1 bg-gray-200 rounded-md" ${currentPage===1?'disabled':''}>ก่อนหน้า</button>
+                <span>หน้า ${currentPage} จาก ${totalPages}</span>
+                <button id="next-page" class="px-3 py-1 bg-gray-200 rounded-md" ${currentPage===totalPages?'disabled':''}>ถัดไป</button>
+            </div>
+        </div>
+    </div>`;
 
- * Handles user login authentication.
-
- * @param {Event} e - The form submission event.
-
- */
-
-async function handleLogin(e) {
-
-    e.preventDefault();
-
-    
-
-    const username = document.getElementById('username').value.trim();
-
-    const password = document.getElementById('password').value.trim();
-
-    
-
-    if (!username || !password) {
-
-        alert('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
-
-        return;
-
-    }
-
-    
-
-    // Find user in masterData.users array
-
-    const user = masterData.users.find(u => u.ID13 === username && u.Password === password);
-
-    
-
-    if (user) {
-
-        setCurrentUser(user);
-
-        loginPage.style.display = 'none';
-
-        appPage.style.display = 'block';
-
-        showPage('record-form-page'); // Show main page after login
-
-    } else {
-
-        alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
-
-    }
-
+    // events
+    document.getElementById('search-record').addEventListener('input',e=>{currentPage=1;renderRecordsList(e.target.value);});
+    document.getElementById('export-csv').addEventListener('click',()=>exportToCSV(filtered));
+    document.getElementById('export-excel').addEventListener('click',()=>exportToExcel(filtered));
+    document.getElementById('items-per-page').addEventListener('change',e=>{itemsPerPage=parseInt(e.target.value);currentPage=1;renderRecordsList(searchTerm);});
+    document.getElementById('prev-page').addEventListener('click',()=>{if(currentPage>1){currentPage--;renderRecordsList(searchTerm);}});
+    document.getElementById('next-page').addEventListener('click',()=>{if(currentPage<totalPages){currentPage++;renderRecordsList(searchTerm);}});
 }
 
-
-
-// --- Utility Functions ---
-
-
-
-/**
-
- * Displays the loading modal with a customizable message.
-
- * @param {string} text - The message to display in the loading modal.
-
- */
-
-function showLoading(text = 'กำลังโหลดข้อมูล...') {
-
-    document.getElementById('loading-text').textContent = text;
-
-    loadingModal.style.display = 'flex'; // Use flex to center the modal content
-
+function renderRecordForm(){
+    const container=document.getElementById('record-form-page');
+    container.innerHTML=`<div class="p-6 bg-white rounded-lg shadow-md">กำลังโหลด...</div>`;
+    // build options only once master data loaded
+    const placeOpts = masterData.places.map(p=>`<option value="${p.Name}">${p.Name}</option>`).join('');
+    const procOpts  = masterData.processes.map(p=>`<option value="${p.Name}">${p.Name}</option>`).join('');
+    const causeOpts = masterData.causes.map(c=>`<option value="${c.Name}">${c.Name}</option>`).join('');
+    const medOpts   = masterData.medicines.map(m=>`<option value="${m.Name}">`).join('');
+    container.innerHTML=`
+    <div class="p-6 bg-white rounded-lg shadow-md">
+        <h2 class="mb-6 text-xl font-bold text-gray-800">บันทึกรายการความคลาดเคลื่อนทางยา</h2>
+        <form id="record-form" class="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">วันที่เกิดเหตุการณ์</label><input type="date" id="event_date" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"></div>
+            <div><label class="block text-sm font-medium text-gray-700">เวร</label><select id="shift" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"><option value="เช้า">เช้า</option><option value="บ่าย">บ่าย</option><option value="ดึก">ดึก</option></select></div>
+            <div><label class="block text-sm font-medium text-gray-700">ประเภทผู้ป่วย</label><select id="patient_type" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"><option value="นอก">นอก (OPD)</option><option value="ใน">ใน (IPD)</option></select></div>
+            <div><label class="block text-sm font-medium text-gray-700">สถานที่</label><select id="place" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">${placeOpts}</select></div>
+            <div><label class="block text-sm font-medium text-gray-700">กระบวนการ</label><select id="process" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">${procOpts}<option value="อื่นๆ">อื่นๆ</option></select><input type="text" id="process_other" class="hidden w-full px-3 py-2 mt-2 border border-gray-300 rounded-md" placeholder="ระบุอื่นๆ"></div>
+            <div><label class="block text-sm font-medium text-gray-700">รายการยาที่ถูกต้อง</label><input type="text" id="correct_medicine_search" list="medicine-list" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md" placeholder="ค้นหายา..."></div>
+            <div><label class="block text-sm font-medium text-gray-700">รายการยาที่ผิด</label><input type="text" id="incorrect_medicine_search" list="medicine-list" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md" placeholder="ค้นหายา..."></div>
+            <datalist id="medicine-list">${medOpts}</datalist>
+            <div id="had_box" class="p-3 bg-yellow-100 border-l-4 border-yellow-500 rounded-md md:col-span-2">
+                <p class="font-bold">High Alert Drug (HAD)</p><p id="had_status">กรุณาเลือกยาเพื่อตรวจสอบสถานะ</p>
+            </div>
+            <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">สาเหตุ</label><select id="cause" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">${causeOpts}</select></div>
+            <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">รายละเอียดเพิ่มเติม</label><textarea id="details" rows="3" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"></textarea></div>
+            <div class="md:col-span-2 text-right"><button type="submit" class="px-6 py-2 font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">บันทึก</button></div>
+        </form>
+    </div>`;
+    // listeners
+    const processSel=document.getElementById('process');
+    const processOther=document.getElementById('process_other');
+    processSel.addEventListener('change',()=>processOther.classList.toggle('hidden',processSel.value!=='อื่นๆ'));
+    const correct=document.getElementById('correct_medicine_search');
+    const incorrect=document.getElementById('incorrect_medicine_search');
+    const hadStatus=document.getElementById('had_status');
+    const hadBox=document.getElementById('had_box');
+    function updateHAD(){
+        const c=masterData.medicines.find(m=>m.Name===correct.value);
+        const i=masterData.medicines.find(m=>m.Name===incorrect.value);
+        const isHad=(c&&c.HAD==='yes')||(i&&i.HAD==='yes');
+        hadStatus.textContent=isHad?'ใช่ - เป็น High Alert Drug':'ไม่ใช่';
+        hadBox.className=isHad?'p-3 bg-red-100 border-l-4 border-red-500 rounded-md md:col-span-2':'p-3 bg-green-100 border-l-4 border-green-500 rounded-md md:col-span-2';
+    }
+    correct.addEventListener('change',updateHAD);incorrect.addEventListener('change',updateHAD);
+    document.getElementById('record-form').addEventListener('submit',handleRecordSubmit);
 }
 
-
-
-/**
-
- * Hides the loading modal.
-
- */
-
-function hideLoading() {
-
-    loadingModal.style.display = 'none';
-
+function renderDashboard(){
+    const c=document.getElementById('dashboard-page');
+    if(masterData.records.length===0){c.innerHTML='<p class="p-6 bg-white rounded-lg shadow-md">ไม่มีข้อมูล</p>';return;}
+    // aggregate
+    const total=masterData.records.length;
+    const byMonth={},byShift={},byPlace={},byType={};
+    masterData.records.forEach(r=>{
+        if(r.วันที่เกิดเหตุการณ์){const k=new Date(r.วันที่เกิดเหตุการณ์).toLocaleString('th-TH',{month:'short',year:'numeric'});byMonth[k]=(byMonth[k]||0)+1;}
+        byShift[r.เวร]=(byShift[r.เวร]||0)+1;
+        byPlace[r.สถานที่]=(byPlace[r.สถานที่]||0)+1;
+        byType[r.ประเภทผู้ป่วย]=(byType[r.ประเภทผู้ป่วย]||0)+1;
+    });
+    c.innerHTML=`<div class="p-6 bg-white rounded-lg shadow-md">
+        <h2 class="mb-6 text-xl font-bold">Dashboard</h2>
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"><div class="p-4 text-white bg-blue-500 rounded-lg shadow"><div class="text-sm uppercase">รายงานทั้งหมด</div><div class="mt-1 text-3xl font-bold">${total}</div></div></div>
+        <div class="grid grid-cols-1 gap-6 mt-8 lg:grid-cols-2">
+            <div class="p-4 bg-gray-100 rounded-lg"><h3 class="font-bold">รายเดือน</h3><canvas id="monthChart"></canvas></div>
+            <div class="p-4 bg-gray-100 rounded-lg"><h3 class="font-bold">ตามเวร</h3><canvas id="shiftChart"></canvas></div>
+            <div class="p-4 bg-gray-100 rounded-lg"><h3 class="font-bold">ตามสถานที่</h3><canvas id="placeChart"></canvas></div>
+            <div class="p-4 bg-gray-100 rounded-lg"><h3 class="font-bold">ตามประเภทผู้ป่วย</h3><canvas id="typeChart"></canvas></div>
+        </div>
+    </div>`;
+    // destroy old charts if exist
+    ['monthChart','shiftChart','placeChart','typeChart'].forEach(id=>{if(window[id])window[id].destroy();});
+    window.monthChart=new Chart(document.getElementById('monthChart'),{type:'bar',data:{labels:Object.keys(byMonth),datasets:[{data:Object.values(byMonth)}]}});
+    window.shiftChart=new Chart(document.getElementById('shiftChart'),{type:'pie',data:{labels:Object.keys(byShift),datasets:[{data:Object.values(byShift)}]}});
+    window.placeChart=new Chart(document.getElementById('placeChart'),{type:'bar',data:{labels:Object.keys(byPlace),datasets:[{data:Object.values(byPlace)}]},options:{indexAxis:'y'}});
+    window.typeChart=new Chart(document.getElementById('typeChart'),{type:'doughnut',data:{labels:Object.keys(byType),datasets:[{data:Object.values(byType)}]}});
 }
 
+function renderUsersPage(){
+    const c=document.getElementById('users-page');
+    if(masterData.users.length===0){c.innerHTML='<p class="p-6 bg-white rounded-lg shadow-md">ไม่มีข้อมูลผู้ใช้</p>';return;}
+    c.innerHTML=`<div class="p-6 bg-white rounded-lg shadow-md overflow-x-auto">
+        <h2 class="mb-4 text-xl font-bold">ผู้ใช้งาน</h2>
+        <table class="min-w-full bg-white"><thead class="bg-gray-200"><tr>${['ID13','ชื่อ','ตำแหน่ง','Level'].map(h=>`<th class='px-4 py-2 text-left'>${h}</th>`).join('')}<th></th></tr></thead><tbody>${masterData.users.map(u=>`<tr class='hover:bg-gray-50'><td class='px-4 py-2'>${u.ID13}</td><td class='px-4 py-2'>${u.Name}</td><td class='px-4 py-2'>${u.Position}</td><td class='px-4 py-2'>${u.Level}</td><td class='px-4 py-2 text-right text-sm text-indigo-600 cursor-pointer' data-id='${u.ID13}'>แก้ไข</td></tr>`).join('')}</tbody></table>
+        <p class="mt-4 text-sm text-gray-500 italic">* ฟังก์ชันแก้ไข/เพิ่ม กำลังพัฒนา</p>
+    </div>`;
+}
+function renderMedicinesPage(){document.getElementById('medicines-page').innerHTML='<div class="p-6 bg-white rounded-lg shadow-md"><h2 class="text-xl font-bold">จัดการยา</h2><p>อยู่ระหว่างพัฒนา</p></div>';}
 
-
-/**
-
- * Displays the success modal.
-
- */
-
-function showSuccess() {
-
-    // Only show success modal if user is logged in
-
-    const currentUser = getCurrentUser();
-
-    if (currentUser) {
-
-        successModal.style.display = 'flex'; // Use flex to center the modal content
-
-    }
-
+// ====== FORM SUBMIT ======
+async function handleRecordSubmit(e){
+    e.preventDefault();showLoading('กำลังบันทึก...');
+    const processSel=document.getElementById('process');
+    const processVal=processSel.value==='อื่นๆ'?document.getElementById('process_other').value:processSel.value;
+    const correct=document.getElementById('correct_medicine_search').value;
+    const incorrect=document.getElementById('incorrect_medicine_search').value;
+    const cObj=masterData.medicines.find(m=>m.Name===correct);
+    const iObj=masterData.medicines.find(m=>m.Name===incorrect);
+    const isHad=(cObj&&cObj.HAD==='yes')||(iObj&&iObj.HAD==='yes');
+    const payload={action:'addRecord',data:{
+        วันที่เกิดเหตุการณ์:document.getElementById('event_date').value,
+        เวร:document.getElementById('shift').value,
+        สถานที่:document.getElementById('place').value,
+        ประเภทผู้ป่วย:document.getElementById('patient_type').value,
+        กระบวนการ:processVal,
+        รายการยาที่ถูกต้อง:correct,
+        รายการยาที่ผิด:incorrect,
+        HAD:isHad?'yes':'no',
+        สาเหตุ:document.getElementById('cause').value,
+        รายละเอียด:document.getElementById('details').value,
+        ผู้บันทึก:currentUser.Name
+    }};
+    try{
+        const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        if(!res.ok)throw new Error(`HTTP ${res.status}`);
+        const j=await res.json();
+        if(j.status!=='success')throw new Error(j.message);
+        showSuccess();
+        await loadAllMasterData();
+        showPage('records-list-page');
+    }catch(err){console.error(err);showError('บันทึกล้มเหลว',err.message);}finally{hideLoading();}
 }
 
-
-
-/**
-
- * Shows a specific application page and hides all others.
-
- * Also updates the active state of navigation links.
-
- * @param {string} pageId - The ID of the page to show.
-
- */
-
-function showPage(pageId) {
-
-    // Hide all page content divs
-
-    document.querySelectorAll('.page-content').forEach(page => page.classList.add('hidden'));
-
-    // Show the requested page
-
-    document.getElementById(pageId).classList.remove('hidden');
-
-    
-
-    // Update active navigation link style
-
-    navLinks.forEach(link => {
-
-        if (link.dataset.page === pageId) {
-
-            link.classList.add('bg-gray-200', 'font-bold'); // Add active styles
-
-        } else {
-
-            link.classList.remove('bg-gray-200', 'font-bold'); // Remove active styles
-
-        }
-
-    });    /* Render content specific to the selected page */
-
-    switch (pageId) {
-
-        case 'login-page':
-
-            // Don't render anything special for login page, it's already in HTML
-
-            break;
-
-        case 'records-list-page': renderRecordsList(); break;
-
-        case 'record-form-page': renderRecordForm(); break;
-
-        case 'dashboard-page': renderDashboard(); break;
-
-        case 'users-page': renderUsersPage(); break;
-
-        case 'medicines-page': renderMedicinesPage(); break;
-
-        case 'shifts-page': renderShiftsPage(); break;
-
-        case 'patient-types-page': renderPatientTypesPage(); break;
-
-        case 'places-page': renderPlacesPage(); break;
-
-        case 'processes-page': renderProcessesPage(); break;
-
-        case 'causes-page': renderCausesPage(); break;
-
-    }
-
+// ====== EXPORT HELPERS ======
+function exportToCSV(rows){
+    if(rows.length===0)return;
+    const headers=Object.keys(rows[0]);
+    const data=[headers.join(',')].concat(rows.map(r=>headers.map(h=>`"${(r[h]||'').toString().replace(/"/g,'"')}`+`"`).join(','))).join('\n');
+    const blob=new Blob(["\uFEFF"+data],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='med-error.csv';a.click();URL.revokeObjectURL(url);
+}
+function exportToExcel(rows){
+    if(rows.length===0){showError('ไม่พบข้อมูล','');return;}
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'รายงาน');
+    XLSX.writeFile(wb,`med-error-${new Date().toISOString().substring(0,10)}.xlsx`);
 }
 
-
-
-// --- Data Fetching Functions ---
-
-
-
-/**
-
- * Fetches data from the Google Sheet via the Apps Script API.
-
- * Displays loading indicators and handles errors.
-
- * @param {string} action - The action parameter for the Apps Script (e.g., 'getUsers').
-
- * @returns {Promise<Array>} - A promise that resolves to an array of data.
-
- */
-
-async function fetchDataFromSheet(action) {
-
-    showLoading(`กำลังโหลดข้อมูล ${action.replace('get', '')} ...`);
-
-    try {
-
-        const response = await fetch(`${SCRIPT_URL}?action=${action}`);
-
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-        const data = await response.json();
-
-        // Apps Script usually returns data in a 'data' field, or 'result' as per the provided script
-
-        return data.result || []; 
-
-    } catch (error) {
-
-        console.error(`Error fetching ${action}:`, error);
-
-        // Only show alert if user is logged in to avoid disrupting login page
-
-        const currentUser = getCurrentUser();
-
-        if (currentUser) {
-
-            alert(`เกิดข้อผิดพลาดในการดึงข้อมูล ${action.replace('get', 'ข้อมูล')}`);
-
-        }
-
-        return [];
-
-    } finally {
-
-        hideLoading();
-
-    }
-
-}
-
-
-
-/**
-
- * Handles the submission of the record form.
-
- * Gathers form data, sends it to the Apps Script API, and handles responses.
-
- * @param {Event} e - The form submission event.
-
- */
-
-async function handleRecordSubmit(e) {
-
-    e.preventDefault(); // Prevent default form submission
-
-
-
-    const form = e.target;
-
-    const formData = new FormData(form);
-
-    const recordData = {};
-
-
-
-    // Collect data from form fields
-
-    for (let [key, value] of formData.entries()) {
-
-        recordData[key] = value;
-
-    }
-
-
-
-    // Handle "other" process input if selected
-
-    const processSelect = document.getElementById('process');
-
-    const processOtherInput = document.getElementById('process_other');
-
-    if (processSelect.value === 'อื่นๆ') {
-
-        recordData['กระบวนการ'] = processOtherInput.value;
-
-    } else {
-
-        recordData['กระบวนการ'] = processSelect.value;
-
-    }
-
-
-
-    // --- เพิ่มการคำนวณค่า HAD ---
-
-    const correctMedName = document.getElementById('correct_medicine_search').value;
-
-    const incorrectMedName = document.getElementById('incorrect_medicine_search').value;
-
-    const correctMed = masterData.medicines.find(m => m.Name === correctMedName);
-
-    const incorrectMed = masterData.medicines.find(m => m.Name === incorrectMedName);
-
-    const isHad = (correctMed && correctMed.HAD && String(correctMed.HAD).toLowerCase() === 'yes') ||
-
-                  (incorrectMed && incorrectMed.HAD && String(incorrectMed.HAD).toLowerCase() === 'yes');
-
-    recordData['HAD'] = isHad ? 'HAD' : '';
-
-    // --- จบการเพิ่ม HAD ---
-
-
-
-    // Handle "other" cause input if selected
-
-    const causeSelect = document.getElementById('cause');
-
-    const causeOtherInput = document.getElementById('cause_other');
-
-    if (causeSelect.value === 'อื่นๆ') {
-
-        recordData['cause'] = causeOtherInput.value;
-
-    } else {
-
-        recordData['cause'] = causeSelect.value;
-
-    }
-
-
-
-    // Prepare data to send as query parameters
-
-    const dataToSend = {
-
-        action: 'addrecord', // Action for Apps Script
-
-        'วันที่เกิดเหตุการณ์': recordData['event_date'],
-
-        'เวร': recordData['shift'],
-
-        'ประเภทผู้ป่วย': recordData['patient_type'],
-
-        'สถานที่': recordData['place'],
-
-        'กระบวนการ': recordData['กระบวนการ'], // Use the processed value
-
-        'รายการยาที่ถูกต้อง': recordData['correct_medicine_search'],
-
-        'รายการยาที่ผิด': recordData['incorrect_medicine_search'],
-
-        'HAD': recordData['HAD'], // --- ส่งค่า HAD ---
-
-        'สาเหตุ': recordData['cause'],
-
-        'รายละเอียดเพิ่มเติม': recordData['details'],
-
-        'ผู้รายงาน': getCurrentUser() ? getCurrentUser().ชื่อ : 'ไม่ระบุ' // ใช้ชื่อผู้ใช้ที่ล็อกอิน
-
-    };
-
-
-
-    // Convert dataToSend object into URL query parameters
-
-    const queryParams = new URLSearchParams(dataToSend).toString();
-
-    
-
-    showLoading('กำลังบันทึกข้อมูล...');
-
-    try {
-
-        // Use GET method and append query parameters to the SCRIPT_URL
-
-        const response = await fetch(`${SCRIPT_URL}?${queryParams}`);
-
-
-
-        const result = await response.json();
-
-
-
-        if (result.status === 'success') {
-
-            // Only show success modal if user is logged in
-
-            const currentUser = getCurrentUser();
-
-            if (currentUser) {
-
-                showSuccess(); // Show success modal
-
-            }
-
-            form.reset(); // Clear the form
-
-            document.getElementById('event_date').valueAsDate = new Date(); // Reset date to today
-
-            // Reload records data after successful submission
-
-            masterData.records = await fetchDataFromSheet('getRecords');
-
-            masterData.records.sort((a,b) => new Date(b.วันที่เกิดเหตุการณ์) - new Date(a.วันที่เกิดเหตุการณ์));
-
-            // Ensure HAD status resets or is re-evaluated if needed
-
-            document.getElementById('had_status').textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
-
-            document.getElementById('had_status').parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
-
-        } else {
-
-            alert(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${result.message}`); // Show error message
-
-        }
-
-    } catch (error) {
-
-        console.error('Error submitting record:', error);
-
-        alert(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error.message}`);
-
-    } finally {
-
-        hideLoading();
-
-    }
-
-}
-
-
-
-
-
-// --- Main Application Data Loading ---
-
-
-
-/**
-
- * Loads all essential master data (medicines, places, processes, causes, records)
-
- * from the Google Sheet. This is called once the application initializes.
-
- */
-
-async function loadAllMasterData() {
-
-    showLoading('กำลังโหลดข้อมูลหลัก...');
-
-    const dataActions = ['getUsers', 'getMedicines', 'getPlaces', 'getProcesses', 'getCauses', 'getRecords'];
-
-    
-
-    // Fetch all data concurrently using Promise.all
-
-    const [users, medicines, places, processes, causes, records] = await Promise.all(
-
-        dataActions.map(action => fetchDataFromSheet(action))
-
-    );
-
-    
-
-    // Update global masterData object
-
-    masterData.users = users; // Users data is still fetched in case other parts of the app need it
-
-    masterData.medicines = medicines;
-
-    masterData.places = places;
-
-    masterData.processes = processes;
-
-    masterData.causes = causes;
-
-    // Sort records by date in descending order (most recent first)
-
-    masterData.records = records.sort((a,b) => new Date(b.วันที่เกิดเหตุการณ์) - new Date(a.วันที่เกิดเหตุการณ์));
-
-    
-
-    hideLoading();
-
-}
-
-
-
-// --- Page Rendering Functions ---
-
-// Order: บันทึกข้อมูล, รายการล่าสุด, Dashboard, Settings (ผู้ใช้งาน, รายการยา, เวร, ประเภทผู้ป่วย, สถานที่, กระบวนการ, สาเหตุ)
-
-
-
-/**
-
- * Renders the record form page for entering medication error data.
-
- */
-
-function renderRecordForm() {
-
-    const container = document.getElementById('record-form-page');
-
-    
-
-    container.innerHTML = `
-
-        <div class="p-6 bg-white rounded-lg shadow-md">
-
-            <h2 class="mb-6 text-xl font-bold text-gray-800">บันทึกความคลาดเคลื่อนทางยา</h2>
-
-            <form id="record-form" class="space-y-6">
-
-                <!-- Form content will be here -->
-
-            </form>
-
-        </div>
-
-    `;
-
-}
-
-
-
-/**
-
- * Renders the list of medication error records, including search and pagination.
-
- * @param {string} searchTerm - Optional search term to filter records.
-
- */
-
-function renderRecordsList(searchTerm = '') {
-
-    const container = document.getElementById('records-list-page');
-
-    
-
-    // Filter records based on the search term
-
-    const filteredRecords = masterData.records.filter(r => 
-
-        (r.เลขที่รายงาน && r.เลขที่รายงาน.toLowerCase().includes(searchTerm.toLowerCase())) ||
-
-        (r.สถานที่ && r.สถานที่.toLowerCase().includes(searchTerm.toLowerCase())) ||
-
-        (r.รายการยาที่ผิด && r.รายการยาที่ผิด.toLowerCase().includes(searchTerm.toLowerCase())) ||
-
-        (r.กระบวนการ && r.กระบวนการ.toLowerCase().includes(searchTerm.toLowerCase())) ||
-
-        (r.รายละเอียดเพิ่มเติม && r.รายละเอียดเพิ่มเติม.toLowerCase().includes(searchTerm.toLowerCase()))
-
-    );
-
-
-
-    // Calculate pagination parameters
-
-    const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
-
-    const paginatedRecords = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-
-
-    container.innerHTML = `
-
-        <div class="p-6 bg-white rounded-lg shadow-md">
-
-            <div class="flex flex-col items-center justify-between gap-4 mb-4 md:flex-row">
-
-                <h2 class="text-xl font-bold text-gray-800">รายการที่บันทึก</h2>
-
-                <div class="flex items-center gap-4">
-
-                     <input type="text" id="search-record" placeholder="ค้นหารายการ..." class="px-3 py-2 border border-gray-300 rounded-md" value="${searchTerm}">
-
-                     <button id="export-csv" class="px-4 py-2 text-white bg-teal-600 rounded-md hover:bg-teal-700">ส่งออก (CSV)</button>
-
-                </div>
-
-            </div>
-
-            <div class="overflow-x-auto">
-
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-
-                    <thead class="bg-gray-200">
-
-                        <tr>
-
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">เลขที่รายงาน</th>
-
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">วันที่บันทึก</th>
-
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">วันที่เกิดเหตุการณ์</th>
-
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">สถานที่</th>
-
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายการยาที่ผิด</th>
-
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">กระบวนการ</th>
-
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายละเอียดเพิ่มเติม</th>
-
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ผู้รายงาน</th>
-
-                        </tr>
-
-                    </thead>
-
-                    <tbody id="records-table-body" class="divide-y divide-gray-200">
-
-                        ${paginatedRecords.length > 0 ? paginatedRecords.map(r => `
-
-                            <tr class="hover:bg-gray-100">
-
-                                <td class="px-6 py-4 whitespace-nowrap">${r.เลขที่รายงาน || ''}</td>
-
-                                <td class="px-6 py-4 whitespace-nowrap">${r.วันที่บันทึก ? new Date(r.วันที่บันทึก).toLocaleDateString('th-TH') : ''}</td>
-
-                                <td class="px-6 py-4 whitespace-nowrap">${r.วันที่เกิดเหตุการณ์ ? new Date(r.วันที่เกิดเหตุการณ์).toLocaleDateString('th-TH') : ''}</td>
-
-                                <td class="px-6 py-4 whitespace-nowrap">${r.สถานที่ || ''}</td>
-
-                                <td class="px-6 py-4 whitespace-nowrap">${r.รายการยาที่ผิด || ''}</td>
-
-                                <td class="px-6 py-4 whitespace-nowrap">${r.กระบวนการ || ''}</td>
-
-                                <td class="px-6 py-4 whitespace-nowrap">${r.รายละเอียดเพิ่มเติม || ''}</td>
-
-                                <td class="px-6 py-4 whitespace-nowrap">${r.ผู้รายงาน || ''}</td>
-
-                            </tr>
-
-                        `).join('') : `<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500">ไม่พบข้อมูล</td></tr>`}
-
-                    </tbody>
-
-                </table>
-
-            </div>
-
-             <div class="flex items-center justify-between mt-4">
-
-                <div class="flex items-center gap-2">
-
-                    <label for="items-per-page" class="text-sm text-gray-700">แสดง:</label>
-
-                    <select id="items-per-page" class="p-1 border border-gray-300 rounded-md text-sm">
-
-                        <option value="10" ${itemsPerPage === 10 ? 'selected' : ''}>10</option>
-
-                        <option value="30" ${itemsPerPage === 30 ? 'selected' : ''}>30</option>
-
-                        <option value="50" ${itemsPerPage === 50 ? 'selected' : ''}>50</option>
-
-                    </select>
-
-                    <span class="text-sm text-gray-700">รายการ</span>
-
-                </div>
-
-                <div class="flex items-center gap-2">
-
-                    <button id="prev-page" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage === 1 ? 'disabled' : ''}>ก่อนหน้า</button>
-
-                    <span class="text-sm text-gray-700">หน้า ${totalPages === 0 ? 0 : currentPage} จาก ${totalPages}</span>
-
-                    <button id="next-page" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage === totalPages || totalPages === 0 ? 'disabled' : ''}>ถัดไป</button>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    `;
-
-    
-
-    // Add event listeners for search, export, and pagination controls
-
-    document.getElementById('search-record').addEventListener('input', (e) => {
-
-        currentPage = 1; // Reset to first page on new search
-
-        renderRecordsList(e.target.value);
-
-    });
-
-    document.getElementById('export-csv').addEventListener('click', () => exportToCSV(filteredRecords));
-
-    document.getElementById('items-per-page').addEventListener('change', (e) => {
-
-        itemsPerPage = parseInt(e.target.value);
-
-        currentPage = 1; // Reset to first page when items per page changes
-
-        renderRecordsList(document.getElementById('search-record').value);
-
-    });
-
-    document.getElementById('prev-page')?.addEventListener('click', () => {
-
-        if(currentPage > 1) {
-
-            currentPage--;
-
-            renderRecordsList(document.getElementById('search-record').value);
-
-        }
-
-    });
-
-    document.getElementById('next-page')?.addEventListener('click', () => {
-
-        if(currentPage < totalPages) {
-
-            currentPage++;
-
-            renderRecordsList(document.getElementById('search-record').value);
-
-        }
-
-    });
-
-}
-
-
-
-/**
-
- * Exports the given data to a CSV file.
-
- * @param {Array<Object>} data - The array of objects to export.
-
- */
-
-function exportToCSV(data) {
-
-    if (data.length === 0) {
-
-        alert("ไม่มีข้อมูลสำหรับส่งออก.");
-
-        return;
-
-    }
-
-
-
-    const headers = Object.keys(data[0]);
-
-    // Convert array of objects to CSV string
-
-    const csv = [
-
-        headers.join(','), // Header row
-
-        ...data.map(row => headers.map(fieldName => {
-
-            let value = row[fieldName] === null || row[fieldName] === undefined ? '' : row[fieldName];
-
-            // Handle dates specifically for CSV
-
-            if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)) {
-
-                const date = new Date(value);
-
-                value = isNaN(date.getTime()) ? '' : date.toLocaleDateString('th-TH') + ' ' + date.toLocaleTimeString('th-TH');
-
-            }
-
-            // Escape values containing commas or double quotes
-
-            return `"${String(value).replace(/"/g, '""')}"`;
-
-        }).join(','))
-
-    ].join('\n');
-
-
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-
-    const link = document.createElement('a');
-
-    link.href = URL.createObjectURL(blob);
-
-    link.download = `medical_records_${new Date().toISOString().slice(0,10)}.csv`;
-
-    link.click();
-
-    URL.revokeObjectURL(link.href); // Clean up
-
-}
-
-
-
-/**
-
- * Renders the dashboard page with charts and statistics.
-
- */
-
-function renderRecordForm() {
-
-    const
+// ====== INIT ======
+document.addEventListener('DOMContentLoaded',()=>{loginPage.classList.remove('hidden');});
+</script>
+</body>
+</html>
