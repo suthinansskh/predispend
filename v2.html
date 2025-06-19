@@ -364,11 +364,17 @@ function renderRecordForm() {
             <div id="had_box" class="p-3 bg-yellow-100 border-l-4 border-yellow-500 rounded-md md:col-span-2">
                 <p class="font-bold">High Alert Drug (HAD)</p><p id="had_status">กรุณาเลือกยาเพื่อตรวจสอบสถานะ</p>
             </div>
-            <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">สาเหตุ</label><select id="cause" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">${causeOpts}</select></div>
-            <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">รายละเอียดเพิ่มเติม</label><textarea id="details" rows="3" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"></textarea></div>
-            <div class="md:col-span-2 text-right"><button type="submit" class="px-6 py-2 font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">บันทึก</button></div>
-        </form>
+            <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">สาเหตุ</label><select id="cause" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">${causeOpts}</select></div>            <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">รายละเอียดเพิ่มเติม</label><textarea id="details" rows="3" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"></textarea></div>
+            <div class="md:col-span-2 text-right space-x-4">
+                <button type="button" id="reset-form-btn" class="px-6 py-2 font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">รีเซ็ตข้อมูล</button>
+                <button type="submit" class="px-6 py-2 font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">บันทึก</button>
+            </div></form>
     </div>`;
+    
+    // Set today's date as default for event date
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('event_date').value = today;
+    
     // listeners
     const processSel = document.getElementById('process');
     const processOther = document.getElementById('process_other');
@@ -382,10 +388,47 @@ function renderRecordForm() {
         const i = masterData.medicines.find(m => m.Name === incorrect.value);
         const isHad = (c && c.HAD === 'yes') || (i && i.HAD === 'yes');
         hadStatus.textContent = isHad ? 'ใช่ - เป็น High Alert Drug' : 'ไม่ใช่';
-        hadBox.className = isHad ? 'p-3 bg-red-100 border-l-4 border-red-500 rounded-md md:col-span-2' : 'p-3 bg-green-100 border-l-4 border-green-500 rounded-md md:col-span-2';
-    }
-    correct.addEventListener('change', updateHAD); incorrect.addEventListener('change', updateHAD);
+        hadBox.className = isHad ? 'p-3 bg-red-100 border-l-4 border-red-500 rounded-md md:col-span-2' : 'p-3 bg-green-100 border-l-4 border-green-500 rounded-md md:col-span-2';    }
+    correct.addEventListener('change', updateHAD); 
+    incorrect.addEventListener('change', updateHAD);
+    
+    // Reset form function
+    function resetRecordForm() {
+        document.getElementById('record-form').reset();
+        // Set today's date again after reset
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('event_date').value = today;
+        // Hide process_other field
+        document.getElementById('process_other').classList.add('hidden');
+        // Reset HAD status
+        hadStatus.textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ';
+        hadBox.className = 'p-3 bg-yellow-100 border-l-4 border-yellow-500 rounded-md md:col-span-2';    }
+    
+    // Add event listeners
+    document.getElementById('reset-form-btn').addEventListener('click', resetRecordFormGlobal);
     document.getElementById('record-form').addEventListener('submit', handleRecordSubmit);
+}
+
+// Global reset function for record form
+function resetRecordFormGlobal() {
+    const form = document.getElementById('record-form');
+    if (form) {
+        form.reset();
+        // Set today's date again after reset
+        const today = new Date().toISOString().split('T')[0];
+        const eventDateField = document.getElementById('event_date');
+        if (eventDateField) eventDateField.value = today;
+        
+        // Hide process_other field
+        const processOther = document.getElementById('process_other');
+        if (processOther) processOther.classList.add('hidden');
+        
+        // Reset HAD status if elements exist
+        const hadStatus = document.getElementById('had_status');
+        const hadBox = document.getElementById('had_box');
+        if (hadStatus) hadStatus.textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ';
+        if (hadBox) hadBox.className = 'p-3 bg-yellow-100 border-l-4 border-yellow-500 rounded-md md:col-span-2';
+    }
 }
 
 function renderDashboard() {
@@ -458,10 +501,10 @@ async function handleRecordSubmit(e) {
         const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const j = await res.json();
-        if (j.status !== 'success') throw new Error(j.message);
-        showSuccess();
+        if (j.status !== 'success') throw new Error(j.message);        showSuccess('บันทึกข้อมูลเรียบร้อยแล้ว!');
         await loadAllMasterData();
-        showPage('records-list-page');
+        // Reset form after successful submission
+        resetRecordFormGlobal();
     } catch (err) { console.error(err); showError('บันทึกล้มเหลว', err.message); } finally { hideLoading(); }
 }
 
