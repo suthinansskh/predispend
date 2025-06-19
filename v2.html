@@ -473,7 +473,9 @@ function renderMedicinesPage() { document.getElementById('medicines-page').inner
 
 // ====== FORM SUBMIT ======
 async function handleRecordSubmit(e) {
-    e.preventDefault(); showLoading('กำลังบันทึก...');
+    e.preventDefault(); 
+    showLoading('กำลังบันทึก...');
+    
     const processSel = document.getElementById('process');
     const processVal = processSel.value === 'อื่นๆ' ? document.getElementById('process_other').value : processSel.value;
     const correct = document.getElementById('correct_medicine_search').value;
@@ -481,30 +483,54 @@ async function handleRecordSubmit(e) {
     const cObj = masterData.medicines.find(m => m.Name === correct);
     const iObj = masterData.medicines.find(m => m.Name === incorrect);
     const isHad = (cObj && cObj.HAD === 'yes') || (iObj && iObj.HAD === 'yes');
-    const payload = {
-        action: 'addRecord', data: {
-            วันที่เกิดเหตุการณ์: document.getElementById('event_date').value,
-            เวร: document.getElementById('shift').value,
-            สถานที่: document.getElementById('place').value,
-            ประเภทผู้ป่วย: document.getElementById('patient_type').value,
-            กระบวนการ: processVal,
-            รายการยาที่ถูกต้อง: correct,
-            รายการยาที่ผิด: incorrect,
-            HAD: isHad ? 'yes' : 'no',
-            สาเหตุ: document.getElementById('cause').value,
-            รายละเอียด: document.getElementById('details').value,
-            ผู้บันทึก: currentUser.Name
-        }
-    };
+    
+    // Build URL parameters for GET request (matching your Google Apps Script)
+    const params = new URLSearchParams({
+        action: 'addrecord',
+        'วันที่เกิดเหตุการณ์': document.getElementById('event_date').value,
+        'เวร': document.getElementById('shift').value,
+        'สถานที่': document.getElementById('place').value,
+        'ประเภทผู้ป่วย': document.getElementById('patient_type').value,
+        'กระบวนการ': processVal,
+        'รายการยาที่ถูกต้อง': correct,
+        'รายการยาที่ผิด': incorrect,
+        'HAD': isHad ? 'yes' : 'no',
+        'สาเหตุ': document.getElementById('cause').value,
+        'รายละเอียด': document.getElementById('details').value,
+        'ผู้บันทึก': currentUser.Name,
+        't': Date.now() // Cache busting
+    });
+    
     try {
-        const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const url = `${SCRIPT_URL}?${params.toString()}`;
+        console.log('Submitting to URL:', url); // Debug log
+        
+        const res = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+            }
+        });
+        
+        console.log('Response status:', res.status); // Debug log
+        
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        
         const j = await res.json();
-        if (j.status !== 'success') throw new Error(j.message);        showSuccess('บันทึกข้อมูลเรียบร้อยแล้ว!');
+        console.log('Response data:', j); // Debug log
+        
+        if (j.status !== 'success') throw new Error(j.message);
+        
+        showSuccess('บันทึกข้อมูลเรียบร้อยแล้ว!');
         await loadAllMasterData();
         // Reset form after successful submission
         resetRecordFormGlobal();
-    } catch (err) { console.error(err); showError('บันทึกล้มเหลว', err.message); } finally { hideLoading(); }
+    } catch (err) { 
+        console.error('Submit error:', err); 
+        showError('บันทึกล้มเหลว', err.message); 
+    } finally { 
+        hideLoading(); 
+    }
 }
 
 // ====== EXPORT HELPERS ======

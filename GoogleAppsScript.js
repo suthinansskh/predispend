@@ -144,6 +144,9 @@ function getDataFromSheet(sheetName) {
  * @throws {Error} If the "Record" sheet is not found, or required data is missing/invalid.
  */
 function addRecord(recordData) {
+  // Log the received data for debugging
+  Logger.log('Received record data:', JSON.stringify(recordData));
+  
   const sheet = ss.getSheetByName(SHEET_NAMES.RECORDS);
   if (!sheet) {
     throw new Error(`Sheet with name "${SHEET_NAMES.RECORDS}" not found.`);
@@ -172,6 +175,7 @@ function addRecord(recordData) {
 
   // Get headers from the first row to ensure correct column order for appending
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  Logger.log('Sheet headers:', headers);
 
   // Map recordData to a new row array based on header order
   const newRow = headers.map(header => {
@@ -184,7 +188,9 @@ function addRecord(recordData) {
     }
   });
 
+  Logger.log('New row data:', newRow);
   sheet.appendRow(newRow); // Append the new row to the sheet
+  Logger.log('Record successfully added to sheet');
 }
 
 /**
