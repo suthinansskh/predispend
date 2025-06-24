@@ -180,9 +180,24 @@
         function createDataItem(label, value) {
             const div = document.createElement('div');
             div.className = 'data-item';
+            // ตรวจสอบถ้าเป็น temp1 หรือ temp2
+            let valueStr = value;
+            let colorClass = '';
+            if (label.includes('อุณหภูมิ')) {
+                // ดึงค่าตัวเลข temp ออกมา (เช่น 7.5°C)
+                const tempMatch = /([-\d.]+)\s*°C/.exec(value);
+                if (tempMatch) {
+                    const temp = parseFloat(tempMatch[1]);
+                    if (temp >= 2 && temp <= 8) {
+                        colorClass = 'text-green-600 font-bold';
+                    } else if (temp > 8) {
+                        colorClass = 'text-red-600 font-bold';
+                    }
+                }
+            }
             div.innerHTML = `
                 <span class="data-label">${label}:</span>
-                <span class="data-value">${value}</span>
+                <span class="data-value ${colorClass}">${value}</span>
             `;
             return div;
         }
