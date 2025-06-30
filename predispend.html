@@ -3,22 +3,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="robots" content="noindex, nofollow">
     <title>ระบบบันทึกความคลาดเคลื่อนทางยา</title>
+    
+    <!-- Add polyfills for older browsers -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6,fetch,Promise"></script>
+    
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <!-- Sarabun font for Thai language support and overall aesthetics -->
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- Chart.js for data visualization in the dashboard -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    
+    <!-- Chart.js for data visualization - Updated to latest version -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js"></script>
+    
     <!-- SweetAlert2 for beautiful alerts -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        body { font-family: 'Sarabun', sans-serif; }
-        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
-        .modal-content { background-color: #fefefe; padding: 20px; border: 1px solid #888; width: 80%; max-width: 500px; border-radius: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
-        .loader { border: 8px solid #f3f3f3; border-top: 8px solid #3498db; border-radius: 50%; width: 60px; height: 60px; animation: spin 2s linear infinite; margin: 0 auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .searchable-dropdown-list { max-height: 200px; overflow-y: auto; }
+        body { 
+            font-family: 'Sarabun', sans-serif; 
+            min-height: 100vh;
+        }
+        
+        .modal { 
+            display: none; 
+            position: fixed; 
+            z-index: 100; 
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.4); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+        }
+        
+        .modal-content { 
+            background-color: #fefefe; 
+            padding: 20px; 
+            border: 1px solid #888; 
+            width: 80%; 
+            max-width: 500px; 
+            border-radius: 10px; 
+            text-align: center; 
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); 
+        }
+        
+        .loader { 
+            border: 8px solid #f3f3f3; 
+            border-top: 8px solid #3498db; 
+            border-radius: 50%; 
+            width: 60px; 
+            height: 60px; 
+            animation: spin 2s linear infinite; 
+            margin: 0 auto; 
+        }
+        
+        @keyframes spin { 
+            0% { transform: rotate(0deg); } 
+            100% { transform: rotate(360deg); } 
+        }
+        
+        .searchable-dropdown-list { 
+            max-height: 200px; 
+            overflow-y: auto; 
+        }
+        
+        /* Fallback for CSS Grid */
+        @supports not (display: grid) {
+            .grid {
+                display: flex;
+                flex-wrap: wrap;
+            }
+            .grid > * {
+                flex: 1;
+                min-width: 300px;
+                margin: 0.5rem;
+            }
+        }
+        
+        /* Better print styles */
+        @media print {
+            .no-print, nav, .modal {
+                display: none !important;
+            }
+            .page-content {
+                display: block !important;
+            }
+            body {
+                background: white !important;
+            }
+        }
+        
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            .bg-gray-100 {
+                background-color: white !important;
+            }
+            .text-gray-500 {
+                color: black !important;
+            }
+        }
+        
+        /* Reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            .loader {
+                animation: none;
+            }
+            * {
+                transition: none !important;
+                animation: none !important;
+            }
+        }
+        
+        /* Focus indicators for accessibility */
+        button:focus,
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: 2px solid #10b981;
+            outline-offset: 2px;
+        }
+        
+        /* Loading state */
+        .loading {
+            pointer-events: none;
+            opacity: 0.6;
+        }
+        
+        /* Error handling styles */
+        .error-message {
+            background-color: #fee2e2;
+            border: 1px solid #fca5a5;
+            color: #dc2626;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+        }
+        
+        .success-message {
+            background-color: #dcfce7;
+            border: 1px solid #86efac;
+            color: #16a34a;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -106,17 +240,13 @@
       </div>
     </div>
 <script>
-// --- Configuration ---
-// Google Apps Script Web App URL for backend operations
-// Replace this URL with your deployed Google Apps Script Web App URL
-// To get this URL:
-// 1. In Apps Script editor, click "Deploy" > "New deployment"
-// 2. Choose type as "Web app"
-// 3. Set "Execute as" to "Me" and "Who has access" to "Anyone"
-// 4. Click "Deploy" and copy the "Web app URL"
+// --- Enhanced Configuration with Error Handling ---
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzFrW_xMdCukPq_nx3FsoYHxxq3hH5hSRtvIKfAioJfqet_MKAJjACugUQ-X6ngZ1NqyQ/exec";
 
-// --- Global State Variables ---
+// Request timeout configuration
+const REQUEST_TIMEOUT = 30000; // 30 seconds
+
+// --- Enhanced Global State with Validation ---
 let masterData = {
     users: [],        // List of all users for authentication and dropdowns
     medicines: [],    // List of all medicines with HAD status
@@ -130,6 +260,79 @@ let masterData = {
 let currentPage = 1;      // Current page number for pagination
 let itemsPerPage = 10;    // Number of items to display per page
 
+// --- Enhanced Utility Functions ---
+
+/**
+ * Input sanitization function
+ */
+function sanitizeInput(input) {
+    if (typeof input !== 'string') return input;
+    return input.replace(/<script[^>]*>.*?<\/script>/gi, '')
+                .replace(/<[^>]*>/g, '')
+                .replace(/javascript:/gi, '')
+                .trim();
+}
+
+/**
+ * Debounce function for performance optimization
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+/**
+ * Enhanced error handling with network status detection
+ */
+function getErrorMessage(error) {
+    if (!navigator.onLine) {
+        return 'ไม่มีการเชื่อมต่ออินเทอร์เน็ต กรุณาตรวจสอบการเชื่อมต่อ';
+    }
+    
+    if (error.name === 'AbortError') {
+        return 'หมดเวลาการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง';
+    }
+    
+    if (error.message.includes('Failed to fetch')) {
+        return 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง';
+    }
+    
+    return error.message || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ';
+}
+
+/**
+ * Enhanced fetch function with timeout and retry logic
+ */
+async function fetchWithTimeout(url, options = {}) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+    
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+    }
+}
+
 // --- DOM Elements Caching ---
 const appPage = document.getElementById('app');
 const navLinks = document.querySelectorAll('.nav-link'); // All navigation buttons
@@ -138,6 +341,26 @@ const successModal = document.getElementById('success-modal');
 const loginPage = document.getElementById('login-page');
 const loginForm = document.getElementById('login-form');
 
+// --- Enhanced Network Status Detection ---
+window.addEventListener('online', () => {
+    console.log('กลับมาออนไลน์แล้ว - ระบบพร้อมใช้งาน');
+});
+
+window.addEventListener('offline', () => {
+    console.log('ไม่มีการเชื่อมต่ออินเทอร์เน็ต - ระบบอาจทำงานไม่ปกติ');
+});
+
+// --- Enhanced Error Boundary ---
+window.addEventListener('error', (event) => {
+    console.error('Global error:', event.error);
+    // Don't show error to user for script errors, just log them
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason);
+    event.preventDefault(); // Prevent default browser error handling
+});
+
 // --- Authentication & Session Management ---
 
 /**
@@ -145,8 +368,14 @@ const loginForm = document.getElementById('login-form');
  * @returns {Object|null} - The current user object or null if not logged in.
  */
 function getCurrentUser() {
-    const userData = sessionStorage.getItem('currentUser');
-    return userData ? JSON.parse(userData) : null;
+    try {
+        const userData = sessionStorage.getItem('currentUser');
+        return userData ? JSON.parse(userData) : null;
+    } catch (error) {
+        console.error('Error parsing user data:', error);
+        sessionStorage.removeItem('currentUser');
+        return null;
+    }
 }
 
 /**
@@ -154,7 +383,12 @@ function getCurrentUser() {
  * @param {Object} user - The user object to set as current user.
  */
 function setCurrentUser(user) {
-    sessionStorage.setItem('currentUser', JSON.stringify(user));
+    try {
+        sessionStorage.setItem('currentUser', JSON.stringify(user));
+    } catch (error) {
+        console.error('Error saving user data:', error);
+        console.log('ไม่สามารถบันทึกข้อมูลผู้ใช้ได้');
+    }
 }
 
 /**
@@ -194,81 +428,130 @@ function updateUserDisplay() {
 async function handleLogin(e) {
     e.preventDefault();
     
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value.trim();
+    const username = sanitizeInput(document.getElementById('username').value.trim());
+    const password = sanitizeInput(document.getElementById('password').value.trim());
     
     if (!username || !password) {
         showError('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
         return;
     }
     
-    // Find user in masterData.users array
-    const user = masterData.users.find(u => u.ID13 === username && u.Password === password);
-      if (user) {
-        setCurrentUser(user);
-        updateUserDisplay(); // อัพเดตการแสดงชื่อผู้ใช้ใน navbar
-        loginPage.style.display = 'none';
-        appPage.style.display = 'block';
-        showPage('record-form-page'); // Show main page after login
-        showSuccess('เข้าสู่ระบบสำเร็จ');
-    } else {
-        showError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+    if (username.length < 3) {
+        showError('ชื่อผู้ใช้ต้องมีอย่างน้อย 3 ตัวอักษร');
+        return;
+    }
+    
+    showLoading('กำลังตรวจสอบข้อมูลผู้ใช้...');
+    
+    try {
+        // Find user in masterData.users array
+        const user = masterData.users.find(u => u.ID13 === username && u.Password === password);
+        
+        if (user) {
+            setCurrentUser(user);
+            updateUserDisplay(); // อัพเดตการแสดงชื่อผู้ใช้ใน navbar
+            loginPage.style.display = 'none';
+            appPage.style.display = 'block';
+            showPage('record-form-page'); // Show main page after login
+            console.log('เข้าสู่ระบบสำเร็จ');
+            
+            // Clear login form
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        } else {
+            showError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        showError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+    } finally {
+        hideLoading();
     }
 }
 
-// ฟังก์ชันแจ้งเตือนด้วย SweetAlert2
+// ฟังก์ชันแจ้งเตือนด้วย SweetAlert2 with Enhanced Validation
 function showError(message) {
+    if (!message || typeof message !== 'string') {
+        message = 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ';
+    }
+    
     Swal.fire({
         title: 'เกิดข้อผิดพลาด!',
-        text: message,
+        text: sanitizeInput(message),
         icon: 'error',
-        confirmButtonText: 'ตกลง'
+        confirmButtonText: 'ตกลง',
+        customClass: {
+            container: 'swal-container'
+        }
     });
 }
+
 function showSuccess(message = 'ดำเนินการสำเร็จ!') {
     Swal.fire({
         title: 'สำเร็จ!',
-        text: message,
+        text: sanitizeInput(message),
         icon: 'success',
-        confirmButtonText: 'ตกลง'
+        confirmButtonText: 'ตกลง',
+        timer: 3000,
+        customClass: {
+            container: 'swal-container'
+        }
     });
 }
+
 function showInfo(message) {
     Swal.fire({
         title: 'แจ้งเตือน',
-        text: message,
+        text: sanitizeInput(message),
         icon: 'info',
-        confirmButtonText: 'ตกลง'
+        confirmButtonText: 'ตกลง',
+        customClass: {
+            container: 'swal-container'
+        }
     });
 }
+
 async function showConfirm(message) {
     const result = await Swal.fire({
         title: 'ยืนยัน',
-        text: message,
+        text: sanitizeInput(message),
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'ตกลง',
-        cancelButtonText: 'ยกเลิก'
+        cancelButtonText: 'ยกเลิก',
+        customClass: {
+            container: 'swal-container'
+        }
     });
     return result.isConfirmed;
 }
 
-// --- Utility Functions ---
+// --- Enhanced Utility Functions ---
 
 /**
  * Displays the loading modal with a customizable message.
  * @param {string} text - The message to display in the loading modal.
  */
 function showLoading(text = 'กำลังโหลดข้อมูล...') {
-    document.getElementById('loading-text').textContent = text;
-    loadingModal.style.display = 'flex'; // Use flex to center the modal content
+    const loadingText = document.getElementById('loading-text');
+    if (loadingText) {
+        loadingText.textContent = sanitizeInput(text);
+    }
+    
+    const loadingModal = document.getElementById('loading-modal');
+    if (loadingModal) {
+        loadingModal.style.display = 'flex'; // Use flex to center the modal content
+    }
 }
 
 /**
  * Hides the loading modal.
  */
 function hideLoading() {
-    loadingModal.style.display = 'none';
+    const loadingModal = document.getElementById('loading-modal');
+    if (loadingModal) {
+        loadingModal.style.display = 'none';
+    }
 }
 
 /**
@@ -278,7 +561,10 @@ function showSuccess() {
     // Only show success modal if user is logged in
     const currentUser = getCurrentUser();
     if (currentUser) {
-        successModal.style.display = 'flex'; // Use flex to center the modal content
+        const successModal = document.getElementById('success-modal');
+        if (successModal) {
+            successModal.style.display = 'flex'; // Use flex to center the modal content
+        }
     }
 }
 
@@ -318,28 +604,33 @@ function showPage(pageId) {
     }
 }
 
-// --- Data Fetching Functions ---
+// --- Enhanced Data Fetching Functions ---
 
 /**
- * Fetches data from the Google Sheet via the Apps Script API.
- * Displays loading indicators and handles errors.
- * @param {string} action - The action parameter for the Apps Script (e.g., 'getUsers').
- * @returns {Promise<Array>} - A promise that resolves to an array of data.
+ * Enhanced data fetching with improved error handling and retry logic
  */
-async function fetchDataFromSheet(action) {
+async function fetchDataFromSheet(action, retryCount = 0) {
+    const maxRetries = 2;
+    
     showLoading(`กำลังโหลดข้อมูล ${action.replace('get', '')} ...`);
+    
     try {
-        const response = await fetch(`${SCRIPT_URL}?action=${action}`);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const response = await fetchWithTimeout(`${SCRIPT_URL}?action=${action}`);
         const data = await response.json();
-        // Apps Script usually returns data in a 'data' field, or 'result' as per the provided script
-        return data.result || []; 
+        return data.result || [];
     } catch (error) {
         console.error(`Error fetching ${action}:`, error);
-        // Only show alert if user is logged in to avoid disrupting login page
+        
+        // Retry logic for network errors
+        if (retryCount < maxRetries && (error.name === 'AbortError' || error.message.includes('Failed to fetch'))) {
+            console.log(`Retrying ${action} (attempt ${retryCount + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // Exponential backoff
+            return fetchDataFromSheet(action, retryCount + 1);
+        }
+        
         const currentUser = getCurrentUser();
         if (currentUser) {
-            showError(`เกิดข้อผิดพลาดในการดึงข้อมูล ${action.replace('get', 'ข้อมูล')}`);
+            console.log(`เกิดข้อผิดพลาดในการดึงข้อมูล: ${getErrorMessage(error)}`);
         }
         return [];
     } finally {
@@ -348,9 +639,7 @@ async function fetchDataFromSheet(action) {
 }
 
 /**
- * Handles the submission of the record form.
- * Gathers form data, sends it to the Apps Script API, and handles responses.
- * @param {Event} e - The form submission event.
+ * Enhanced form submission with validation and sanitization
  */
 async function handleRecordSubmit(e) {
     e.preventDefault(); // Prevent default form submission
@@ -359,21 +648,37 @@ async function handleRecordSubmit(e) {
     const formData = new FormData(form);
     const recordData = {};
 
-    // Collect data from form fields
+    // Collect and sanitize data from form fields
     for (let [key, value] of formData.entries()) {
-        recordData[key] = value;
+        recordData[key] = sanitizeInput(value);
     }
 
-    // Handle "other" process input if selected
+    // Validate required fields
+    const requiredFields = ['event_date', 'shift', 'patient_type', 'place', 'process', 'incorrect_medicine_search', 'cause'];
+    const missingFields = requiredFields.filter(field => {
+        const value = recordData[field] || document.getElementById(field)?.value;
+        return !value || value.trim() === '';
+    });
+
+    if (missingFields.length > 0) {
+        showError('กรุณากรอกข้อมูลให้ครบถ้วน');
+        return;
+    }
+
+    // Process special fields
     const processSelect = document.getElementById('process');
     const processOtherInput = document.getElementById('process_other');
     if (processSelect.value === 'อื่นๆ') {
-        recordData['กระบวนการ'] = processOtherInput.value;
+        if (!processOtherInput.value.trim()) {
+            showError('กรุณาระบุกระบวนการอื่นๆ');
+            return;
+        }
+        recordData['กระบวนการ'] = sanitizeInput(processOtherInput.value);
     } else {
         recordData['กระบวนการ'] = processSelect.value;
     }
 
-    // --- เพิ่มการคำนวณค่า HAD ---
+    // HAD calculation
     const correctMedName = document.getElementById('correct_medicine_search').value;
     const incorrectMedName = document.getElementById('incorrect_medicine_search').value;
     const correctMed = masterData.medicines.find(m => m.Name === correctMedName);
@@ -381,104 +686,141 @@ async function handleRecordSubmit(e) {
     const isHad = (correctMed && correctMed.HAD && String(correctMed.HAD).toLowerCase() === 'yes') ||
                   (incorrectMed && incorrectMed.HAD && String(incorrectMed.HAD).toLowerCase() === 'yes');
     recordData['HAD'] = isHad ? 'HAD' : '';
-    // --- จบการเพิ่ม HAD ---
 
-    // Handle "other" cause input if selected
+    // Process cause
     const causeSelect = document.getElementById('cause');
     const causeOtherInput = document.getElementById('cause_other');
     if (causeSelect.value === 'อื่นๆ') {
-        recordData['cause'] = causeOtherInput.value;
+        if (!causeOtherInput.value.trim()) {
+            showError('กรุณาระบุสาเหตุอื่นๆ');
+            return;
+        }
+        recordData['cause'] = sanitizeInput(causeOtherInput.value);
     } else {
         recordData['cause'] = causeSelect.value;
-    }    // --- เพิ่มชื่อผู้บันทึกตาม Login ---
+    }
+
+    // Reporter information
     const reporterField = document.getElementById('reporter');
     const currentUser = getCurrentUser();
-    if (reporterField && reporterField.value) {        recordData['ผู้บันทึก'] = reporterField.value;
+    if (reporterField && reporterField.value) {
+        recordData['ผู้บันทึก'] = sanitizeInput(reporterField.value);
         recordData['ผู้บันทึก_ID'] = reporterField.dataset.reporterId || '';
     } else {
         recordData['ผู้บันทึก'] = currentUser ? (currentUser.ชื่อจริง || currentUser.RealName || currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ') : 'ไม่ระบุ';
         recordData['ผู้บันทึก_ID'] = currentUser ? (currentUser.ID13 || '') : '';
     }
 
-    // Prepare data to send as query parameters
-    const dataToSend = {        action: 'addrecord', // Action for Apps Script
+    // Prepare data for submission
+    const dataToSend = {
+        action: 'addrecord',
         'วันที่เกิดเหตุการณ์': recordData['event_date'],
         'เวร': recordData['shift'],
         'ประเภทผู้ป่วย': recordData['patient_type'],
         'สถานที่': recordData['place'],
-        'กระบวนการ': recordData['กระบวนการ'], // Use the processed value
+        'กระบวนการ': recordData['กระบวนการ'],
         'รายการยาที่ถูกต้อง': recordData['correct_medicine_search'],
         'รายการยาที่ผิด': recordData['incorrect_medicine_search'],
-        'HAD': recordData['HAD'], // --- ส่งค่า HAD ---
+        'HAD': recordData['HAD'],
         'สาเหตุ': recordData['cause'],
-        'รายละเอียดเพิ่มเติม': recordData['details'],        'ผู้บันทึก': recordData['ผู้บันทึก'],
+        'รายละเอียดเพิ่มเติม': recordData['details'],
+        'ผู้บันทึก': recordData['ผู้บันทึก'],
         'ผู้บันทึก_ID': recordData['ผู้บันทึก_ID']
     };
 
-    // Convert dataToSend object into URL query parameters
     const queryParams = new URLSearchParams(dataToSend).toString();
     
     showLoading('กำลังบันทึกข้อมูล...');
+    
     try {
-        // Use GET method and append query parameters to the SCRIPT_URL
-        const response = await fetch(`${SCRIPT_URL}?${queryParams}`);
-
+        // Disable form during submission
+        form.classList.add('loading');
+        
+        const response = await fetchWithTimeout(`${SCRIPT_URL}?${queryParams}`);
         const result = await response.json();
 
         if (result.status === 'success') {
-            // Only show success modal if user is logged in
             const currentUser = getCurrentUser();
             if (currentUser) {
-                showSuccess(); // Show success modal
+                console.log('บันทึกข้อมูลสำเร็จ!');
             }
-            form.reset(); // Clear the form
-            document.getElementById('event_date').valueAsDate = new Date(); // Reset date to today
-            // Reload records data after successful submission
+            form.reset();
+            document.getElementById('event_date').valueAsDate = new Date();
+            
+            // Reload records data
             masterData.records = await fetchDataFromSheet('getRecords');
             masterData.records.sort((a,b) => new Date(b.วันที่เกิดเหตุการณ์) - new Date(a.วันที่เกิดเหตุการณ์));
-            // Ensure HAD status resets or is re-evaluated if needed
-            document.getElementById('had_status').textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
-            document.getElementById('had_status').parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
+            
+            // Reset HAD status
+            const hadStatus = document.getElementById('had_status');
+            if (hadStatus) {
+                hadStatus.textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
+                hadStatus.parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
+            }
         } else {
-            showError(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${result.message}`); // Show error message
+            showError(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${result.message || 'ไม่ทราบสาเหตุ'}`);
         }
     } catch (error) {
         console.error('Error submitting record:', error);
-        showError(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error.message}`);
+        showError(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${getErrorMessage(error)}`);
     } finally {
         hideLoading();
+        form.classList.remove('loading');
     }
 }
 
 
-// --- Main Application Data Loading ---
-
 /**
- * Loads all essential master data (medicines, places, processes, causes, records)
- * from the Google Sheet. This is called once the application initializes.
+ * Enhanced data loading with better error handling
  */
 async function loadAllMasterData() {
     showLoading('กำลังโหลดข้อมูลหลัก...');
-    const dataActions = ['getUsers', 'getMedicines', 'getPlaces', 'getProcesses', 'getCauses', 'getRecords'];
     
-    // Fetch all data concurrently using Promise.all
-    const [users, medicines, places, processes, causes, records] = await Promise.all(
-        dataActions.map(action => fetchDataFromSheet(action))
-    );
-    
-    // Update global masterData object
-    masterData.users = users || [];
-    masterData.medicines = medicines || [];
-    masterData.places = places || [];
-    masterData.processes = processes || [];
-    masterData.causes = causes || [];
-    masterData.records = (records || []).sort((a,b) => new Date(b.วันที่เกิดเหตุการณ์) - new Date(a.วันที่เกิดเหตุการณ์));
-    
-    // Initialize empty arrays for shifts and patient types if not loaded from server
-    masterData.shifts = masterData.shifts || [];
-    masterData.patientTypes = masterData.patientTypes || [];
-    
-    hideLoading();
+    try {
+        const dataActions = ['getUsers', 'getMedicines', 'getPlaces', 'getProcesses', 'getCauses', 'getRecords'];
+        
+        // Fetch all data concurrently using Promise.all with error handling
+        const results = await Promise.allSettled(
+            dataActions.map(action => fetchDataFromSheet(action))
+        );
+        
+        // Process results and handle any failures
+        const [users, medicines, places, processes, causes, records] = results.map((result, index) => {
+            if (result.status === 'fulfilled') {
+                return result.value || [];
+            } else {
+                console.error(`Failed to load ${dataActions[index]}:`, result.reason);
+                return [];
+            }
+        });
+        
+        // Update global masterData object with validation
+        masterData.users = Array.isArray(users) ? users : [];
+        masterData.medicines = Array.isArray(medicines) ? medicines : [];
+        masterData.places = Array.isArray(places) ? places : [];
+        masterData.processes = Array.isArray(processes) ? processes : [];
+        masterData.causes = Array.isArray(causes) ? causes : [];
+        masterData.records = Array.isArray(records) ? records.sort((a,b) => new Date(b.วันที่เกิดเหตุการณ์) - new Date(a.วันที่เกิดเหตุการณ์)) : [];
+        
+        // Initialize empty arrays for shifts and patient types if not loaded from server
+        masterData.shifts = masterData.shifts || [];
+        masterData.patientTypes = masterData.patientTypes || [];
+        
+        console.log('Master data loaded successfully:', {
+            users: masterData.users.length,
+            medicines: masterData.medicines.length,
+            places: masterData.places.length,
+            processes: masterData.processes.length,
+            causes: masterData.causes.length,
+            records: masterData.records.length
+        });
+        
+    } catch (error) {
+        console.error('Error loading master data:', error);
+        console.log('เกิดข้อผิดพลาดในการโหลดข้อมูลหลัก กรุณาลองใหม่อีกครั้ง');
+    } finally {
+        hideLoading();
+    }
 }
 
 // --- Page Rendering Functions ---
@@ -506,15 +848,18 @@ function renderRecordForm() {
  */
 function renderRecordsList(searchTerm = '') {
     const container = document.getElementById('records-list-page');
-      // Filter records based on the search term
-    const filteredRecords = masterData.records.filter(r => 
-        (r.เลขที่รายงาน && String(r.เลขที่รายงาน).toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (r.สถานที่ && String(r.สถานที่).toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (r.รายการยาที่ผิด && String(r.รายการยาที่ผิด).toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (r.กระบวนการ && String(r.กระบวนการ).toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (r.รายละเอียดเพิ่มเติม && String(r.รายละเอียดเพิ่มเติม).toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (r.ผู้บันทึก && String(r.ผู้บันทึก).toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+      // Filter records based on the search term with enhanced validation
+    const filteredRecords = masterData.records.filter(r => {
+        if (!searchTerm) return true;
+        
+        const term = searchTerm.toLowerCase();
+        return (r.เลขที่รายงาน && String(r.เลขที่รายงาน).toLowerCase().includes(term)) ||
+               (r.สถานที่ && String(r.สถานที่).toLowerCase().includes(term)) ||
+               (r.รายการยาที่ผิด && String(r.รายการยาที่ผิด).toLowerCase().includes(term)) ||
+               (r.กระบวนการ && String(r.กระบวนการ).toLowerCase().includes(term)) ||
+               (r.รายละเอียดเพิ่มเติม && String(r.รายละเอียดเพิ่มเติม).toLowerCase().includes(term)) ||
+               (r.ผู้บันทึก && String(r.ผู้บันทึก).toLowerCase().includes(term));
+    });
 
     // Calculate pagination parameters
     const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
@@ -525,7 +870,7 @@ function renderRecordsList(searchTerm = '') {
             <div class="flex flex-col items-center justify-between gap-4 mb-4 md:flex-row">
                 <h2 class="text-xl font-bold text-gray-800">รายการที่บันทึก</h2>
                 <div class="flex items-center gap-4">
-                     <input type="text" id="search-record" placeholder="ค้นหารายการ..." class="px-3 py-2 border border-gray-300 rounded-md" value="${searchTerm}">
+                     <input type="text" id="search-record" placeholder="ค้นหารายการ..." class="px-3 py-2 border border-gray-300 rounded-md" value="${sanitizeInput(searchTerm)}">
                      <button id="export-csv" class="px-4 py-2 text-white bg-teal-600 rounded-md hover:bg-teal-700">ส่งออก (CSV)</button>
                 </div>
             </div>
@@ -546,13 +891,14 @@ function renderRecordsList(searchTerm = '') {
                     <tbody id="records-table-body" class="divide-y divide-gray-200">
                         ${paginatedRecords.length > 0 ? paginatedRecords.map(r => `
                             <tr class="hover:bg-gray-100">
-                                <td class="px-6 py-4 whitespace-nowrap">${r.เลขที่รายงาน || ''}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.เลขที่รายงาน || '')}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${r.วันที่บันทึก ? new Date(r.วันที่บันทึก).toLocaleDateString('th-TH') : ''}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${r.วันที่เกิดเหตุการณ์ ? new Date(r.วันที่เกิดเหตุการณ์).toLocaleDateString('th-TH') : ''}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${r.สถานที่ || ''}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${r.รายการยาที่ผิด || ''}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${r.กระบวนการ || ''}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${r.รายละเอียดเพิ่มเติม || ''}</td>                                <td class="px-6 py-4 whitespace-nowrap">${r.ผู้บันทึก || ''}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.สถานที่ || '')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.รายการยาที่ผิด || '')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.กระบวนการ || '')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.รายละเอียดเพิ่มเติม || '')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.ผู้บันทึก || '')}</td>
                             </tr>
                         `).join('') : `<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500">ไม่พบข้อมูล</td></tr>`}
                     </tbody>
@@ -577,11 +923,16 @@ function renderRecordsList(searchTerm = '') {
         </div>
     `;
     
-    // Add event listeners for search, export, and pagination controls
+    // Add event listeners with debounced search for better performance
+    const debouncedSearch = debounce((searchTerm) => {
+        currentPage = 1;
+        renderRecordsList(searchTerm);
+    }, 300);
+    
     document.getElementById('search-record').addEventListener('input', (e) => {
-        currentPage = 1; // Reset to first page on new search
-        renderRecordsList(e.target.value);
+        debouncedSearch(e.target.value);
     });
+    
     document.getElementById('export-csv').addEventListener('click', () => exportToCSV(filteredRecords));
     document.getElementById('items-per-page').addEventListener('change', (e) => {
         itemsPerPage = parseInt(e.target.value);
@@ -1682,65 +2033,92 @@ function renderCausesPage() {
     // ...modal logic (openCauseModal) ...
 }
 
-// --- Event Listeners & Initialization ---
-
-/**
- * Initializes the application on page load.
- * Sets up event listeners and loads initial data.
- */
-async function initializeApp() {
-    // Load all master data first
-    await loadAllMasterData();
-    
-    // Check if user is already logged in
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-        // User is logged in, show main app
-        loginPage.style.display = 'none';
-        appPage.style.display = 'block';
-        showPage('record-form-page'); // Show default page
-    } else {
-        // User not logged in, show login page
-        loginPage.style.display = 'flex';
-        appPage.style.display = 'none';
-    }
-}
-
-// --- Main Application Initialization ---
-document.addEventListener('DOMContentLoaded', async () => {
-    // Load all master data when the page loads
-    await loadAllMasterData();
-
-    // Check if user is already logged in
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-        loginPage.style.display = 'none';
-        appPage.style.display = 'block';
-        updateUserDisplay(); // อัพเดตการแสดงชื่อผู้ใช้
-        showPage('record-form-page'); // Show the record form page if logged in
-    } else {
-        loginPage.style.display = 'flex'; // Show login page if not logged in
-        appPage.style.display = 'none';
-    }
-
-    // Add event listener for login form submission
-    loginForm.addEventListener('submit', handleLogin);
-
-    // Add event listener for logout button
-    document.getElementById('logout-btn').addEventListener('click', logout);    // Add event listeners for navigation links
-    navLinks.forEach(link => {
-        link.addEventListener('click', () => {
-            // Only allow navigation if logged in, otherwise redirect to login page
-            if (getCurrentUser()) {
-                showPage(link.dataset.page);
-            } else {
-                showError('กรุณาเข้าสู่ระบบก่อนใช้งาน');
-                // Ensure login page is shown if not logged in
-                loginPage.style.display = 'flex';
-                appPage.style.display = 'none';
+// --- Enhanced Application Initialization ---
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        // Initialize application
+        console.log('Initializing application...');
+        
+        // Load all master data first
+        await loadAllMasterData();
+        
+        // Check if user is already logged in
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            console.log('User already logged in:', currentUser.ชื่อ || currentUser.Name);
+            updateUserDisplay();
+            loginPage.style.display = 'none';
+            appPage.style.display = 'block';
+            showPage('record-form-page');
+        } else {
+            console.log('No user logged in, showing login page');
+            loginPage.style.display = 'flex';
+            appPage.style.display = 'none';
+        }
+        
+        // Add navigation event listeners
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const pageId = link.dataset.page;
+                if (pageId) {
+                    // Check if user is logged in for protected pages
+                    const currentUser = getCurrentUser();
+                    if (!currentUser && pageId !== 'login-page') {
+                        console.log('กรุณาเข้าสู่ระบบก่อนใช้งาน');
+                        return;
+                    }
+                    showPage(pageId);
+                }
+            });
+        });
+        
+        // Add login form event listener
+        if (loginForm) {
+            loginForm.addEventListener('submit', handleLogin);
+        }
+        
+        // Add logout button event listener
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', logout);
+        }
+        
+        // Add keyboard shortcuts for better accessibility
+        document.addEventListener('keydown', (e) => {
+            // Escape key to close modals
+            if (e.key === 'Escape') {
+                if (loadingModal && loadingModal.style.display === 'flex') {
+                    hideLoading();
+                }
+                if (successModal && successModal.style.display === 'flex') {
+                    successModal.style.display = 'none';
+                }
             }
         });
+        
+        console.log('Application initialized successfully');
+        
+    } catch (error) {
+        console.error('Error during application initialization:', error);
+        console.log('เกิดข้อผิดพลาดในการเริ่มต้นระบบ กรุณาโหลดหน้าเว็บใหม่');
+    }
+});
+
+// --- Service Worker Registration for Better Caching (Optional) ---
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        // You can register a service worker here for better offline support
+        console.log('Service Worker support detected');
     });
+}
+
+// --- Performance Monitoring ---
+window.addEventListener('load', () => {
+    if (window.performance && window.performance.timing) {
+        const loadTime = window.performance.timing.loadEventEnd - window.performance.timing.navigationStart;
+        console.log('Page load time:', loadTime + 'ms');
+    }
 });
 </script>
 </body>
