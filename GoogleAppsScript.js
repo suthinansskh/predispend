@@ -3,7 +3,7 @@
  * This is your actual working Google Apps Script code
  */
 
-const SPREADSHEET_ID = "1UowKSMk6GLpof8GIJZWTn90JFpGcY3adqqBYBmMcIgo";
+const SPREADSHEET_ID = "1hnluLUwyqtJMenP_xXarpsCbeRbEd46Kn-YOYUuMF-w";
 const SPREADSHEET_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit`;
 
 const SHEET_NAMES = {
@@ -78,7 +78,8 @@ function doGet(e) {
         break;
       case 'getcauses':
         data = getDataFromSheet(SHEET_NAMES.CAUSE);
-        break;      case 'addrecord': // Handle addrecord operation via GET request parameters
+        break;
+      case 'addrecord': // Handle addrecord operation via GET request parameters
         // e.parameter contains all the data sent as query parameters
         addRecord(e.parameter); 
         return ContentService
@@ -141,13 +142,9 @@ function getDataFromSheet(sheetName) {
  * Generates a unique 'เลขที่รายงาน' (Report ID) and sets 'วันที่บันทึก' (Record Date).
  * @param {Object} recordData - The data for the new record (from e.parameter).
  * @param {string} recordData.วันที่เกิดเหตุการณ์ - The event date (required).
- * @param {string} recordData.ข้อผิดพลาด - The error type (optional but expected).
  * @throws {Error} If the "Record" sheet is not found, or required data is missing/invalid.
  */
 function addRecord(recordData) {
-  // Log the received data for debugging
-  Logger.log('Received record data:', JSON.stringify(recordData));
-  
   const sheet = ss.getSheetByName(SHEET_NAMES.RECORDS);
   if (!sheet) {
     throw new Error(`Sheet with name "${SHEET_NAMES.RECORDS}" not found.`);
@@ -160,15 +157,6 @@ function addRecord(recordData) {
   const eventDate = new Date(recordData.วันที่เกิดเหตุการณ์);
   if (isNaN(eventDate.getTime())) { // Use .getTime() to check for valid date
     throw new Error("Invalid date format for 'วันที่เกิดเหตุการณ์' (Event Date). Please use a valid date string.");
-  }
-
-  // Additional validation for key fields
-  const requiredFields = ['เวร', 'ประเภทผู้ป่วย', 'สถานที่', 'กระบวนการ', 'ข้อผิดพลาด', 'รายการยาที่ผิด', 'สาเหตุ'];
-  const missingFields = requiredFields.filter(field => !recordData[field] || recordData[field].trim() === '');
-  
-  if (missingFields.length > 0) {
-    Logger.log('Missing required fields:', missingFields);
-    throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
   }
 
   const now = new Date();
@@ -185,8 +173,6 @@ function addRecord(recordData) {
 
   // Get headers from the first row to ensure correct column order for appending
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  Logger.log('Sheet headers:', headers);
-  Logger.log('Available recordData fields:', Object.keys(recordData));
 
   // Map recordData to a new row array based on header order
   const newRow = headers.map(header => {
@@ -195,30 +181,10 @@ function addRecord(recordData) {
       case 'วันที่บันทึก': return now;
       case 'วันที่เกิดเหตุการณ์': return eventDate;
       // Use recordData[header] which now directly contains the values from e.parameter
-      default: 
-        const value = recordData[header];
-        Logger.log(`Mapping header "${header}" to value:`, value);
-        return value ?? null; 
+      default: return recordData[header] ?? null; 
     }
   });
 
-  Logger.log('New row data:', newRow);
-  
-  try {
-    sheet.appendRow(newRow); // Append the new row to the sheet
-    Logger.log('Record successfully added to sheet with ID:', reportId);
-  } catch (error) {
-    Logger.log('Error appending row to sheet:', error);
-    throw new Error(`Failed to add record to sheet: ${error.message}`);
-  }
-}
-
-/**
- * Handle OPTIONS requests for CORS preflight
- */
-function doOptions(e) {
-  return ContentService
-    .createTextOutput('')
-    .setMimeType(ContentService.MimeType.TEXT);
+  sheet.appendRow(newRow); // Append the new row to the sheet
 }
 

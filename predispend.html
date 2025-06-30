@@ -726,7 +726,7 @@ async function handleRecordSubmit(e) {
         'รายการยาที่ผิด': recordData['incorrect_medicine_search'],
         'HAD': recordData['HAD'],
         'สาเหตุ': recordData['cause'],
-        'รายละเอียดเพิ่มเติม': recordData['details'],
+        'รายละเอียด': recordData['details'], // Changed from 'รายละเอียดเพิ่มเติม' to match column name
         'ผู้บันทึก': recordData['ผู้บันทึก'],
         'ผู้บันทึก_ID': recordData['ผู้บันทึก_ID']
     };
@@ -801,7 +801,29 @@ async function loadAllMasterData() {
         masterData.users = Array.isArray(users) ? users : [];
         masterData.medicines = Array.isArray(medicines) ? medicines : [];
         masterData.places = Array.isArray(places) ? places : [];
-        masterData.processes = Array.isArray(processes) ? processes : [];
+        
+        // Ensure we have our core processes defined even if fetching failed
+        if (!Array.isArray(processes) || processes.length === 0) {
+            processes = [
+                { Name: 'จัดยา' },
+                { Name: 'ลงข้อมูล' },
+                { Name: 'เตรียมยา' },
+                { Name: 'การเก็บยา' }
+            ];
+        }
+        
+        // Make sure the process list contains all needed processes from our mapping
+        const requiredProcesses = Object.keys(processErrorMapping);
+        let updatedProcesses = [...processes];
+        
+        // Add any missing processes from our mapping
+        for (const proc of requiredProcesses) {
+            if (!updatedProcesses.some(p => p.Name === proc)) {
+                updatedProcesses.push({ Name: proc });
+            }
+        }
+        
+        masterData.processes = updatedProcesses;
         masterData.causes = Array.isArray(causes) ? causes : [];
         masterData.records = Array.isArray(records) ? records.sort((a,b) => new Date(b.วันที่เกิดเหตุการณ์) - new Date(a.วันที่เกิดเหตุการณ์)) : [];
         
@@ -857,10 +879,16 @@ function renderRecordsList(searchTerm = '') {
         
         const term = searchTerm.toLowerCase();
         return (r.เลขที่รายงาน && String(r.เลขที่รายงาน).toLowerCase().includes(term)) ||
+               (r.เวร && String(r.เวร).toLowerCase().includes(term)) ||
                (r.สถานที่ && String(r.สถานที่).toLowerCase().includes(term)) ||
-               (r.รายการยาที่ผิด && String(r.รายการยาที่ผิด).toLowerCase().includes(term)) ||
+               (r.ประเภทผู้ป่วย && String(r.ประเภทผู้ป่วย).toLowerCase().includes(term)) ||
                (r.กระบวนการ && String(r.กระบวนการ).toLowerCase().includes(term)) ||
-               (r.รายละเอียดเพิ่มเติม && String(r.รายละเอียดเพิ่มเติม).toLowerCase().includes(term)) ||
+               (r.ข้อผิดพลาด && String(r.ข้อผิดพลาด).toLowerCase().includes(term)) ||
+               (r.รายการยาที่ถูกต้อง && String(r.รายการยาที่ถูกต้อง).toLowerCase().includes(term)) ||
+               (r.รายการยาที่ผิด && String(r.รายการยาที่ผิด).toLowerCase().includes(term)) ||
+               (r.HAD && String(r.HAD).toLowerCase().includes(term)) ||
+               (r.สาเหตุ && String(r.สาเหตุ).toLowerCase().includes(term)) ||
+               (r.รายละเอียด && String(r.รายละเอียด).toLowerCase().includes(term)) ||
                (r.ผู้บันทึก && String(r.ผู้บันทึก).toLowerCase().includes(term));
     });
 
@@ -882,13 +910,18 @@ function renderRecordsList(searchTerm = '') {
                     <thead class="bg-gray-200">
                         <tr>
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">เลขที่รายงาน</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">วันที่บันทึก</th>
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">วันที่เกิดเหตุการณ์</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">เวร</th>
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">สถานที่</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายการยาที่ผิด</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ประเภทผู้ป่วย</th>
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">กระบวนการ</th>
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ข้อผิดพลาด</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายละเอียดเพิ่มเติม</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายการยาที่ถูกต้อง</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายการยาที่ผิด</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">HAD</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">สาเหตุ</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายละเอียด</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">วันที่บันทึก</th>
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ผู้บันทึก</th>
                         </tr>
                     </thead>
@@ -896,16 +929,21 @@ function renderRecordsList(searchTerm = '') {
                         ${paginatedRecords.length > 0 ? paginatedRecords.map(r => `
                             <tr class="hover:bg-gray-100">
                                 <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.เลขที่รายงาน || '')}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${r.วันที่บันทึก ? new Date(r.วันที่บันทึก).toLocaleDateString('th-TH') : ''}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${r.วันที่เกิดเหตุการณ์ ? new Date(r.วันที่เกิดเหตุการณ์).toLocaleDateString('th-TH') : ''}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.เวร || '')}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.สถานที่ || '')}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.รายการยาที่ผิด || '')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.ประเภทผู้ป่วย || '')}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.กระบวนการ || '')}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.ข้อผิดพลาด || '')}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.รายละเอียดเพิ่มเติม || '')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.รายการยาที่ถูกต้อง || '')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.รายการยาที่ผิด || '')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.HAD || '')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.สาเหตุ || '')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.รายละเอียด || '')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${r.วันที่บันทึก ? new Date(r.วันที่บันทึก).toLocaleDateString('th-TH') : ''}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.ผู้บันทึก || '')}</td>
                             </tr>
-                        `).join('') : `<tr><td colspan="9" class="px-6 py-4 text-center text-gray-500">ไม่พบข้อมูล</td></tr>`}
+                        `).join('') : `<tr><td colspan="14" class="px-6 py-4 text-center text-gray-500">ไม่พบข้อมูล</td></tr>`}
                     </tbody>
                 </table>
             </div>
@@ -1073,6 +1111,7 @@ function renderRecordForm() {
                        <option value="" selected>เลือก...</option>
                        ${(masterData.causes || []).map(c => `<option value="${c.Name || c.name || ''}">${c.Name || c.name || ''}</option>`).join('')}
                        <option value="อื่นๆ">อื่นๆ (โปรดระบุ)</option>
+                       <option value="อื่นๆ">อื่นๆ (โปรดระบุ)</option>
                     </select>
                     <input type="text" id="cause_other" name="cause_other" class="hidden w-full px-3 py-2 mt-2 border border-gray-300 rounded-md" placeholder="ระบุสาเหตุอื่นๆ">
                 </div>                <div class="md:col-span-2">
@@ -1105,44 +1144,37 @@ function renderRecordForm() {
 
     // Define error types for each process (กระบวนการ -> ข้อผิดพลาด mapping)
     const processErrorMapping = {
-        'กระบวนการจัดยา': [
-            'จัดยาผิดชนิด',
-            'จัดยาผิดขนาด',
-            'จัดยาผิดความแรง',
-            'จัดยาผิดปริมาณ',
-            'จัดยาผิดผู้ป่วย',
-            'จัดยาหมดอายุ'
+        'จัดยา': [
+            'ไม่ติดฉลากยา',
+            'จัดผิดขนาด',
+            'จัดผิดจำนวน',
+            'จัดไม่ครบชนิด',
+            'จัดผิดชนิด',
+            'จัดผิดรูปแบบ',
+            'จัดผิดคน',
+            'ไม่ได้หยุดยา/นำยาออก กรณีแพทย์สั่ง off ยา'
         ],
-        'กระบวนการตรวจสอบ': [
-            'ไม่ตรวจสอบ Drug allergy',
-            'ไม่ตรวจสอบ Drug interaction',
-            'ไม่ตรวจสอบขนาดยา',
-            'ไม่ตรวจสอบความถูกต้องของใบสั่งยา',
-            'ตรวจสอบไม่ครบถ้วน'
+        'ลงข้อมูล': [
+            'key ผิดขนาด',
+            'key ผิดจำนวน',
+            'key ไม่ครบชนิด',
+            'key ผิดคน',
+            'key ผิดวิธีใช้',
+            'ลงข้อมูลก่อนเตรียมยาไม่ถูกต้อง',
+            'คีย์สารละลายผิดขนาด ผิดชนิด'
         ],
-        'กระบวนการจ่ายยา': [
-            'จ่ายยาผิดชนิด',
-            'จ่ายยาผิดขนาด',
-            'จ่ายยาผิดผู้ป่วย',
-            'จ่ายยาไม่ครบจำนวน',
-            'จ่ายยาเกินจำนวน',
-            'ไม่ให้คำแนะนำการใช้ยา'
+        'เตรียมยา': [
+            'ลืมเตรียมยา',
+            'ไม่ได้ส่งการปรับปรุง order/stat',
+            'ไม่ได้อ่าน line ทำให้ไมไ่ด้เตรียมยา',
+            'ผลิตยาไม่ทัน',
+            'ติดฉลกายา prepack ผิดชนิด',
+            'ไม่ได้เตรียม set IV เพื่อยาเคมีบำบัด'
         ],
-        'กระบวนการสั่งยา': [
-            'สั่งยาผิดชนิด',
-            'สั่งยาผิดขนาด',
-            'สั่งยาผิดความแรง',
-            'สั่งยาผิดวิธีใช้',
-            'สั่งยาผิดความถี่',
-            'สั่งยาผิดระยะเวลา'
-        ],
-        'กระบวนการบริหารยา': [
-            'ให้ยาผิดเวลา',
-            'ให้ยาผิดขนาด',
-            'ให้ยาผิดทาง',
-            'ให้ยาผิดผู้ป่วย',
-            'ไม่ให้ยาตามที่สั่ง',
-            'ให้ยาซ้ำ'
+        'การเก็บยา': [
+            'ตรวจพบยาหมดอายุในจุดจ่าย',
+            'ไม่ได้ลงค่าใช้จ่ายด้านยา(ไมไ่ด้คิดค่ายาหรือเวชภัณฑ์อื่นๆ)',
+            'เก็บยาผิดตำแหน่ง'
         ]
     };
 
