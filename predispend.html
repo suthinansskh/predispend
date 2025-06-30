@@ -232,7 +232,7 @@
         <p id="loading-text" class="mt-4 text-lg">กำลังบันทึกข้อมูล...</p>
       </div>
     </div>
-    <div id="success-modal" class="modal">
+    <div id="success-modal" class="modal" style="display: none !important;">
       <div class="modal-content">
         <svg class="w-16 h-16 mx-auto text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
         <p class="mt-4 text-lg">บันทึกข้อมูลสำเร็จ!</p>
@@ -487,16 +487,8 @@ function showError(message) {
 }
 
 function showSuccess(message = 'ดำเนินการสำเร็จ!') {
-    Swal.fire({
-        title: 'สำเร็จ!',
-        text: sanitizeInput(message),
-        icon: 'success',
-        confirmButtonText: 'ตกลง',
-        timer: 3000,
-        customClass: {
-            container: 'swal-container'
-        }
-    });
+    // Suppressed SweetAlert2 popup for better UX - log to console instead
+    console.log('Success:', sanitizeInput(message));
 }
 
 function showInfo(message) {
@@ -558,13 +550,10 @@ function hideLoading() {
  * Displays the success modal.
  */
 function showSuccess() {
-    // Only show success modal if user is logged in
+    // Suppressed success modal for better UX - log to console instead
     const currentUser = getCurrentUser();
     if (currentUser) {
-        const successModal = document.getElementById('success-modal');
-        if (successModal) {
-            successModal.style.display = 'flex'; // Use flex to center the modal content
-        }
+        console.log('Record saved successfully');
     }
 }
 
@@ -654,7 +643,7 @@ async function handleRecordSubmit(e) {
     }
 
     // Validate required fields
-    const requiredFields = ['event_date', 'shift', 'patient_type', 'place', 'process', 'incorrect_medicine_search', 'cause'];
+    const requiredFields = ['event_date', 'shift', 'patient_type', 'place', 'process', 'error_type', 'incorrect_medicine_search', 'cause'];
     const missingFields = requiredFields.filter(field => {
         const value = recordData[field] || document.getElementById(field)?.value;
         return !value || value.trim() === '';
@@ -676,6 +665,19 @@ async function handleRecordSubmit(e) {
         recordData['กระบวนการ'] = sanitizeInput(processOtherInput.value);
     } else {
         recordData['กระบวนการ'] = processSelect.value;
+    }
+
+    // Process error type
+    const errorTypeSelect = document.getElementById('error_type');
+    const errorTypeOtherInput = document.getElementById('error_type_other');
+    if (errorTypeSelect.value === 'อื่นๆ') {
+        if (!errorTypeOtherInput.value.trim()) {
+            showError('กรุณาระบุข้อผิดพลาดอื่นๆ');
+            return;
+        }
+        recordData['ข้อผิดพลาด'] = sanitizeInput(errorTypeOtherInput.value);
+    } else {
+        recordData['ข้อผิดพลาด'] = errorTypeSelect.value;
     }
 
     // HAD calculation
@@ -719,6 +721,7 @@ async function handleRecordSubmit(e) {
         'ประเภทผู้ป่วย': recordData['patient_type'],
         'สถานที่': recordData['place'],
         'กระบวนการ': recordData['กระบวนการ'],
+        'ข้อผิดพลาด': recordData['ข้อผิดพลาด'],
         'รายการยาที่ถูกต้อง': recordData['correct_medicine_search'],
         'รายการยาที่ผิด': recordData['incorrect_medicine_search'],
         'HAD': recordData['HAD'],
@@ -884,6 +887,7 @@ function renderRecordsList(searchTerm = '') {
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">สถานที่</th>
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายการยาที่ผิด</th>
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">กระบวนการ</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ข้อผิดพลาด</th>
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายละเอียดเพิ่มเติม</th>
                             <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ผู้บันทึก</th>
                         </tr>
@@ -897,10 +901,11 @@ function renderRecordsList(searchTerm = '') {
                                 <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.สถานที่ || '')}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.รายการยาที่ผิด || '')}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.กระบวนการ || '')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.ข้อผิดพลาด || '')}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.รายละเอียดเพิ่มเติม || '')}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.ผู้บันทึก || '')}</td>
                             </tr>
-                        `).join('') : `<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500">ไม่พบข้อมูล</td></tr>`}
+                        `).join('') : `<tr><td colspan="9" class="px-6 py-4 text-center text-gray-500">ไม่พบข้อมูล</td></tr>`}
                     </tbody>
                 </table>
             </div>
@@ -1033,6 +1038,13 @@ function renderRecordForm() {
                     </select>
                     <input type="text" id="process_other" name="process_other" class="hidden w-full px-3 py-2 mt-2 border border-gray-300 rounded-md" placeholder="ระบุกระบวนการอื่นๆ">
                 </div>
+                <div>
+                    <label for="error_type" class="block text-sm font-medium text-gray-700">ข้อผิดพลาด</label>
+                    <select id="error_type" name="error_type" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                        <option value="" selected>กรุณาเลือกกระบวนการก่อน</option>
+                    </select>
+                    <input type="text" id="error_type_other" name="error_type_other" class="hidden w-full px-3 py-2 mt-2 border border-gray-300 rounded-md" placeholder="ระบุข้อผิดพลาดอื่นๆ">
+                </div>
                  <div>
                     <label for="correct_medicine_search" class="block text-sm font-medium text-gray-700">รายการยาที่ถูกต้อง</label>
                     <!-- Input with datalist for searchable dropdown functionality -->
@@ -1055,7 +1067,9 @@ function renderRecordForm() {
                 </div>
                 
                 <div class="md:col-span-2">
-                    <label for="cause" class="block text-sm font-medium text-gray-700">สาเหตุ</label>                    <select id="cause" name="cause" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                <div class="md:col-span-2">
+                    <label for="cause" class="block text-sm font-medium text-gray-700">สาเหตุ</label>
+                    <select id="cause" name="cause" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
                        <option value="" selected>เลือก...</option>
                        ${(masterData.causes || []).map(c => `<option value="${c.Name || c.name || ''}">${c.Name || c.name || ''}</option>`).join('')}
                        <option value="อื่นๆ">อื่นๆ (โปรดระบุ)</option>
@@ -1089,14 +1103,107 @@ function renderRecordForm() {
         reporterField.dataset.reporterId = currentUser.ID13 || '';
     }
 
-    // Logic to show/hide "other" input for process field
+    // Define error types for each process (กระบวนการ -> ข้อผิดพลาด mapping)
+    const processErrorMapping = {
+        'กระบวนการจัดยา': [
+            'จัดยาผิดชนิด',
+            'จัดยาผิดขนาด',
+            'จัดยาผิดความแรง',
+            'จัดยาผิดปริมาณ',
+            'จัดยาผิดผู้ป่วย',
+            'จัดยาหมดอายุ'
+        ],
+        'กระบวนการตรวจสอบ': [
+            'ไม่ตรวจสอบ Drug allergy',
+            'ไม่ตรวจสอบ Drug interaction',
+            'ไม่ตรวจสอบขนาดยา',
+            'ไม่ตรวจสอบความถูกต้องของใบสั่งยา',
+            'ตรวจสอบไม่ครบถ้วน'
+        ],
+        'กระบวนการจ่ายยา': [
+            'จ่ายยาผิดชนิด',
+            'จ่ายยาผิดขนาด',
+            'จ่ายยาผิดผู้ป่วย',
+            'จ่ายยาไม่ครบจำนวน',
+            'จ่ายยาเกินจำนวน',
+            'ไม่ให้คำแนะนำการใช้ยา'
+        ],
+        'กระบวนการสั่งยา': [
+            'สั่งยาผิดชนิด',
+            'สั่งยาผิดขนาด',
+            'สั่งยาผิดความแรง',
+            'สั่งยาผิดวิธีใช้',
+            'สั่งยาผิดความถี่',
+            'สั่งยาผิดระยะเวลา'
+        ],
+        'กระบวนการบริหารยา': [
+            'ให้ยาผิดเวลา',
+            'ให้ยาผิดขนาด',
+            'ให้ยาผิดทาง',
+            'ให้ยาผิดผู้ป่วย',
+            'ไม่ให้ยาตามที่สั่ง',
+            'ให้ยาซ้ำ'
+        ]
+    };
+
+    // Logic to show/hide "other" input for process field and update error types
     const processSelect = document.getElementById('process');
     const processOtherInput = document.getElementById('process_other');
+    const errorTypeSelect = document.getElementById('error_type');
+    const errorTypeOtherInput = document.getElementById('error_type_other');
+    
     processSelect.addEventListener('change', () => {
-        processOtherInput.classList.toggle('hidden', processSelect.value !== 'อื่นๆ');
-        // Clear value if hidden
+        const selectedProcess = processSelect.value;
+        
+        // Handle process "other" input
+        processOtherInput.classList.toggle('hidden', selectedProcess !== 'อื่นๆ');
         if (processOtherInput.classList.contains('hidden')) {
             processOtherInput.value = '';
+        }
+        
+        // Update error type dropdown based on selected process
+        errorTypeSelect.innerHTML = '<option value="" selected>เลือก...</option>';
+        
+        if (selectedProcess && selectedProcess !== 'อื่นๆ' && processErrorMapping[selectedProcess]) {
+            // Add specific error types for the selected process
+            processErrorMapping[selectedProcess].forEach(errorType => {
+                const option = document.createElement('option');
+                option.value = errorType;
+                option.textContent = errorType;
+                errorTypeSelect.appendChild(option);
+            });
+            
+            // Add "other" option
+            const otherOption = document.createElement('option');
+            otherOption.value = 'อื่นๆ';
+            otherOption.textContent = 'อื่นๆ (โปรดระบุ)';
+            errorTypeSelect.appendChild(otherOption);
+            
+            errorTypeSelect.disabled = false;
+        } else if (selectedProcess === 'อื่นๆ') {
+            // If process is "other", allow manual input for error type
+            const otherOption = document.createElement('option');
+            otherOption.value = 'อื่นๆ';
+            otherOption.textContent = 'อื่นๆ (โปรดระบุ)';
+            errorTypeSelect.appendChild(otherOption);
+            errorTypeSelect.disabled = false;
+        } else {
+            // No process selected
+            errorTypeSelect.innerHTML = '<option value="" selected>กรุณาเลือกกระบวนการก่อน</option>';
+            errorTypeSelect.disabled = true;
+        }
+        
+        // Reset error type other input
+        errorTypeOtherInput.classList.add('hidden');
+        errorTypeOtherInput.value = '';
+    });
+    
+    // Logic to show/hide "other" input for error type field
+    errorTypeSelect.addEventListener('change', () => {
+        const selectedErrorType = errorTypeSelect.value;
+        errorTypeOtherInput.classList.toggle('hidden', selectedErrorType !== 'อื่นๆ');
+        if (errorTypeOtherInput.classList.contains('hidden')) {
+            errorTypeOtherInput.value = '';
         }
     });
 
@@ -1161,17 +1268,30 @@ function renderRecordForm() {
                 const sel = document.getElementById(id);
                 if (sel) sel.selectedIndex = 0;
             });
+            
+            // รีเซ็ต error type select
+            const errorTypeSelect = document.getElementById('error_type');
+            if (errorTypeSelect) {
+                errorTypeSelect.innerHTML = '<option value="" selected>กรุณาเลือกกระบวนการก่อน</option>';
+                errorTypeSelect.disabled = true;
+            }
+            
             // รีเซ็ตสถานะ HAD (ถ้ามี)
             const hadStatus = document.getElementById('had_status');
             if (hadStatus) {
                 hadStatus.textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
                 hadStatus.parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
             }
-            // ซ่อนช่อง process_other/cause_other (ถ้ามี)
+            // ซ่อนช่อง process_other/cause_other/error_type_other (ถ้ามี)
             const processOtherInput = document.getElementById('process_other');
             if (processOtherInput) {
                 processOtherInput.classList.add('hidden');
                 processOtherInput.value = '';
+            }
+            const errorTypeOtherInput = document.getElementById('error_type_other');
+            if (errorTypeOtherInput) {
+                errorTypeOtherInput.classList.add('hidden');
+                errorTypeOtherInput.value = '';
             }
             const causeOtherInput = document.getElementById('cause_other');
             if (causeOtherInput) {
@@ -1259,6 +1379,13 @@ function renderDashboard() {
         return acc;
     }, {});
     
+    // Aggregate records by Error Type
+    const byErrorType = masterData.records.reduce((acc, rec) => {
+        const errorType = rec.ข้อผิดพลาด || 'ไม่ระบุ';
+        acc[errorType] = (acc[errorType] || 0) + 1;
+        return acc;
+    }, {});
+    
     // นับความถี่ของยาที่ผิด
     const incorrectMedicineFrequency = masterData.records.reduce((acc, rec) => {
         const medicine = rec.รายการยาที่ผิด || 'ไม่ระบุ';
@@ -1337,6 +1464,10 @@ function renderDashboard() {
                     <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามกระบวนการ</h3>
                     <canvas id="processChart" style="height:100%;max-height:400px;width:100%;"></canvas>
                 </div>
+                <div class="p-4 bg-gray-100 rounded-lg shadow-sm" style="height:400px;max-height:400px;">
+                    <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามข้อผิดพลาด</h3>
+                    <canvas id="errorTypeChart" style="height:100%;max-height:400px;width:100%;"></canvas>
+                </div>
             </div>
             
             <!-- สถิติยาที่จัดผิด 10 อันดับ -->
@@ -1371,6 +1502,7 @@ function renderDashboard() {
         byPlace,
         byPatientType,
         byProcess,
+        byErrorType,
         topInvalidMedicines
     };    // --- Chart.js Initialization ---
     
@@ -1542,6 +1674,10 @@ function renderDashboard() {
     
     if (document.getElementById('processChart')) {
         createChart('processChart', 'bar', Object.keys(byProcess), Object.values(byProcess), 'จำนวนรายงานตามกระบวนการ', chartColors.slice(0, Object.keys(byProcess).length));
+    }
+    
+    if (document.getElementById('errorTypeChart')) {
+        createChart('errorTypeChart', 'bar', Object.keys(byErrorType), Object.values(byErrorType), 'จำนวนรายงานตามข้อผิดพลาด', chartColors.slice(0, Object.keys(byErrorType).length));
     }    // สร้างกราฟแสดงยาที่จัดผิดบ่อย 10 อันดับแรก
     if (topInvalidMedicines.length > 0) {
         const medicineLabels = topInvalidMedicines.map(item => item[0]);
@@ -2052,6 +2188,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             showPage('record-form-page');
         } else {
             console.log('No user logged in, showing login page');
+            // Show login page on first visit - no popup alerts
             loginPage.style.display = 'flex';
             appPage.style.display = 'none';
         }
@@ -2066,6 +2203,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const currentUser = getCurrentUser();
                     if (!currentUser && pageId !== 'login-page') {
                         console.log('กรุณาเข้าสู่ระบบก่อนใช้งาน');
+                        // Show login page instead of popup
+                        loginPage.style.display = 'flex';
+                        appPage.style.display = 'none';
                         return;
                     }
                     showPage(pageId);
@@ -2102,6 +2242,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     } catch (error) {
         console.error('Error during application initialization:', error);
         console.log('เกิดข้อผิดพลาดในการเริ่มต้นระบบ กรุณาโหลดหน้าเว็บใหม่');
+        // Show login page even if there's an error
+        loginPage.style.display = 'flex';
+        appPage.style.display = 'none';
     }
 });
 

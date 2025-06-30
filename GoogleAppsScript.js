@@ -141,6 +141,7 @@ function getDataFromSheet(sheetName) {
  * Generates a unique 'เลขที่รายงาน' (Report ID) and sets 'วันที่บันทึก' (Record Date).
  * @param {Object} recordData - The data for the new record (from e.parameter).
  * @param {string} recordData.วันที่เกิดเหตุการณ์ - The event date (required).
+ * @param {string} recordData.ข้อผิดพลาด - The error type (optional but expected).
  * @throws {Error} If the "Record" sheet is not found, or required data is missing/invalid.
  */
 function addRecord(recordData) {
@@ -161,6 +162,15 @@ function addRecord(recordData) {
     throw new Error("Invalid date format for 'วันที่เกิดเหตุการณ์' (Event Date). Please use a valid date string.");
   }
 
+  // Additional validation for key fields
+  const requiredFields = ['เวร', 'ประเภทผู้ป่วย', 'สถานที่', 'กระบวนการ', 'ข้อผิดพลาด', 'รายการยาที่ผิด', 'สาเหตุ'];
+  const missingFields = requiredFields.filter(field => !recordData[field] || recordData[field].trim() === '');
+  
+  if (missingFields.length > 0) {
+    Logger.log('Missing required fields:', missingFields);
+    throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+  }
+
   const now = new Date();
   // Generate a unique report ID based on current timestamp
   const reportId = `R-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
@@ -176,6 +186,7 @@ function addRecord(recordData) {
   // Get headers from the first row to ensure correct column order for appending
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   Logger.log('Sheet headers:', headers);
+  Logger.log('Available recordData fields:', Object.keys(recordData));
 
   // Map recordData to a new row array based on header order
   const newRow = headers.map(header => {
@@ -184,13 +195,22 @@ function addRecord(recordData) {
       case 'วันที่บันทึก': return now;
       case 'วันที่เกิดเหตุการณ์': return eventDate;
       // Use recordData[header] which now directly contains the values from e.parameter
-      default: return recordData[header] ?? null; 
+      default: 
+        const value = recordData[header];
+        Logger.log(`Mapping header "${header}" to value:`, value);
+        return value ?? null; 
     }
   });
 
   Logger.log('New row data:', newRow);
-  sheet.appendRow(newRow); // Append the new row to the sheet
-  Logger.log('Record successfully added to sheet');
+  
+  try {
+    sheet.appendRow(newRow); // Append the new row to the sheet
+    Logger.log('Record successfully added to sheet with ID:', reportId);
+  } catch (error) {
+    Logger.log('Error appending row to sheet:', error);
+    throw new Error(`Failed to add record to sheet: ${error.message}`);
+  }
 }
 
 /**
