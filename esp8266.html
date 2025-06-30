@@ -215,7 +215,6 @@
                 Object.keys(devices).forEach(deviceId => {
                     const device = devices[deviceId];
                     const logReadings = device.log; // Get time-series readings from 'log' path
-                    const deviceStatus = device.status; // Get latest status from 'status' path
 
                     const deviceCard = document.createElement('div');
                     deviceCard.className = 'device-card';
@@ -241,50 +240,46 @@
                     statusIndicatorWrapper.appendChild(statusText);
                     deviceTitleWrapper.appendChild(statusIndicatorWrapper); // Append to the title for alignment
 
+                    // --- Use log for online/offline and data display (status removed) ---
                     let latestReading = null;
                     let lastSeenEpochMs = 0; // Initialize to 0
 
                     if (logReadings) {
-                        // Get the latest reading from the 'log' path
-                        // Sort by key, assuming keys are timestamps or incrementing identifiers
+                        // Use latest log
                         const latestLogKey = Object.keys(logReadings).sort().pop();
                         latestReading = logReadings[latestLogKey];
-                        // Ensure timestamp is parsed as an integer and converted to milliseconds
-                        lastSeenEpochMs = parseInt(latestReading.timestamp) * 1000; 
+                        if (latestReading && latestReading.timestamp) {
+                            lastSeenEpochMs = parseInt(latestReading.timestamp) * 1000;
+                        }
                     }
 
-                    // Determine online/offline status based on latest log timestamp
                     const currentTime = new Date().getTime();
-                    // Device is online if it has readings AND the last timestamp is within the threshold
-                    const isOnline = latestReading && ((currentTime - lastSeenEpochMs) < OFFLINE_THRESHOLD_MS);
+                    const isOnline = lastSeenEpochMs > 0 && ((currentTime - lastSeenEpochMs) < OFFLINE_THRESHOLD_MS);
+                    const isLongOffline = lastSeenEpochMs > 0 && ((currentTime - lastSeenEpochMs) >= 30 * 60 * 1000); // 30 minutes
 
                     statusDot.classList.add(isOnline ? 'online' : 'offline');
                     statusText.textContent = isOnline ? 'ออนไลน์' : 'ออฟไลน์';
                     statusText.classList.add(isOnline ? 'online' : 'offline');
 
+                    // Highlight card in red if offline for more than 30 minutes
+                    if (!isOnline && isLongOffline) {
+                        deviceCard.style.backgroundColor = '#fee2e2'; // red-100
+                        deviceCard.style.borderColor = '#ef4444'; // red-500
+                    }
+
+                    // --- Display data from log only ---
                     if (latestReading) {
-                        // Display data from the latest reading in 'log'
                         deviceCard.appendChild(createDataItem('โซน', latestReading.zone || 'N/A'));
-                        deviceCard.appendChild(createDataItem('อุณหภูมิ 1', latestReading.temp1 !== undefined && latestReading.temp1 !== -1000 ? `${latestReading.temp1.toFixed(1)}°C` : 'Error'));
-                        deviceCard.appendChild(createDataItem('อุณหภูมิ 2', latestReading.temp2 !== undefined && latestReading.temp2 !== -1000 ? `${latestReading.temp2.toFixed(1)}°C` : 'Error'));
-                        deviceCard.appendChild(createDataItem('IP Address', latestReading.ip || 'N/A')); // ESP code uses 'ip'
-
-                        // Removed 'สถานะ T1' and 'สถานะ T2' as requested
-                        // if (deviceStatus) {
-                        //     deviceCard.appendChild(createDataItem('สถานะ T1', deviceStatus.status_temp1 || 'N/A'));
-                        //     deviceCard.appendChild(createDataItem('สถานะ T2', deviceStatus.status_temp2 || 'N/A'));
-                        //     deviceCard.appendChild(createDataItem('ตรวจสอบล่าสุด', deviceStatus.last_checked || 'N/A')); // This is already a formatted string
-                        // }
-
-                        // Display timestamp using the 'datetime' field from ESP
+                        deviceCard.appendChild(createDataItem('อุณหภูมิ 1', latestReading.temp1 !== undefined && latestReading.temp1 !== -1000 && latestReading.temp1 !== -127 ? `${Number(latestReading.temp1).toFixed(1)}°C` : 'Error'));
+                        deviceCard.appendChild(createDataItem('อุณหภูมิ 2', latestReading.temp2 !== undefined && latestReading.temp2 !== -1000 && latestReading.temp2 !== -127 ? `${Number(latestReading.temp2).toFixed(1)}°C` : 'Error'));
+                        deviceCard.appendChild(createDataItem('IP Address', latestReading.ip || 'N/A'));
+                        // Timestamp display
                         const timestampDiv = document.createElement('p');
                         timestampDiv.className = 'timestamp';
-                        // Use latestReading.datetime if available, otherwise fallback to converting epoch time
                         timestampDiv.textContent = `อัปเดตล่าสุด: ${latestReading.datetime || (lastSeenEpochMs > 0 ? new Date(lastSeenEpochMs).toLocaleString() : 'N/A')}`;
                         deviceCard.appendChild(timestampDiv);
-
                     } else {
-                        // Device has no readings in 'log' yet, consider it offline/unknown
+                        // Device has no readings in 'log' yet
                         const noReadingMessage = document.createElement('p');
                         noReadingMessage.className = 'text-center text-gray-500 italic mt-4';
                         noReadingMessage.textContent = 'ยังไม่มีข้อมูลอุณหภูมิ';
