@@ -801,29 +801,7 @@ async function loadAllMasterData() {
         masterData.users = Array.isArray(users) ? users : [];
         masterData.medicines = Array.isArray(medicines) ? medicines : [];
         masterData.places = Array.isArray(places) ? places : [];
-        
-        // Ensure we have our core processes defined even if fetching failed
-        if (!Array.isArray(processes) || processes.length === 0) {
-            processes = [
-                { Name: 'จัดยา' },
-                { Name: 'ลงข้อมูล' },
-                { Name: 'เตรียมยา' },
-                { Name: 'การเก็บยา' }
-            ];
-        }
-        
-        // Make sure the process list contains all needed processes from our mapping
-        const requiredProcesses = Object.keys(processErrorMapping);
-        let updatedProcesses = [...processes];
-        
-        // Add any missing processes from our mapping
-        for (const proc of requiredProcesses) {
-            if (!updatedProcesses.some(p => p.Name === proc)) {
-                updatedProcesses.push({ Name: proc });
-            }
-        }
-        
-        masterData.processes = updatedProcesses;
+        masterData.processes = Array.isArray(processes) ? processes : [];
         masterData.causes = Array.isArray(causes) ? causes : [];
         masterData.records = Array.isArray(records) ? records.sort((a,b) => new Date(b.วันที่เกิดเหตุการณ์) - new Date(a.วันที่เกิดเหตุการณ์)) : [];
         
@@ -1151,8 +1129,7 @@ function renderRecordForm() {
             'จัดไม่ครบชนิด',
             'จัดผิดชนิด',
             'จัดผิดรูปแบบ',
-            'จัดผิดคน',
-            'ไม่ได้หยุดยา/นำยาออก กรณีแพทย์สั่ง off ยา'
+            'จัดผิดคน'
         ],
         'ลงข้อมูล': [
             'key ผิดขนาด',
@@ -1175,6 +1152,12 @@ function renderRecordForm() {
             'ตรวจพบยาหมดอายุในจุดจ่าย',
             'ไม่ได้ลงค่าใช้จ่ายด้านยา(ไมไ่ด้คิดค่ายาหรือเวชภัณฑ์อื่นๆ)',
             'เก็บยาผิดตำแหน่ง'
+        ],
+        'จััดยา': [
+            'ไม่ได้หยุดยา/นำยาออก กรณีแพทย์สั่ง off ยา'
+        ],
+        'อื่นๆ': [
+            'อื่นๆ (โปรดระบุ)'
         ]
     };
 
@@ -1204,13 +1187,11 @@ function renderRecordForm() {
                 option.textContent = errorType;
                 errorTypeSelect.appendChild(option);
             });
-            
             // Add "other" option
             const otherOption = document.createElement('option');
             otherOption.value = 'อื่นๆ';
             otherOption.textContent = 'อื่นๆ (โปรดระบุ)';
             errorTypeSelect.appendChild(otherOption);
-            
             errorTypeSelect.disabled = false;
         } else if (selectedProcess === 'อื่นๆ') {
             // If process is "other", allow manual input for error type
@@ -1229,114 +1210,7 @@ function renderRecordForm() {
         errorTypeOtherInput.classList.add('hidden');
         errorTypeOtherInput.value = '';
     });
-    
-    // Logic to show/hide "other" input for error type field
-    errorTypeSelect.addEventListener('change', () => {
-        const selectedErrorType = errorTypeSelect.value;
-        errorTypeOtherInput.classList.toggle('hidden', selectedErrorType !== 'อื่นๆ');
-        if (errorTypeOtherInput.classList.contains('hidden')) {
-            errorTypeOtherInput.value = '';
-        }
-    });
-
-    // Logic to show/hide "other" input for cause field
-    const causeSelect = document.getElementById('cause');
-    const causeOtherInput = document.getElementById('cause_other');
-    causeSelect.addEventListener('change', () => {
-        causeOtherInput.classList.toggle('hidden', causeSelect.value !== 'อื่นๆ');
-        if (causeOtherInput.classList.contains('hidden')) {
-            causeOtherInput.value = '';
-        }
-    });
-
-    // Logic for High Alert Drug (HAD) status check
-    const correctMedInput = document.getElementById('correct_medicine_search');
-    const incorrectMedInput = document.getElementById('incorrect_medicine_search');
-    const hadStatus = document.getElementById('had_status');
-
-    /**
-     * Checks if either the correct or incorrect medicine selected is a High Alert Drug
-     * and updates the HAD status display accordingly.
-     */
-    function checkHAD() {
-        const correctMedName = correctMedInput.value;
-        const incorrectMedName = incorrectMedInput.value;
-        
-        // Find medicine objects from master data
-        const correctMed = masterData.medicines.find(m => m.Name === correctMedName);
-        const incorrectMed = masterData.medicines.find(m => m.Name === incorrectMedName);
-
-        // Determine HAD status based on 'HAD' property of the medicines
-        // Normalize the HAD property to lowercase for consistent comparison
-        const isHad = (correctMed && correctMed.HAD && String(correctMed.HAD).toLowerCase() === 'yes') || 
-                      (incorrectMed && incorrectMed.HAD && String(incorrectMed.HAD).toLowerCase() === 'yes');
-        
-        // Update text and background/border color based on HAD status
-        hadStatus.textContent = isHad ? 'ใช่ - รายการยานี้เป็น High Alert Drug' : 'ไม่ใช่';
-        hadStatus.parentElement.className = isHad 
-            ? 'p-3 bg-lime-100 border-l-4 border-lime-500 rounded-md md:col-span-2' // Lime for HAD
-            : 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2'; // Teal for non-HAD
-    }
-
-    // Attach event listeners to medicine input fields for HAD check
-    correctMedInput.addEventListener('input', checkHAD); // Use 'input' for real-time check as user types/selects
-    incorrectMedInput.addEventListener('input', checkHAD); // Use 'input' for real-time check
-
-    // Attach event listener for form submission
-    document.getElementById('record-form').addEventListener('submit', handleRecordSubmit);
-
-    // Attach event listener for reset button (ล้างข้อมูล)
-    document.getElementById('reset-form-btn').addEventListener('click', () => {
-        const form = document.getElementById('record-form');
-        if (form) {
-            form.reset();
-            // รีเซ็ตวันที่ให้เป็นวันนี้ (ถ้ามี input date)
-            const dateInput = document.getElementById('event_date');
-            if (dateInput) {
-                dateInput.valueAsDate = new Date();
-            }
-            // รีเซ็ต select ให้เลือก option แรก ("เลือก...")
-            ['shift','patient_type','place','process','cause'].forEach(id => {
-                const sel = document.getElementById(id);
-                if (sel) sel.selectedIndex = 0;
-            });
-            
-            // รีเซ็ต error type select
-            const errorTypeSelect = document.getElementById('error_type');
-            if (errorTypeSelect) {
-                errorTypeSelect.innerHTML = '<option value="" selected>กรุณาเลือกกระบวนการก่อน</option>';
-                errorTypeSelect.disabled = true;
-            }
-            
-            // รีเซ็ตสถานะ HAD (ถ้ามี)
-            const hadStatus = document.getElementById('had_status');
-            if (hadStatus) {
-                hadStatus.textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
-                hadStatus.parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
-            }
-            // ซ่อนช่อง process_other/cause_other/error_type_other (ถ้ามี)
-            const processOtherInput = document.getElementById('process_other');
-            if (processOtherInput) {
-                processOtherInput.classList.add('hidden');
-                processOtherInput.value = '';
-            }
-            const errorTypeOtherInput = document.getElementById('error_type_other');
-            if (errorTypeOtherInput) {
-                errorTypeOtherInput.classList.add('hidden');
-                errorTypeOtherInput.value = '';
-            }
-            const causeOtherInput = document.getElementById('cause_other');
-            if (causeOtherInput) {
-                causeOtherInput.classList.add('hidden');
-                causeOtherInput.value = '';
-            }
-            // --- Enable ปุ่มล้างข้อมูลเสมอ ---
-            const resetBtn = document.getElementById('reset-form-btn');
-            if (resetBtn) {
-                resetBtn.disabled = false;
-            }
-        }
-    });
+    // ...existing code...
 }
 
 /**
