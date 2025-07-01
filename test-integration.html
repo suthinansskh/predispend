@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Google Apps Script Integration</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Google Apps Script Integration Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Script URL Connection</h3>
+        <button onclick="testConnection()">Test Connection</button>
+        <div id="connection-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Test Data Retrieval</h3>
+        <button onclick="testGetUsers()">Get Users</button>
+        <button onclick="testGetMedicines()">Get Medicines</button>
+        <button onclick="testGetPlaces()">Get Places</button>
+        <button onclick="testGetProcesses()">Get Processes</button>
+        <button onclick="testGetCauses()">Get Causes</button>
+        <button onclick="testGetRecords()">Get Records</button>
+        <div id="data-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Test Record Submission</h3>
+        <button onclick="testAddRecord()">Test Add Record</button>
+        <div id="submission-result"></div>
+    </div>
+
+    <script>
+        // ใส่ URL ของ Google Apps Script ของคุณที่นี่
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzFrW_xMdCukPq_nx3FsoYHxxq3hH5hSRtvIKfAioJfqet_MKAJjACugUQ-X6ngZ1NqyQ/exec";
+        
+        function showResult(elementId, result, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.className = `test-section ${isSuccess ? 'success' : 'error'}`;
+            element.innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+        }
+        
+        async function testConnection() {
+            try {
+                const response = await fetch(SCRIPT_URL + '?action=getUsers');
+                const data = await response.json();
+                showResult('connection-result', {
+                    status: 'SUCCESS',
+                    message: 'Connection established',
+                    response: data
+                });
+            } catch (error) {
+                showResult('connection-result', {
+                    status: 'ERROR',
+                    message: error.message
+                }, false);
+            }
+        }
+        
+        async function testGetUsers() {
+            try {
+                const response = await fetch(SCRIPT_URL + '?action=getUsers');
+                const data = await response.json();
+                showResult('data-result', {
+                    action: 'getUsers',
+                    count: data.result?.length || 0,
+                    data: data.result?.slice(0, 3) || [] // Show first 3 records
+                });
+            } catch (error) {
+                showResult('data-result', {
+                    action: 'getUsers',
+                    error: error.message
+                }, false);
+            }
+        }
+        
+        async function testGetMedicines() {
+            try {
+                const response = await fetch(SCRIPT_URL + '?action=getMedicines');
+                const data = await response.json();
+                showResult('data-result', {
+                    action: 'getMedicines',
+                    count: data.result?.length || 0,
+                    data: data.result?.slice(0, 3) || []
+                });
+            } catch (error) {
+                showResult('data-result', {
+                    action: 'getMedicines',
+                    error: error.message
+                }, false);
+            }
+        }
+        
+        async function testGetPlaces() {
+            try {
+                const response = await fetch(SCRIPT_URL + '?action=getPlaces');
+                const data = await response.json();
+                showResult('data-result', {
+                    action: 'getPlaces',
+                    count: data.result?.length || 0,
+                    data: data.result?.slice(0, 3) || []
+                });
+            } catch (error) {
+                showResult('data-result', {
+                    action: 'getPlaces',
+                    error: error.message
+                }, false);
+            }
+        }
+        
+        async function testGetProcesses() {
+            try {
+                const response = await fetch(SCRIPT_URL + '?action=getProcesses');
+                const data = await response.json();
+                showResult('data-result', {
+                    action: 'getProcesses',
+                    count: data.result?.length || 0,
+                    data: data.result?.slice(0, 3) || []
+                });
+            } catch (error) {
+                showResult('data-result', {
+                    action: 'getProcesses',
+                    error: error.message
+                }, false);
+            }
+        }
+        
+        async function testGetCauses() {
+            try {
+                const response = await fetch(SCRIPT_URL + '?action=getCauses');
+                const data = await response.json();
+                showResult('data-result', {
+                    action: 'getCauses',
+                    count: data.result?.length || 0,
+                    data: data.result?.slice(0, 3) || []
+                });
+            } catch (error) {
+                showResult('data-result', {
+                    action: 'getCauses',
+                    error: error.message
+                }, false);
+            }
+        }
+        
+        async function testGetRecords() {
+            try {
+                const response = await fetch(SCRIPT_URL + '?action=getRecords');
+                const data = await response.json();
+                showResult('data-result', {
+                    action: 'getRecords',
+                    count: data.result?.length || 0,
+                    data: data.result?.slice(0, 2) || [] // Show first 2 records only
+                });
+            } catch (error) {
+                showResult('data-result', {
+                    action: 'getRecords',
+                    error: error.message
+                }, false);
+            }
+        }
+        
+        async function testAddRecord() {
+            const testData = {
+                action: 'addrecord',
+                'วันที่เกิดเหตุการณ์': '2024-01-15',
+                'เวร': 'เช้า',
+                'ประเภทผู้ป่วย': 'นอก',
+                'สถานที่': 'ห้องยา',
+                'กระบวนการ': 'จัดยา',
+                'ข้อผิดพลาด': 'จัดผิดขนาด',
+                'รายการยาที่ถูกต้อง': 'Paracetamol 500mg',
+                'รายการยาที่ผิด': 'Paracetamol 1000mg',
+                'HAD': '',
+                'สาเหตุ': 'ความประมาท',
+                'รายละเอียด': 'ทดสอบระบบ',
+                'ผู้บันทึก': 'ผู้ทดสอบ',
+                'ผู้บันทึก_ID': 'TEST001'
+            };
+            
+            try {
+                const queryParams = new URLSearchParams(testData).toString();
+                const response = await fetch(`${SCRIPT_URL}?${queryParams}`);
+                const data = await response.json();
+                showResult('submission-result', {
+                    status: 'Record submission test',
+                    response: data
+                });
+            } catch (error) {
+                showResult('submission-result', {
+                    status: 'Record submission test',
+                    error: error.message
+                }, false);
+            }
+        }
+    </script>
+</body>
+</html>

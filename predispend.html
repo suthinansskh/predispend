@@ -165,7 +165,6 @@
                         <span class="font-bold text-emerald-600">Pre-Dispensing Report</span>
                         <div class="hidden md:block">
                             <div class="flex items-baseline ml-10 space-x-4">
-                                <button data-page="login-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">ลงชื่อเข้าใช้งาน</button>
                                 <button data-page="record-form-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">บันทึกข้อมูล</button>
                                 <button data-page="records-list-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">รายการล่าสุด</button>
                                 <button data-page="dashboard-page" class="nav-link px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">Dashboard</button>
@@ -650,7 +649,7 @@ async function handleRecordSubmit(e) {
     });
 
     if (missingFields.length > 0) {
-        showError('กรุณากรอกข้อมูลให้ครบถ้วน');
+        showError('กรุณากรอกข้อมูลให้ครบถ้วน: ' + missingFields.join(', '));
         return;
     }
 
@@ -697,9 +696,9 @@ async function handleRecordSubmit(e) {
             showError('กรุณาระบุสาเหตุอื่นๆ');
             return;
         }
-        recordData['cause'] = sanitizeInput(causeOtherInput.value);
+        recordData['สาเหตุ'] = sanitizeInput(causeOtherInput.value);
     } else {
-        recordData['cause'] = causeSelect.value;
+        recordData['สาเหตุ'] = causeSelect.value;
     }
 
     // Reporter information
@@ -713,7 +712,7 @@ async function handleRecordSubmit(e) {
         recordData['ผู้บันทึก_ID'] = currentUser ? (currentUser.ID13 || '') : '';
     }
 
-    // Prepare data for submission
+    // Prepare data for submission - matching Google Apps Script parameters
     const dataToSend = {
         action: 'addrecord',
         'วันที่เกิดเหตุการณ์': recordData['event_date'],
@@ -725,8 +724,8 @@ async function handleRecordSubmit(e) {
         'รายการยาที่ถูกต้อง': recordData['correct_medicine_search'],
         'รายการยาที่ผิด': recordData['incorrect_medicine_search'],
         'HAD': recordData['HAD'],
-        'สาเหตุ': recordData['cause'],
-        'รายละเอียด': recordData['details'], // Changed from 'รายละเอียดเพิ่มเติม' to match column name
+        'สาเหตุ': recordData['สาเหตุ'],
+        'รายละเอียด': recordData['details'], 
         'ผู้บันทึก': recordData['ผู้บันทึก'],
         'ผู้บันทึก_ID': recordData['ผู้บันทึก_ID']
     };
@@ -743,12 +742,17 @@ async function handleRecordSubmit(e) {
         const result = await response.json();
 
         if (result.status === 'success') {
-            const currentUser = getCurrentUser();
-            if (currentUser) {
-                console.log('บันทึกข้อมูลสำเร็จ!');
-            }
+            console.log('บันทึกข้อมูลสำเร็จ!');
             form.reset();
             document.getElementById('event_date').valueAsDate = new Date();
+            
+            // Set reporter name again after reset
+            const reporterField = document.getElementById('reporter');
+            if (reporterField && currentUser) {
+                const reporterName = currentUser.ชื่อจริง || currentUser.RealName || currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ';
+                reporterField.value = reporterName;
+                reporterField.dataset.reporterId = currentUser.ID13 || '';
+            }
             
             // Reload records data
             masterData.records = await fetchDataFromSheet('getRecords');
@@ -760,6 +764,17 @@ async function handleRecordSubmit(e) {
                 hadStatus.textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
                 hadStatus.parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
             }
+            
+            // Reset process and error type dropdowns
+            const processSelect = document.getElementById('process');
+            const errorTypeSelect = document.getElementById('error_type');
+            if (processSelect) processSelect.value = '';
+            if (errorTypeSelect) {
+                errorTypeSelect.innerHTML = '<option value="" selected>กรุณาเลือกกระบวนการก่อน</option>';
+                errorTypeSelect.disabled = true;
+            }
+            
+            showInfo('บันทึกข้อมูลสำเร็จ!');
         } else {
             showError(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${result.message || 'ไม่ทราบสาเหตุ'}`);
         }
@@ -772,354 +787,49 @@ async function handleRecordSubmit(e) {
     }
 }
 
-
 /**
- * Enhanced data loading with better error handling
+ * Sets up all form event listeners after form rendering
  */
-async function loadAllMasterData() {
-    showLoading('กำลังโหลดข้อมูลหลัก...');
+function setupFormEventListeners() {
+    // Setup record form submit listener
+    const recordForm = document.getElementById('record-form');
+    if (recordForm) {
+        recordForm.removeEventListener('submit', handleRecordSubmit); // Remove existing listener
+        recordForm.addEventListener('submit', handleRecordSubmit);
+    }
     
-    try {
-        const dataActions = ['getUsers', 'getMedicines', 'getPlaces', 'getProcesses', 'getCauses', 'getRecords'];
+    // Setup medicine change listeners for HAD status
+    const correctMedicineInput = document.getElementById('correct_medicine_search');
+    const incorrectMedicineInput = document.getElementById('incorrect_medicine_search');
+    
+    const updateHADStatus = () => {
+        const correctMedName = correctMedicineInput?.value || '';
+        const incorrectMedName = incorrectMedicineInput?.value || '';
         
-        // Fetch all data concurrently using Promise.all with error handling
-        const results = await Promise.allSettled(
-            dataActions.map(action => fetchDataFromSheet(action))
-        );
+        const correctMed = masterData.medicines.find(m => m.Name === correctMedName);
+        const incorrectMed = masterData.medicines.find(m => m.Name === incorrectMedName);
         
-        // Process results and handle any failures
-        const [users, medicines, places, processes, causes, records] = results.map((result, index) => {
-            if (result.status === 'fulfilled') {
-                return result.value || [];
+        const correctIsHad = correctMed && correctMed.HAD && String(correctMed.HAD).toLowerCase() === 'yes';
+        const incorrectIsHad = incorrectMed && incorrectMed.HAD && String(incorrectMed.HAD).toLowerCase() === 'yes';
+        
+        const hadStatus = document.getElementById('had_status');
+        if (hadStatus) {
+            if (correctIsHad || incorrectIsHad) {
+                hadStatus.textContent = 'ยานี้เป็น High Alert Drug (HAD)';
+                hadStatus.parentElement.className = 'p-3 bg-red-100 border-l-4 border-red-500 rounded-md md:col-span-2';
+            } else if (correctMedName || incorrectMedName) {
+                hadStatus.textContent = 'ยานี้ไม่ใช่ High Alert Drug (HAD)';
+                hadStatus.parentElement.className = 'p-3 bg-green-100 border-l-4 border-green-500 rounded-md md:col-span-2';
             } else {
-                console.error(`Failed to load ${dataActions[index]}:`, result.reason);
-                return [];
+                hadStatus.textContent = 'กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD';
+                hadStatus.parentElement.className = 'p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2';
             }
-        });
-        
-        // Update global masterData object with validation
-        masterData.users = Array.isArray(users) ? users : [];
-        masterData.medicines = Array.isArray(medicines) ? medicines : [];
-        masterData.places = Array.isArray(places) ? places : [];
-        masterData.processes = Array.isArray(processes) ? processes : [];
-        masterData.causes = Array.isArray(causes) ? causes : [];
-        masterData.records = Array.isArray(records) ? records.sort((a,b) => new Date(b.วันที่เกิดเหตุการณ์) - new Date(a.วันที่เกิดเหตุการณ์)) : [];
-        
-        // Initialize empty arrays for shifts and patient types if not loaded from server
-        masterData.shifts = masterData.shifts || [];
-        masterData.patientTypes = masterData.patientTypes || [];
-        
-        console.log('Master data loaded successfully:', {
-            users: masterData.users.length,
-            medicines: masterData.medicines.length,
-            places: masterData.places.length,
-            processes: masterData.processes.length,
-            causes: masterData.causes.length,
-            records: masterData.records.length
-        });
-        
-    } catch (error) {
-        console.error('Error loading master data:', error);
-        console.log('เกิดข้อผิดพลาดในการโหลดข้อมูลหลัก กรุณาลองใหม่อีกครั้ง');
-    } finally {
-        hideLoading();
-    }
-}
-
-// --- Page Rendering Functions ---
-// Order: บันทึกข้อมูล, รายการล่าสุด, Dashboard, Settings (ผู้ใช้งาน, รายการยา, เวร, ประเภทผู้ป่วย, สถานที่, กระบวนการ, สาเหตุ)
-
-/**
- * Renders the record form page for entering medication error data.
- */
-function renderRecordForm() {
-    const container = document.getElementById('record-form-page');
-    
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">บันทึกความคลาดเคลื่อนทางยา</h2>
-            <form id="record-form" class="space-y-6">
-                <!-- Form content will be here -->
-            </form>
-        </div>
-    `;
-}
-
-/**
- * Renders the list of medication error records, including search and pagination.
- * @param {string} searchTerm - Optional search term to filter records.
- */
-function renderRecordsList(searchTerm = '') {
-    const container = document.getElementById('records-list-page');
-      // Filter records based on the search term with enhanced validation
-    const filteredRecords = masterData.records.filter(r => {
-        if (!searchTerm) return true;
-        
-        const term = searchTerm.toLowerCase();
-        return (r.เลขที่รายงาน && String(r.เลขที่รายงาน).toLowerCase().includes(term)) ||
-               (r.เวร && String(r.เวร).toLowerCase().includes(term)) ||
-               (r.สถานที่ && String(r.สถานที่).toLowerCase().includes(term)) ||
-               (r.ประเภทผู้ป่วย && String(r.ประเภทผู้ป่วย).toLowerCase().includes(term)) ||
-               (r.กระบวนการ && String(r.กระบวนการ).toLowerCase().includes(term)) ||
-               (r.ข้อผิดพลาด && String(r.ข้อผิดพลาด).toLowerCase().includes(term)) ||
-               (r.รายการยาที่ถูกต้อง && String(r.รายการยาที่ถูกต้อง).toLowerCase().includes(term)) ||
-               (r.รายการยาที่ผิด && String(r.รายการยาที่ผิด).toLowerCase().includes(term)) ||
-               (r.HAD && String(r.HAD).toLowerCase().includes(term)) ||
-               (r.สาเหตุ && String(r.สาเหตุ).toLowerCase().includes(term)) ||
-               (r.รายละเอียด && String(r.รายละเอียด).toLowerCase().includes(term)) ||
-               (r.ผู้บันทึก && String(r.ผู้บันทึก).toLowerCase().includes(term));
-    });
-
-    // Calculate pagination parameters
-    const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
-    const paginatedRecords = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <div class="flex flex-col items-center justify-between gap-4 mb-4 md:flex-row">
-                <h2 class="text-xl font-bold text-gray-800">รายการที่บันทึก</h2>
-                <div class="flex items-center gap-4">
-                     <input type="text" id="search-record" placeholder="ค้นหารายการ..." class="px-3 py-2 border border-gray-300 rounded-md" value="${sanitizeInput(searchTerm)}">
-                     <button id="export-csv" class="px-4 py-2 text-white bg-teal-600 rounded-md hover:bg-teal-700">ส่งออก (CSV)</button>
-                </div>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-                    <thead class="bg-gray-200">
-                        <tr>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">เลขที่รายงาน</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">วันที่เกิดเหตุการณ์</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">เวร</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">สถานที่</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ประเภทผู้ป่วย</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">กระบวนการ</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ข้อผิดพลาด</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายการยาที่ถูกต้อง</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายการยาที่ผิด</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">HAD</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">สาเหตุ</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รายละเอียด</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">วันที่บันทึก</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ผู้บันทึก</th>
-                        </tr>
-                    </thead>
-                    <tbody id="records-table-body" class="divide-y divide-gray-200">
-                        ${paginatedRecords.length > 0 ? paginatedRecords.map(r => `
-                            <tr class="hover:bg-gray-100">
-                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.เลขที่รายงาน || '')}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${r.วันที่เกิดเหตุการณ์ ? new Date(r.วันที่เกิดเหตุการณ์).toLocaleDateString('th-TH') : ''}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.เวร || '')}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.สถานที่ || '')}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.ประเภทผู้ป่วย || '')}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.กระบวนการ || '')}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.ข้อผิดพลาด || '')}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.รายการยาที่ถูกต้อง || '')}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.รายการยาที่ผิด || '')}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.HAD || '')}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.สาเหตุ || '')}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.รายละเอียด || '')}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${r.วันที่บันทึก ? new Date(r.วันที่บันทึก).toLocaleDateString('th-TH') : ''}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${sanitizeInput(r.ผู้บันทึก || '')}</td>
-                            </tr>
-                        `).join('') : `<tr><td colspan="14" class="px-6 py-4 text-center text-gray-500">ไม่พบข้อมูล</td></tr>`}
-                    </tbody>
-                </table>
-            </div>
-             <div class="flex items-center justify-between mt-4">
-                <div class="flex items-center gap-2">
-                    <label for="items-per-page" class="text-sm text-gray-700">แสดง:</label>
-                    <select id="items-per-page" class="p-1 border border-gray-300 rounded-md text-sm">
-                        <option value="10" ${itemsPerPage === 10 ? 'selected' : ''}>10</option>
-                        <option value="30" ${itemsPerPage === 30 ? 'selected' : ''}>30</option>
-                        <option value="50" ${itemsPerPage === 50 ? 'selected' : ''}>50</option>
-                    </select>
-                    <span class="text-sm text-gray-700">รายการ</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button id="prev-page" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage === 1 ? 'disabled' : ''}>ก่อนหน้า</button>
-                    <span class="text-sm text-gray-700">หน้า ${totalPages === 0 ? 0 : currentPage} จาก ${totalPages}</span>
-                    <button id="next-page" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage === totalPages || totalPages === 0 ? 'disabled' : ''}>ถัดไป</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Add event listeners with debounced search for better performance
-    const debouncedSearch = debounce((searchTerm) => {
-        currentPage = 1;
-        renderRecordsList(searchTerm);
-    }, 300);
-    
-    document.getElementById('search-record').addEventListener('input', (e) => {
-        debouncedSearch(e.target.value);
-    });
-    
-    document.getElementById('export-csv').addEventListener('click', () => exportToCSV(filteredRecords));
-    document.getElementById('items-per-page').addEventListener('change', (e) => {
-        itemsPerPage = parseInt(e.target.value);
-        currentPage = 1; // Reset to first page when items per page changes
-        renderRecordsList(document.getElementById('search-record').value);
-    });
-    document.getElementById('prev-page')?.addEventListener('click', () => {
-        if(currentPage > 1) {
-            currentPage--;
-            renderRecordsList(document.getElementById('search-record').value);
         }
-    });
-    document.getElementById('next-page')?.addEventListener('click', () => {
-        if(currentPage < totalPages) {
-            currentPage++;
-            renderRecordsList(document.getElementById('search-record').value);
-        }
-    });
-}
-
-/**
- * Exports the given data to a CSV file.
- * @param {Array<Object>} data - The array of objects to export.
- */
-function exportToCSV(data) {
-    if (data.length === 0) {
-        showError("ไม่มีข้อมูลสำหรับส่งออก.");
-        return;
-    }
-
-    const headers = Object.keys(data[0]);
-    // Convert array of objects to CSV string
-    const csv = [
-        headers.join(','), // Header row
-        ...data.map(row => headers.map(fieldName => {
-            let value = row[fieldName] === null || row[fieldName] === undefined ? '' : row[fieldName];
-            // Handle dates specifically for CSV
-            if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)) {
-                const date = new Date(value);
-                value = isNaN(date.getTime()) ? '' : date.toLocaleDateString('th-TH') + ' ' + date.toLocaleTimeString('th-TH');
-            }
-            // Escape values containing commas or double quotes
-            return `"${String(value).replace(/"/g, '""')}"`;
-        }).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `medical_records_${new Date().toISOString().slice(0,10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href); // Clean up
-}
-
-/**
- * Renders the dashboard page with charts and statistics.
- */
-function renderRecordForm() {
-    const container = document.getElementById('record-form-page');
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">บันทึกรายการความคลาดเคลื่อนทางยา</h2>
-            <form id="record-form" class="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div class="md:col-span-2">
-                    <label for="event_date" class="block text-sm font-medium text-gray-700">วันที่เกิดเหตุการณ์</label>
-                    <input type="date" id="event_date" name="event_date" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
-                </div>
-                <div>
-                    <label for="shift" class="block text-sm font-medium text-gray-700">เวร</label>
-                    <select id="shift" name="shift" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
-                        <option value="" selected>เลือก...</option>
-                        <option value="เช้า">เช้า</option>
-                        <option value="บ่าย">บ่าย</option>
-                        <option value="ดึก">ดึก</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="patient_type" class="block text-sm font-medium text-gray-700">ประเภทผู้ป่วย</label>
-                    <select id="patient_type" name="patient_type" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
-                        <option value="" selected>เลือก...</option>
-                        <option value="นอก">นอก (OPD)</option>
-                        <option value="ใน">ใน (IPD)</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="place" class="block text-sm font-medium text-gray-700">สถานที่</label>
-                    <select id="place" name="place" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
-                        <option value="" selected>เลือก...</option>
-                        ${(masterData.places || []).map(p => `<option value="${p.Name || p.name || ''}">${p.Name || p.name || ''}</option>`).join('')}
-                    </select>
-                </div>
-                <div>
-                    <label for="process" class="block text-sm font-medium text-gray-700">กระบวนการ</label>
-                    <select id="process" name="process" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
-                        <option value="" selected>เลือก...</option>
-                        ${(masterData.processes || []).map(p => `<option value="${p.Name || p.name || ''}">${p.Name || p.name || ''}</option>`).join('')}
-                        <option value="อื่นๆ">อื่นๆ (โปรดระบุ)</option>
-                    </select>
-                    <input type="text" id="process_other" name="process_other" class="hidden w-full px-3 py-2 mt-2 border border-gray-300 rounded-md" placeholder="ระบุกระบวนการอื่นๆ">
-                </div>
-                <div>
-                    <label for="error_type" class="block text-sm font-medium text-gray-700">ข้อผิดพลาด</label>
-                    <select id="error_type" name="error_type" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
-                        <option value="" selected>กรุณาเลือกกระบวนการก่อน</option>
-                    </select>
-                    <input type="text" id="error_type_other" name="error_type_other" class="hidden w-full px-3 py-2 mt-2 border border-gray-300 rounded-md" placeholder="ระบุข้อผิดพลาดอื่นๆ">
-                </div>
-                 <div>
-                    <label for="correct_medicine_search" class="block text-sm font-medium text-gray-700">รายการยาที่ถูกต้อง</label>
-                    <!-- Input with datalist for searchable dropdown functionality -->
-                    <input type="text" id="correct_medicine_search" name="correct_medicine_search" list="medicine-list" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md" placeholder="ค้นหายา...">
-                </div>
-                 <div>
-                    <label for="incorrect_medicine_search" class="block text-sm font-medium text-gray-700">รายการยาที่ผิด</label>
-                    <!-- Input with datalist for searchable dropdown functionality -->
-                    <input type="text" id="incorrect_medicine_search" name="incorrect_medicine_search" list="medicine-list" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md" placeholder="ค้นหายา...">
-                </div>
-                <!-- Datalist provides suggestions for medicine inputs -->
-                <datalist id="medicine-list">
-                    ${(masterData.medicines || []).map(m => `<option value="${m.Name || m.name || ''}">`).join('')}
-                </datalist>
-
-                <!-- High Alert Drug (HAD) status display -->
-                <div class="p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2">
-                    <p class="font-bold text-teal-800">High Alert Drug (HAD)</p>
-                    <p id="had_status" class="text-teal-700">กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD</p>
-                </div>
-                
-                <div class="md:col-span-2">
-                <div class="md:col-span-2">
-                    <label for="cause" class="block text-sm font-medium text-gray-700">สาเหตุ</label>
-                    <select id="cause" name="cause" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
-                       <option value="" selected>เลือก...</option>
-                       ${(masterData.causes || []).map(c => `<option value="${c.Name || c.name || ''}">${c.Name || c.name || ''}</option>`).join('')}
-                       <option value="อื่นๆ">อื่นๆ (โปรดระบุ)</option>
-                       <option value="อื่นๆ">อื่นๆ (โปรดระบุ)</option>
-                    </select>
-                    <input type="text" id="cause_other" name="cause_other" class="hidden w-full px-3 py-2 mt-2 border border-gray-300 rounded-md" placeholder="ระบุสาเหตุอื่นๆ">
-                </div>                <div class="md:col-span-2">
-                    <label for="details" class="block text-sm font-medium text-gray-700">รายละเอียดเพิ่มเติม</label>
-                    <textarea id="details" name="details" rows="4" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"></textarea>
-                </div>
-
-                <div>
-                    <label for="reporter" class="block text-sm font-medium text-gray-700">ผู้บันทึก</label>
-                    <input type="text" id="reporter" name="reporter" readonly class="w-full px-3 py-2 mt-1 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed">
-                </div>
-
-                <div class="md:col-span-2 flex justify-end gap-2 mt-4">
-                    <button type="button" id="reset-form-btn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">ล้างข้อมูล</button>
-                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700">บันทึกข้อมูล</button>
-                </div>
-            </form>
-        </div>
-    `;    // Set default date for new record form to today
-    document.getElementById('event_date').valueAsDate = new Date();    // แสดงชื่อผู้รายงานตาม login
-    const currentUser = getCurrentUser();
-    const reporterField = document.getElementById('reporter');
-    if (reporterField && currentUser) {
-        // ใช้ชื่อจริงของผู้ใช้จาก login
-        const reporterName = currentUser.ชื่อจริง || currentUser.RealName || currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ';
-        reporterField.value = reporterName;
-        // เก็บค่าใน data attribute เพื่อใช้ตอน submit
-        reporterField.dataset.reporterId = currentUser.ID13 || '';
-    }
-
+    };
+    
+    if (correctMedicineInput) correctMedicineInput.addEventListener('input', updateHADStatus);
+    if (incorrectMedicineInput) incorrectMedicineInput.addEventListener('input', updateHADStatus);
+    
     // Define error types for each process (กระบวนการ -> ข้อผิดพลาด mapping)
     const processErrorMapping = {
         'จัดยา': [
@@ -1143,942 +853,132 @@ function renderRecordForm() {
         'เตรียมยา': [
             'ลืมเตรียมยา',
             'ไม่ได้ส่งการปรับปรุง order/stat',
-            'ไม่ได้อ่าน line ทำให้ไมไ่ด้เตรียมยา',
+            'ไม่ได้อ่าน line ทำให้ไม่ได้เตรียมยา',
             'ผลิตยาไม่ทัน',
-            'ติดฉลกายา prepack ผิดชนิด',
+            'ติดฉลากยา prepack ผิดชนิด',
             'ไม่ได้เตรียม set IV เพื่อยาเคมีบำบัด'
         ],
         'การเก็บยา': [
             'ตรวจพบยาหมดอายุในจุดจ่าย',
-            'ไม่ได้ลงค่าใช้จ่ายด้านยา(ไมไ่ด้คิดค่ายาหรือเวชภัณฑ์อื่นๆ)',
+            'ไม่ได้ลงค่าใช้จ่ายด้านยา(ไม่ได้คิดค่ายาหรือเวชภัณฑ์อื่นๆ)',
             'เก็บยาผิดตำแหน่ง'
         ],
-        'จััดยา': [
+        'จัดส่งยา': [
             'ไม่ได้หยุดยา/นำยาออก กรณีแพทย์สั่ง off ยา'
-        ],
-        'อื่นๆ': [
-            'อื่นๆ (โปรดระบุ)'
         ]
     };
-
-    // Logic to show/hide "other" input for process field and update error types
+    
+    // Setup process change listener
     const processSelect = document.getElementById('process');
     const processOtherInput = document.getElementById('process_other');
     const errorTypeSelect = document.getElementById('error_type');
     const errorTypeOtherInput = document.getElementById('error_type_other');
     
-    processSelect.addEventListener('change', () => {
-        const selectedProcess = processSelect.value;
-        
-        // Handle process "other" input
-        processOtherInput.classList.toggle('hidden', selectedProcess !== 'อื่นๆ');
-        if (processOtherInput.classList.contains('hidden')) {
-            processOtherInput.value = '';
-        }
-        
-        // Update error type dropdown based on selected process
-        errorTypeSelect.innerHTML = '<option value="" selected>เลือก...</option>';
-        
-        if (selectedProcess && selectedProcess !== 'อื่นๆ' && processErrorMapping[selectedProcess]) {
-            // Add specific error types for the selected process
-            processErrorMapping[selectedProcess].forEach(errorType => {
-                const option = document.createElement('option');
-                option.value = errorType;
-                option.textContent = errorType;
-                errorTypeSelect.appendChild(option);
-            });
-            // Add "other" option
-            const otherOption = document.createElement('option');
-            otherOption.value = 'อื่นๆ';
-            otherOption.textContent = 'อื่นๆ (โปรดระบุ)';
-            errorTypeSelect.appendChild(otherOption);
-            errorTypeSelect.disabled = false;
-        } else if (selectedProcess === 'อื่นๆ') {
-            // If process is "other", allow manual input for error type
-            const otherOption = document.createElement('option');
-            otherOption.value = 'อื่นๆ';
-            otherOption.textContent = 'อื่นๆ (โปรดระบุ)';
-            errorTypeSelect.appendChild(otherOption);
-            errorTypeSelect.disabled = false;
-        } else {
-            // No process selected
-            errorTypeSelect.innerHTML = '<option value="" selected>กรุณาเลือกกระบวนการก่อน</option>';
-            errorTypeSelect.disabled = true;
-        }
-        
-        // Reset error type other input
-        errorTypeOtherInput.classList.add('hidden');
-        errorTypeOtherInput.value = '';
-    });
-    // ...existing code...
-}
-
-/**
- * Renders the dashboard with charts summarizing medication error data.
- */
-function renderDashboard() {
-    const container = document.getElementById('dashboard-page');
-    // Display message if no records are available for the dashboard
-    if (!masterData.records || masterData.records.length === 0) {
-        container.innerHTML = `<div class="p-6 bg-white rounded-lg shadow-md"><p class="text-center text-gray-500">ไม่มีข้อมูลสำหรับแสดงผล Dashboard</p></div>`;
-        return;
-    }
-
-    // --- Data Aggregation for Charts ---
-    const totalReports = masterData.records.length;
-    
-    // นับจำนวนรายงานที่มีค่า HAD ใน record โดยตรง (คอลัมน์ HAD ไม่ว่างและไม่ใช่ null)
-    const hadReports = masterData.records.filter(rec => (rec.HAD || '').toString().trim().toUpperCase() === 'HAD').length;
-
-    // รวบรวมข้อมูลตามปี
-    const byYear = masterData.records.reduce((acc, rec) => {
-        const eventDate = new Date(rec.วันที่เกิดเหตุการณ์);
-        if (!isNaN(eventDate)) {
-            const year = eventDate.getFullYear();
-            acc[year] = (acc[year] || 0) + 1;
-        }
-        return acc;
-    }, {});
-    
-    // Aggregate records by Month and Year (using event date)
-    const byMonthYear = masterData.records.reduce((acc, rec) => {
-        const eventDate = new Date(rec.วันที่เกิดเหตุการณ์);
-        if (!isNaN(eventDate)) {
-            // Format as "Month Year" (e.g., "ตุลาคม 2566")
-            const monthYear = eventDate.toLocaleString('th-TH', { month: 'long', year: 'numeric' });
-            const year = eventDate.getFullYear().toString();
+    if (processSelect && errorTypeSelect) {
+        processSelect.addEventListener('change', () => {
+            const selectedProcess = processSelect.value;
             
-            if (!acc[year]) {
-                acc[year] = {};
+            // Handle process "other" input
+            if (processOtherInput) {
+                processOtherInput.classList.toggle('hidden', selectedProcess !== 'อื่นๆ');
+                if (processOtherInput.classList.contains('hidden')) {
+                    processOtherInput.value = '';
+                }
             }
             
-            acc[year][monthYear] = (acc[year][monthYear] || 0) + 1;
-        }
-        return acc;
-    }, {});
-
-    // Aggregate records by Shift
-    const byShift = masterData.records.reduce((acc, rec) => {
-        const shift = rec.เวร || 'ไม่ระบุ';
-        acc[shift] = (acc[shift] || 0) + 1;
-        return acc;
-    }, {});
-    
-    // Aggregate records by Place
-    const byPlace = masterData.records.reduce((acc, rec) => {
-        const place = rec.สถานที่ || 'ไม่ระบุ';
-        acc[place] = (acc[place] || 0) + 1;
-        return acc;
-    }, {});
-
-    // Aggregate records by Patient Type
-    const byPatientType = masterData.records.reduce((acc, rec) => {
-        const patientType = rec.ประเภทผู้ป่วย || 'ไม่ระบุ';
-        acc[patientType] = (acc[patientType] || 0) + 1;
-        return acc;
-    }, {});
-    
-    // Aggregate records by Process
-    const byProcess = masterData.records.reduce((acc, rec) => {
-        const process = rec.กระบวนการ || 'ไม่ระบุ';
-        acc[process] = (acc[process] || 0) + 1;
-        return acc;
-    }, {});
-    
-    // Aggregate records by Error Type
-    const byErrorType = masterData.records.reduce((acc, rec) => {
-        const errorType = rec.ข้อผิดพลาด || 'ไม่ระบุ';
-        acc[errorType] = (acc[errorType] || 0) + 1;
-        return acc;
-    }, {});
-    
-    // นับความถี่ของยาที่ผิด
-    const incorrectMedicineFrequency = masterData.records.reduce((acc, rec) => {
-        const medicine = rec.รายการยาที่ผิด || 'ไม่ระบุ';
-        acc[medicine] = (acc[medicine] || 0) + 1;
-        return acc;
-    }, {});
-    
-    // เรียงลำดับยาที่ผิดบ่อยที่สุด 10 อันดับแรก
-    const topInvalidMedicines = Object.entries(incorrectMedicineFrequency)
-        .filter(([medicine]) => medicine !== 'ไม่ระบุ')
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10);
-
-    // --- HTML Structure for Dashboard ---
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">Dashboard สรุปรายงาน</h2>
+            // Update error type dropdown based on selected process
+            errorTypeSelect.innerHTML = '<option value="" selected>เลือก...</option>';
             
-            <!-- ส่วนของตัวเลือกในการแสดงข้อมูล -->
-            <div class="mb-6 flex flex-wrap items-center gap-4">
-                <div>
-                    <label for="display-year-select" class="block text-sm font-medium text-gray-700 mb-1">เลือกปีที่แสดง</label>
-                    <select id="display-year-select" class="px-3 py-2 border border-gray-300 rounded-md">
-                        <option value="all">ทุกปี</option>
-                        ${Object.keys(byYear).sort((a, b) => b - a).map(year => 
-                            `<option value="${year}">${year}</option>`
-                        ).join('')}
-                    </select>
-                </div>
-                <div>
-                    <label for="display-view-type" class="block text-sm font-medium text-gray-700 mb-1">แสดงข้อมูลแบบ</label>
-                    <select id="display-view-type" class="px-3 py-2 border border-gray-300 rounded-md">
-                        <option value="monthly">รายเดือน</option>
-                        <option value="yearly">รายปี</option>
-                    </select>
-                </div>
-            </div>
-            
-            <!-- สรุปจำนวน -->
-            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-                <div class="p-4 text-white bg-emerald-500 rounded-lg shadow">
-                    <div class="text-sm font-medium uppercase">รายงานทั้งหมด</div>
-                    <div class="mt-1 text-3xl font-bold">${totalReports}</div>
-                </div>
-                <div class="p-4 text-white bg-red-500 rounded-lg shadow">
-                    <div class="text-sm font-medium uppercase">รายงาน HAD</div>
-                    <div class="mt-1 text-3xl font-bold">${hadReports}</div>
-                </div>
-            </div>
-            
-            <!-- แผนภูมิแสดงข้อมูลตามช่วงเวลา -->
-            <div class="p-4 bg-gray-100 rounded-lg shadow-sm mb-6" style="height:400px;max-height:400px;">
-                <h3 class="mb-4 text-lg font-bold text-gray-700">รายงานตามช่วงเวลา</h3>
-                <canvas id="timeChart" style="height:100%;max-height:400px;width:100%;"></canvas>
-            </div>
-            
-            <!-- แผนภูมิแสดงข้อมูลตามเวรและประเภทผู้ป่วย -->
-            <div class="grid grid-cols-1 gap-6 mb-6 lg:grid-cols-2">
-                <div class="p-4 bg-gray-100 rounded-lg shadow-sm" style="height:400px;max-height:400px;">
-                    <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามเวร</h3>
-                    <canvas id="shiftChart" style="height:100%;max-height:400px;width:100%;"></canvas>
-                </div>
-                <div class="p-4 bg-gray-100 rounded-lg shadow-sm" style="height:400px;max-height:400px;">
-                    <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามประเภทผู้ป่วย</h3>
-                    <canvas id="patientTypeChart" style="height:100%;max-height:400px;width:100%;"></canvas>
-                </div>
-            </div>
-            
-            <!-- แผนภูมิแสดงข้อมูลตามสถานที่และกระบวนการ -->
-            <div class="grid grid-cols-1 gap-6 mb-6">
-                <div class="p-4 bg-gray-100 rounded-lg shadow-sm" style="height:400px;max-height:400px;">
-                    <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามสถานที่</h3>
-                    <canvas id="placeChart" style="height:100%;max-height:400px;width:100%;"></canvas>
-                </div>
-                <div class="p-4 bg-gray-100 rounded-lg shadow-sm" style="height:400px;max-height:400px;">
-                    <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามกระบวนการ</h3>
-                    <canvas id="processChart" style="height:100%;max-height:400px;width:100%;"></canvas>
-                </div>
-                <div class="p-4 bg-gray-100 rounded-lg shadow-sm" style="height:400px;max-height:400px;">
-                    <h3 class="mb-2 text-lg font-bold text-gray-700">รายงานตามข้อผิดพลาด</h3>
-                    <canvas id="errorTypeChart" style="height:100%;max-height:400px;width:100%;"></canvas>
-                </div>
-            </div>
-            
-            <!-- สถิติยาที่จัดผิด 10 อันดับ -->
-            <div class="p-4 bg-gray-100 rounded-lg shadow-sm">
-                <h3 class="mb-4 text-lg font-bold text-gray-700">10 อันดับยาที่จัดผิดบ่อย</h3>
-                <div style="height:400px;max-height:400px;">
-                  <canvas id="topMedicinesChart" style="height:100%;max-height:400px;width:100%;"></canvas>
-                </div>
-                <div class="overflow-x-auto mt-6">
-                    <table class="min-w-full bg-white divide-y divide-gray-200 rounded-lg">
-                        <thead class="bg-gray-200">
-                            <tr>
-                                <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ลำดับ</th>
-                                <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อยา</th>
-                                <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">จำนวน</th>
-                            </tr>
-                        </thead>
-                        <tbody id="top-medicine-table-body" class="divide-y divide-gray-200">
-                            <!-- ตารางนี้จะถูกเติมข้อมูลด้วย JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // เก็บข้อมูลเพื่อใช้ในการอัปเดต chart เมื่อมีการเปลี่ยนแปลงตัวเลือก
-    window.dashboardData = {
-        byMonthYear,
-        byYear,
-        byShift,
-        byPlace,
-        byPatientType,
-        byProcess,
-        byErrorType,
-        topInvalidMedicines
-    };    // --- Chart.js Initialization ---
-    
-    // Function to create a Chart.js chart - compatible with Chart.js 3.x
-    const createChart = (elementId, type, labels, data, labelText, backgroundColor, showLegend = false) => {
-        const element = document.getElementById(elementId);
-        if (!element) {
-            console.warn(`Element with ID ${elementId} not found`);
-            return null;
-        }
-        
-        const ctx = element.getContext('2d');
-        if (ctx) {
-            try {
-                // Ensure proper border color formatting for Chart.js 3.x
-                let borderColors = backgroundColor;
-                if (type === 'line') {
-                    borderColors = 'rgba(75, 192, 192, 1)';
-                } else if (Array.isArray(backgroundColor)) {
-                    borderColors = backgroundColor.map(color => {
-                        if (typeof color === 'string') {
-                            return color.replace(/rgba\((\d+,\s*\d+,\s*\d+),\s*[\d.]+\)/, 'rgba($1, 1)');
-                        }
-                        return color;
-                    });
-                }
-                
-                return new Chart(ctx, {
-                    type: type,
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: labelText,
-                            data: data,
-                            backgroundColor: backgroundColor,
-                            borderColor: borderColors,
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: showLegend,
-                                position: 'right'
-                            },
-                            title: {
-                                display: true,
-                                text: labelText,
-                                font: {
-                                    size: 16
-                                }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    precision: 0
-                                }
-                            }
-                        }
-                    }
+            if (selectedProcess && selectedProcess !== 'อื่นๆ' && processErrorMapping[selectedProcess]) {
+                // Add specific error types for the selected process
+                processErrorMapping[selectedProcess].forEach(errorType => {
+                    const option = document.createElement('option');
+                    option.value = errorType;
+                    option.textContent = errorType;
+                    errorTypeSelect.appendChild(option);
                 });
-            } catch (error) {
-                console.error(`Error creating chart ${elementId}:`, error);
-                return null;
-            }
-        }
-        return null;
-    };
-
-    // Define consistent color palette
-    const chartColors = [
-        'rgba(75, 192, 192, 0.6)', // Teal
-        'rgba(153, 102, 255, 0.6)', // Purple
-        'rgba(255, 159, 64, 0.6)', // Orange
-        'rgba(255, 99, 132, 0.6)', // Red
-        'rgba(54, 162, 235, 0.6)', // Blue
-        'rgba(201, 203, 207, 0.6)', // Grey
-        'rgba(255, 205, 86, 0.6)', // Yellow
-        'rgba(22, 160, 133, 0.6)', // Green
-        'rgba(142, 68, 173, 0.6)', // Dark Purple
-        'rgba(243, 156, 18, 0.6)', // Yellow
-        'rgba(231, 76, 60, 0.6)', // Red
-        'rgba(52, 152, 219, 0.6)'  // Blue
-    ];
-    
-    // รายงานตามช่วงเวลา - เริ่มต้นแสดงรายเดือน
-    const currentYear = new Date().getFullYear().toString();
-    let selectedYear = 'all'; // แสดงทุกปี
-    let viewType = 'monthly'; // แสดงรายเดือน    // เก็บ chart instances ไว้อ้างอิงเพื่อทำลายเมื่อสร้างใหม่
-    let timeChartInstance = null;
-
-    function updateTimeChart() {
-        const timeChartElement = document.getElementById('timeChart');
-        if (!timeChartElement) {
-            console.warn('timeChart element not found');
-            return;
-        }
-
-        try {
-            // ถ้ามีกราฟอยู่แล้วให้ทำลายก่อน
-            if (timeChartInstance) {
-                timeChartInstance.destroy();
-            }
-        } catch (error) {
-            console.error('Error destroying previous chart:', error);
-            // ถ้าไม่สามารถทำลายได้ ให้สร้าง canvas ใหม่แทน
-            const parent = timeChartElement.parentNode;
-            parent.removeChild(timeChartElement);
-            const newCanvas = document.createElement('canvas');
-            newCanvas.id = 'timeChart';
-            parent.appendChild(newCanvas);
-        }
-        
-        let labels, data;
-        
-        if (viewType === 'yearly') {
-            // แสดงข้อมูลเป็นรายปี
-            labels = Object.keys(window.dashboardData.byYear).sort();
-            data = labels.map(year => window.dashboardData.byYear[year]);
-              timeChartInstance = createChart('timeChart', 'bar', labels, data, 'จำนวนรายงานตามปี', chartColors);
-        } else {
-            // แสดงข้อมูลเป็นรายเดือน
-            let monthYearData;
-            
-            if (selectedYear === 'all') {
-                // รวมข้อมูลทุกปี
-                monthYearData = Object.values(window.dashboardData.byMonthYear)
-                    .reduce((acc, yearData) => {
-                        Object.entries(yearData).forEach(([month, count]) => {
-                            acc[month] = (acc[month] || 0) + count;
-                        });
-                        return acc;
-                    }, {});
+                // Add "other" option
+                const otherOption = document.createElement('option');
+                otherOption.value = 'อื่นๆ';
+                otherOption.textContent = 'อื่นๆ (โปรดระบุ)';
+                errorTypeSelect.appendChild(otherOption);
+                errorTypeSelect.disabled = false;
+            } else if (selectedProcess === 'อื่นๆ') {
+                // If process is "other", allow manual input for error type
+                const otherOption = document.createElement('option');
+                otherOption.value = 'อื่นๆ';
+                otherOption.textContent = 'อื่นๆ (โปรดระบุ)';
+                errorTypeSelect.appendChild(otherOption);
+                errorTypeSelect.disabled = false;
             } else {
-                // แสดงข้อมูลเฉพาะปีที่เลือก
-                monthYearData = window.dashboardData.byMonthYear[selectedYear] || {};
+                // No process selected
+                errorTypeSelect.innerHTML = '<option value="" selected>กรุณาเลือกกระบวนการก่อน</option>';
+                errorTypeSelect.disabled = true;
             }
             
-            // เรียงเดือนตามลำดับเวลา
-            const sortedMonthsYears = Object.keys(monthYearData).sort((a, b) => {
-                const dateA = new Date(a.replace(' ', ' 1, '));
-                const dateB = new Date(b.replace(' ', ' 1, '));
-                return dateA - dateB;
-            });
+            // Reset error type other input
+            if (errorTypeOtherInput) {
+                errorTypeOtherInput.classList.add('hidden');
+                errorTypeOtherInput.value = '';
+            }
+        });
+    }
+    
+    // Setup error type change listener
+    if (errorTypeSelect && errorTypeOtherInput) {
+        errorTypeSelect.addEventListener('change', () => {
+            errorTypeOtherInput.classList.toggle('hidden', errorTypeSelect.value !== 'อื่นๆ');
+            if (errorTypeOtherInput.classList.contains('hidden')) {
+                errorTypeOtherInput.value = '';
+            }
+        });
+    }
+    
+    // Setup cause change listener
+    const causeSelect = document.getElementById('cause');
+    const causeOtherInput = document.getElementById('cause_other');
+    
+    if (causeSelect && causeOtherInput) {
+        causeSelect.addEventListener('change', () => {
+            causeOtherInput.classList.toggle('hidden', causeSelect.value !== 'อื่นๆ');
+            if (causeOtherInput.classList.contains('hidden')) {
+                causeOtherInput.value = '';
+            }
+        });
+    }
+    
+    // Setup reset button
+    const resetBtn = document.getElementById('reset-form-btn');
+    if (resetBtn && recordForm) {
+        resetBtn.addEventListener('click', () => {
+            recordForm.reset();
+            document.getElementById('event_date').valueAsDate = new Date();
             
-            labels = sortedMonthsYears;
-            data = labels.map(month => monthYearData[month]);
+            // Set reporter name again after reset
+            const currentUser = getCurrentUser();
+            const reporterField = document.getElementById('reporter');
+            if (reporterField && currentUser) {
+                const reporterName = currentUser.ชื่อจริง || currentUser.RealName || currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ';
+                reporterField.value = reporterName;
+                reporterField.dataset.reporterId = currentUser.ID13 || '';
+            }
             
-            timeChartInstance = createChart('timeChart', 'line', labels, data, 'จำนวนรายงานตามเดือน', chartColors);
-        }
-    }
-      // สร้างกราฟแสดงข้อมูลตามเวรและประเภทผู้ป่วย
-    if (document.getElementById('shiftChart')) {
-        createChart('shiftChart', 'pie', Object.keys(byShift), Object.values(byShift), 'จำนวนรายงานตามเวร', chartColors.slice(0, Object.keys(byShift).length), true);
-    }
-    
-    if (document.getElementById('patientTypeChart')) {
-        createChart('patientTypeChart', 'pie', Object.keys(byPatientType), Object.values(byPatientType), 'จำนวนรายงานตามประเภทผู้ป่วย', chartColors.slice(0, Object.keys(byPatientType).length), true);
-    }
-
-    // สร้างกราฟแสดงข้อมูลตามสถานที่และกระบวนการ
-    if (document.getElementById('placeChart')) {
-        createChart('placeChart', 'bar', Object.keys(byPlace), Object.values(byPlace), 'จำนวนรายงานตามสถานที่', chartColors.slice(0, Object.keys(byPlace).length));
-    }
-    
-    if (document.getElementById('processChart')) {
-        createChart('processChart', 'bar', Object.keys(byProcess), Object.values(byProcess), 'จำนวนรายงานตามกระบวนการ', chartColors.slice(0, Object.keys(byProcess).length));
-    }
-    
-    if (document.getElementById('errorTypeChart')) {
-        createChart('errorTypeChart', 'bar', Object.keys(byErrorType), Object.values(byErrorType), 'จำนวนรายงานตามข้อผิดพลาด', chartColors.slice(0, Object.keys(byErrorType).length));
-    }    // สร้างกราฟแสดงยาที่จัดผิดบ่อย 10 อันดับแรก
-    if (topInvalidMedicines.length > 0) {
-        const medicineLabels = topInvalidMedicines.map(item => item[0]);
-        const medicineCounts = topInvalidMedicines.map(item => item[1]);
-        
-        const topMedicinesElement = document.getElementById('topMedicinesChart');
-        if (topMedicinesElement) {
-            try {
-                const ctx = topMedicinesElement.getContext('2d');
-                if (ctx) {
-                    // เตรียมสีสำหรับกราฟ
-                    const colors = chartColors.slice(0, topInvalidMedicines.length);
-                    const borderColors = colors.map(color => {
-                        if (typeof color === 'string') {
-                            return color.replace(/rgba\((\d+,\s*\d+,\s*\d+),\s*[\d.]+\)/, 'rgba($1, 1)');
-                        }
-                        return color;
-                    });
-                    
-                    // เตรียมข้อมูลสำหรับกราฟ
-                    const medicineLabels = topInvalidMedicines.map(item => item[0]);
-                    const medicineCounts = topInvalidMedicines.map(item => item[1]);
-                    
-                    new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: medicineLabels,
-                            datasets: [{
-                                label: '10 อันดับยาที่จัดผิดบ่อย',
-                                data: medicineCounts,
-                                backgroundColor: colors,
-                                borderColor: borderColors,
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            indexAxis: 'y', // แสดงแนวนอน
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    display: false
-                                },
-                                title: {
-                                    display: true,
-                                    text: '10 อันดับยาที่จัดผิดบ่อย',
-                                    font: {
-                                        size: 16
-                                    }
-                                }
-                            },
-                            scales: {
-                                x: {
-                                    beginAtZero: true,
-                                    ticks: {
-                                        precision: 0
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-            } catch (err) {
-                console.error('Error creating top medicines chart:', err);
+            // Reset HAD status
+            updateHADStatus();
+            
+            // Reset process and error type dropdowns
+            if (processSelect) processSelect.value = '';
+            if (errorTypeSelect) {
+                errorTypeSelect.innerHTML = '<option value="" selected>กรุณาเลือกกระบวนการก่อน</option>';
+                errorTypeSelect.disabled = true;
             }
-        } else {
-            console.log('Element topMedicinesChart not found');
-        }
-    } else {
-        console.log('No invalid medicines data available');
+        });
     }
-    
-    // เติมข้อมูลตาราง 10 อันดับยาที่จัดผิดบ่อย
-    const tableBody = document.getElementById('top-medicine-table-body');
-    if (tableBody) {
-        tableBody.innerHTML = topInvalidMedicines.map((item, idx) => `
-            <tr>
-                <td class="px-6 py-4 whitespace-nowrap text-center">${idx + 1}</td>
-                <td class="px-6 py-4 whitespace-nowrap">${item[0]}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-center">${item[1]}</td>
-            </tr>
-        `).join('');
-    }
-    
-    // เพิ่ม event listeners สำหรับตัวเลือกแสดงข้อมูล
-    document.getElementById('display-year-select')?.addEventListener('change', function() {
-        selectedYear = this.value;
-        updateTimeChart();
-    });
-    
-    document.getElementById('display-view-type')?.addEventListener('change', function() {
-        viewType = this.value;
-        updateTimeChart();
-    });
-    
-    // เริ่มต้นด้วยการแสดงกราฟตามเวลา
-    updateTimeChart();
-}
-
-// Placeholder for User Management Page (if needed in future)
-function renderUsersPage() {
-    const container = document.getElementById('users-page');
-    // NOTE: This page will be accessible by anyone since login is removed.
-    // Consider adding a simple form for direct user input for "ผู้รายงาน" if needed.
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการผู้ใช้</h2>
-            <p class="text-gray-600">หน้านี้สำหรับดูข้อมูลผู้ใช้งานเท่านั้น เนื่องจากระบบล็อกอินถูกนำออกไปแล้ว.</p>
-            <!-- Content for user management, e.g., table of users -->
-            <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-                    <thead class="bg-gray-200">
-                        <tr>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ID13</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อ</th>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ระดับ</th>
-                        </tr>
-                    </thead>
-                    <tbody id="users-table-body" class="divide-y divide-gray-200">
-                        ${(masterData.users || []).length > 0 ? (masterData.users || []).map(user => `
-                            <tr class="hover:bg-gray-100">
-                                <td class="px-6 py-4 whitespace-nowrap">${user.ID13 || ''}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${user.Name || ''}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${user.Level || ''}</td>
-                            </tr>
-                        `).join('') : `<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูลผู้ใช้งาน</td></tr>`}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-}
-
-// --- Example: Medicines Management Page ---
-function renderMedicinesPage() {
-    const container = document.getElementById('medicines-page');
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-800">จัดการรายการยา</h2>
-                <button id="add-medicine-btn" class="px-4 py-2 bg-emerald-600 text-white rounded-md">เพิ่มยา</button>
-            </div>
-            <table class="min-w-full bg-white divide-y divide-gray-200">
-                <thead class="bg-gray-200">
-                    <tr>
-                        <th class="px-6 py-3">ชื่อยา</th>
-                        <th class="px-6 py-3">HAD</th>
-                        <th class="px-6 py-3">การจัดการ</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${(masterData.medicines || []).map((med, idx) => `
-                        <tr>
-                            <td class="px-6 py-4">${med.Name}</td>
-                            <td class="px-6 py-4">${med.HAD}</td>
-                            <td class="px-6 py-4">
-                                <button class="edit-medicine-btn text-blue-600" data-idx="${idx}">แก้ไข</button>
-                                <button class="delete-medicine-btn text-red-600" data-idx="${idx}">ลบ</button>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-        <div id="medicine-modal" class="modal" style="display:none;">
-            <div class="modal-content">
-                <h3 id="medicine-modal-title" class="mb-4 text-lg font-bold"></h3>
-                <input id="medicine-name" class="w-full mb-2 px-3 py-2 border rounded" placeholder="ชื่อยา">
-                <select id="medicine-had" class="w-full mb-4 px-3 py-2 border rounded">
-                    <option value="yes">HAD</option>
-                    <option value="no">ไม่ใช่ HAD</option>
-                </select>
-                <div class="flex justify-end gap-2">
-                    <button id="medicine-modal-cancel" class="px-4 py-2 bg-gray-300 rounded">ยกเลิก</button>
-                    <button id="medicine-modal-save" class="px-4 py-2 bg-emerald-600 text-white rounded">บันทึก</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.getElementById('add-medicine-btn').onclick = () => openMedicineModal('add');
-    container.querySelectorAll('.edit-medicine-btn').forEach(btn => {
-        btn.onclick = () => openMedicineModal('edit', masterData.medicines[btn.dataset.idx]);
-    });
-    container.querySelectorAll('.delete-medicine-btn').forEach(btn => {
-        btn.onclick = async () => {
-            if (confirm('ยืนยันการลบ?')) {
-                await fetch(`${SCRIPT_URL}?action=deleteMedicine&name=${encodeURIComponent(masterData.medicines[btn.dataset.idx].Name)}`);
-                await loadAllMasterData();
-                renderMedicinesPage();
-            }
-        };
-    });
-    // ...modal logic (openMedicineModal) ...
-}
-
-/**
- * Renders the shifts management page.
- */
-function renderShiftsPage() {
-    const container = document.getElementById('shifts-page');
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-800">จัดการเวร</h2>
-                <button id="add-shift-btn" class="px-4 py-2 bg-emerald-600 text-white rounded-md">เพิ่มเวร</button>
-            </div>
-            <table class="min-w-full bg-white divide-y divide-gray-200">
-                <thead class="bg-gray-200">
-                    <tr>
-                        <th class="px-6 py-3">ชื่อเวร</th>
-                        <th class="px-6 py-3">รายละเอียด</th>
-                        <th class="px-6 py-3">การจัดการ</th>
-                    </tr>
-                </thead>                <tbody>
-                    ${(masterData.shifts || []).map((shift, idx) => `
-                        <tr>
-                            <td class="px-6 py-4">${shift.Name || shift.name || ''}</td>
-                            <td class="px-6 py-4">${shift.Details || shift.details || ''}</td>
-                            <td class="px-6 py-4">
-                                <button class="edit-shift-btn text-blue-600" data-idx="${idx}">แก้ไข</button>
-                                <button class="delete-shift-btn text-red-600" data-idx="${idx}">ลบ</button>
-                            </td>
-                        </tr>
-                    `).join('') || '<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูล</td></tr>'}
-                </tbody>
-            </table>
-        </div>
-        <div id="shift-modal" class="modal" style="display:none;">
-            <div class="modal-content">
-                <h3 id="shift-modal-title" class="mb-4 text-lg font-bold"></h3>
-                <input id="shift-name" class="w-full mb-2 px-3 py-2 border rounded" placeholder="ชื่อเวร">
-                <input id="shift-details" class="w-full mb-4 px-3 py-2 border rounded" placeholder="รายละเอียด">
-                <div class="flex justify-end gap-2">
-                    <button id="shift-modal-cancel" class="px-4 py-2 bg-gray-300 rounded">ยกเลิก</button>
-                    <button id="shift-modal-save" class="px-4 py-2 bg-emerald-600 text-white rounded">บันทึก</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.getElementById('add-shift-btn').onclick = () => openShiftModal('add');
-    container.querySelectorAll('.edit-shift-btn').forEach(btn => {
-        btn.onclick = () => openShiftModal('edit', masterData.shifts[btn.dataset.idx]);
-    });
-    container.querySelectorAll('.delete-shift-btn').forEach(btn => {
-        btn.onclick = async () => {
-            if (confirm('ยืนยันการลบ?')) {
-                await fetch(`${SCRIPT_URL}?action=deleteShift&name=${encodeURIComponent(masterData.shifts[btn.dataset.idx].Name)}`);
-                await loadAllMasterData();
-                renderShiftsPage();
-            }
-        };
-    });
-    // ...modal logic (openShiftModal) ...
-}
-
-/**
- * Renders the patient types management page.
- */
-function renderPatientTypesPage() {
-    const container = document.getElementById('patient-types-page');
-   
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-800">จัดการประเภทผู้ป่วย</h2>
-                <button id="add-patient-type-btn" class="px-4 py-2 bg-emerald-600 text-white rounded-md">เพิ่มประเภทผู้ป่วย</button>
-            </div>
-            <table class="min-w-full bg-white divide-y divide-gray-200">
-                <thead class="bg-gray-200">
-                    <tr>
-                        <th class="px-6 py-3">ประเภทผู้ป่วย</th>
-                        <th class="px-6 py-3">คำอธิบาย</th>
-                        <th class="px-6 py-3">การจัดการ</th>
-                    </tr>
-                </thead>                <tbody>
-                    ${(masterData.patientTypes || []).map((type, idx) => `
-                        <tr>
-                            <td class="px-6 py-4">${type.Name || type.name || ''}</td>
-                            <td class="px-6 py-4">${type.Description || type.description || ''}</td>
-                            <td class="px-6 py-4">
-                                <button class="edit-patient-type-btn text-blue-600" data-idx="${idx}">แก้ไข</button>
-                                <button class="delete-patient-type-btn text-red-600" data-idx="${idx}">ลบ</button>
-                            </td>
-                        </tr>
-                    `).join('') || '<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูล</td></tr>'}
-                </tbody>
-                </tbody>
-            </table>
-        </div>
-        <div id="patient-type-modal" class="modal" style="display:none;">
-            <div class="modal-content">
-                <h3 id="patient-type-modal-title" class="mb-4 text-lg font-bold"></h3>
-                <input id="patient-type-name" class="w-full mb-2 px-3 py-2 border rounded" placeholder="ชื่อประเภทผู้ป่วย">
-                <input id="patient-type-description" class="w-full mb-4 px-3 py-2 border rounded" placeholder="คำอธิบาย">
-                <div class="flex justify-end gap-2">
-                    <button id="patient-type-modal-cancel" class="px-4 py-2 bg-gray-300 rounded">ยกเลิก</button>
-                    <button id="patient-type-modal-save" class="px-4 py-2 bg-emerald-600 text-white rounded">บันทึก</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.getElementById('add-patient-type-btn').onclick = () => openPatientTypeModal('add');
-    container.querySelectorAll('.edit-patient-type-btn').forEach(btn => {
-        btn.onclick = () => openPatientTypeModal('edit', masterData.patientTypes[btn.dataset.idx]);
-    });
-    container.querySelectorAll('.delete-patient-type-btn').forEach(btn => {
-        btn.onclick = async () => {
-            if (confirm('ยืนยันการลบ?')) {
-                await fetch(`${SCRIPT_URL}?action=deletePatientType&name=${encodeURIComponent(masterData.patientTypes[btn.dataset.idx].Name)}`);
-                await loadAllMasterData();
-                renderPatientTypesPage();
-            }
-        };
-    });
-    // ...modal logic (openPatientTypeModal) ...
-}
-
-/**
- * Renders the places management page.
- */
-function renderPlacesPage() {
-    const container = document.getElementById('places-page');
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-800">จัดการสถานที่</h2>
-                <button id="add-place-btn" class="px-4 py-2 bg-emerald-600 text-white rounded-md">เพิ่มสถานที่</button>
-            </div>
-            <table class="min-w-full bg-white divide-y divide-gray-200">
-                <thead class="bg-gray-200">
-                    <tr>
-                        <th class="px-6 py-3">ชื่อสถานที่</th>
-                        <th class="px-6 py-3">การจัดการ</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${(masterData.places || []).map((place, idx) => `
-                        <tr>
-                            <td class="px-6 py-4">${place.Name}</td>
-                            <td class="px-6 py-4">
-                                <button class="edit-place-btn text-blue-600" data-idx="${idx}">แก้ไข</button>
-                                <button class="delete-place-btn text-red-600" data-idx="${idx}">ลบ</button>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-        <div id="place-modal" class="modal" style="display:none;">
-            <div class="modal-content">
-                <h3 id="place-modal-title" class="mb-4 text-lg font-bold"></h3>
-                <input id="place-name" class="w-full mb-4 px-3 py-2 border rounded" placeholder="ชื่อสถานที่">
-                <div class="flex justify-end gap-2">
-                    <button id="place-modal-cancel" class="px-4 py-2 bg-gray-300 rounded">ยกเลิก</button>
-                    <button id="place-modal-save" class="px-4 py-2 bg-emerald-600 text-white rounded">บันทึก</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.getElementById('add-place-btn').onclick = () => openPlaceModal('add');
-    container.querySelectorAll('.edit-place-btn').forEach(btn => {
-        btn.onclick = () => openPlaceModal('edit', masterData.places[btn.dataset.idx]);
-    });
-    container.querySelectorAll('.delete-place-btn').forEach(btn => {
-        btn.onclick = async () => {
-            if (confirm('ยืนยันการลบ?')) {
-                await fetch(`${SCRIPT_URL}?action=deletePlace&name=${encodeURIComponent(masterData.places[btn.dataset.idx].Name)}`);
-                await loadAllMasterData();
-                renderPlacesPage();
-            }
-        };
-    });
-    // ...modal logic (openPlaceModal) ...
-}
-
-/**
- * Renders the processes management page.
- */
-function renderProcessesPage() {
-    const container = document.getElementById('processes-page');
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-800">จัดการกระบวนการ</h2>
-                <button id="add-process-btn" class="px-4 py-2 bg-emerald-600 text-white rounded-md">เพิ่มกระบวนการ</button>
-            </div>
-            <table class="min-w-full bg-white divide-y divide-gray-200">
-                <thead class="bg-gray-200">
-                    <tr>
-                        <th class="px-6 py-3">ชื่อกระบวนการ</th>
-                        <th class="px-6 py-3">การจัดการ</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${(masterData.processes || []).map((process, idx) => `
-                        <tr>
-                            <td class="px-6 py-4">${process.Name}</td>
-                            <td class="px-6 py-4">
-                                <button class="edit-process-btn text-blue-600" data-idx="${idx}">แก้ไข</button>
-                                <button class="delete-process-btn text-red-600" data-idx="${idx}">ลบ</button>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-        <div id="process-modal" class="modal" style="display:none;">
-            <div class="modal-content">
-                <h3 id="process-modal-title" class="mb-4 text-lg font-bold"></h3>
-                <input id="process-name" class="w-full mb-4 px-3 py-2 border rounded" placeholder="ชื่อกระบวนการ">
-                <div class="flex justify-end gap-2">
-                    <button id="process-modal-cancel" class="px-4 py-2 bg-gray-300 rounded">ยกเลิก</button>
-                    <button id="process-modal-save" class="px-4 py-2 bg-emerald-600 text-white rounded">บันทึก</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.getElementById('add-process-btn').onclick = () => openProcessModal('add');
-    container.querySelectorAll('.edit-process-btn').forEach(btn => {
-        btn.onclick = () => openProcessModal('edit', masterData.processes[btn.dataset.idx]);
-    });
-    container.querySelectorAll('.delete-process-btn').forEach(btn => {
-        btn.onclick = async () => {
-            if (confirm('ยืนยันการลบ?')) {
-                await fetch(`${SCRIPT_URL}?action=deleteProcess&name=${encodeURIComponent(masterData.processes[btn.dataset.idx].Name)}`);
-                await loadAllMasterData();
-                renderProcessesPage();
-            }
-        };
-    });
-    // ...modal logic (openProcessModal) ...
-}
-
-/**
- * Renders the causes management page.
- */
-function renderCausesPage() {
-    const container = document.getElementById('causes-page');
-    container.innerHTML = `
-        <div class="p-6 bg-white rounded-lg shadow-md">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-800">จัดการสาเหตุ</h2>
-                <button id="add-cause-btn" class="px-4 py-2 bg-emerald-600 text-white rounded-md">เพิ่มสาเหตุ</button>
-            </div>
-            <table class="min-w-full bg-white divide-y divide-gray-200">
-                <thead class="bg-gray-200">
-                    <tr>
-                        <th class="px-6 py-3">ชื่อสาเหตุ</th>
-                        <th class="px-6 py-3">การจัดการ</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${(masterData.causes || []).map((cause, idx) => `
-                        <tr>
-                            <td class="px-6 py-4">${cause.Name}</td>
-                            <td class="px-6 py-4">
-                                <button class="edit-cause-btn text-blue-600" data-idx="${idx}">แก้ไข</button>
-                                <button class="delete-cause-btn text-red-600" data-idx="${idx}">ลบ</button>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-        <div id="cause-modal" class="modal" style="display:none;">
-            <div class="modal-content">
-                <h3 id="cause-modal-title" class="mb-4 text-lg font-bold"></h3>
-                <input id="cause-name" class="w-full mb-4 px-3 py-2 border rounded" placeholder="ชื่อสาเหตุ">
-                <div class="flex justify-end gap-2">
-                    <button id="cause-modal-cancel" class="px-4 py-2 bg-gray-300 rounded">ยกเลิก</button>
-                    <button id="cause-modal-save" class="px-4 py-2 bg-emerald-600 text-white rounded">บันทึก</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.getElementById('add-cause-btn').onclick = () => openCauseModal('add');
-    container.querySelectorAll('.edit-cause-btn').forEach(btn => {
-        btn.onclick = () => openCauseModal('edit', masterData.causes[btn.dataset.idx]);
-    });
-    container.querySelectorAll('.delete-cause-btn').forEach(btn => {
-        btn.onclick = async () => {
-            if (confirm('ยืนยันการลบ?')) {
-                await fetch(`${SCRIPT_URL}?action=deleteCause&name=${encodeURIComponent(masterData.causes[btn.dataset.idx].Name)}`);
-                await loadAllMasterData();
-                renderCausesPage();
-            }
-        };
-    });
-    // ...modal logic (openCauseModal) ...
 }
 
 // --- Enhanced Application Initialization ---
 document.addEventListener('DOMContentLoaded', async function() {
     try {
-        // Initialize application
         console.log('Initializing application...');
         
         // Load all master data first
@@ -2094,7 +994,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             showPage('record-form-page');
         } else {
             console.log('No user logged in, showing login page');
-            // Show login page on first visit - no popup alerts
             loginPage.style.display = 'flex';
             appPage.style.display = 'none';
         }
@@ -2109,7 +1008,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const currentUser = getCurrentUser();
                     if (!currentUser && pageId !== 'login-page') {
                         console.log('กรุณาเข้าสู่ระบบก่อนใช้งาน');
-                        // Show login page instead of popup
                         loginPage.style.display = 'flex';
                         appPage.style.display = 'none';
                         return;
@@ -2148,7 +1046,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     } catch (error) {
         console.error('Error during application initialization:', error);
         console.log('เกิดข้อผิดพลาดในการเริ่มต้นระบบ กรุณาโหลดหน้าเว็บใหม่');
-        // Show login page even if there's an error
         loginPage.style.display = 'flex';
         appPage.style.display = 'none';
     }
