@@ -239,7 +239,7 @@
         <button onclick="document.getElementById('success-modal').style.display='none'" class="px-4 py-2 mt-4 text-white bg-emerald-500 rounded-md">ตกลง</button>
       </div>
     </div>
-<script>
+    <script>
 // --- Enhanced Configuration with Error Handling ---
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzFrW_xMdCukPq_nx3FsoYHxxq3hH5hSRtvIKfAioJfqet_MKAJjACugUQ-X6ngZ1NqyQ/exec";
 
@@ -391,24 +391,37 @@ function getErrorMessage(error) {
 async function fetchWithTimeout(url, options = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-    
     try {
-        const response = await fetch(url, {
-            ...options,
-            signal: controller.signal
-        });
-        
+        const response = await fetch(url, { ...options, signal: controller.signal });
         clearTimeout(timeoutId);
-        
         if (!response.ok) {
+            // Show error in UI if 404
+            if (response.status === 404) {
+                showGlobalError(`Resource not found (404): ${url}`);
+            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
         return response;
     } catch (error) {
         clearTimeout(timeoutId);
+        showGlobalError(getErrorMessage(error));
         throw error;
     }
+}
+
+// --- Global error display ---
+function showGlobalError(message) {
+    let errorDiv = document.getElementById('global-error-message');
+    if (!errorDiv) {
+        errorDiv = document.createElement('div');
+        errorDiv.id = 'global-error-message';
+        errorDiv.className = 'error-message fixed top-0 left-0 right-0 z-50';
+        document.body.prepend(errorDiv);
+    }
+    errorDiv.innerHTML = `<strong>เกิดข้อผิดพลาด:</strong> ${message}`;
+    setTimeout(() => {
+        if (errorDiv) errorDiv.remove();
+    }, 10000); // Hide after 10 seconds
 }
 
 // --- DOM Elements Caching ---
@@ -437,7 +450,6 @@ if (logoutBtn) {
 async function initializeApp() {
     try {
         console.log('กำลังโหลดข้อมูลเริ่มต้น...');
-        
         // Load users data for login
         const usersResponse = await fetch(`${SCRIPT_URL}?action=getusers`);
         if (usersResponse.ok) {
@@ -447,11 +459,9 @@ async function initializeApp() {
                 console.log('โหลดข้อมูลผู้ใช้สำเร็จ:', masterData.users.length, 'คน');
             }
         }
-        
         // Load other reference data
-        const endpoints = ['getmedicines', 'getplaces', 'getprocesses', 'getcauses'];
-        const keys = ['medicines', 'places', 'processes', 'causes'];
-        
+        const endpoints = ['getmedicines', 'getplaces', 'getprocesses', 'getcauses', 'geterrortypes'];
+        const keys = ['medicines', 'places', 'processes', 'causes', 'errorTypes'];
         for (let i = 0; i < endpoints.length; i++) {
             try {
                 const response = await fetch(`${SCRIPT_URL}?action=${endpoints[i]}`);
@@ -466,7 +476,6 @@ async function initializeApp() {
                 console.error(`Failed to load ${keys[i]}:`, error);
             }
         }
-        
         // Load records after other master data
         masterData.records = await fetchDataFromSheet('getRecords');
         masterData.records.sort((a,b) => new Date(b.วันที่เกิดเหตุการณ์) - new Date(a.วันที่เกิดเหตุการณ์));
@@ -484,7 +493,52 @@ async function initializeApp() {
         }
     } catch (error) {
         console.error('Failed to load initial data:', error);
-        console.log('ใช้ข้อมูลตัวอย่างสำหรับการทดสอบ');
+        // Fallback: use mock data for demo/offline
+        masterData.users = [
+            { ID13: '1234567890123', Password: 'test', Name: 'Demo User', Position: 'Pharmacist' }
+        ];
+        masterData.medicines = [
+            { Name: 'Paracetamol', HAD: 'no' },
+            { Name: 'Morphine', HAD: 'yes' }
+        ];
+        masterData.places = [ { Name: 'หอผู้ป่วย 1' }, { Name: 'ห้องจ่ายยา' } ];
+        masterData.processes = [ { 'กระบวนการ': 'จัดยา' }, { 'กระบวนการ': 'ลงข้อมูล' } ];
+        masterData.causes = [ { Name: 'ลืม' }, { Name: 'สื่อสารผิด' } ];
+        masterData.errorTypes = [
+            'ไม่ติดฉลากยา',
+            'จัดผิดขนาด',
+            'จัดผิดจำนวน',
+            'จัดไม่ครบชนิด',
+            'จัดผิดชนิด',
+            'จัดผิดรูปแบบ',
+            'จัดผิดคน',
+            'key ผิดขนาด',
+            'key ผิดจำนวน',
+            'key ไม่ครบชนิด',
+            'key ผิดคน',
+            'key ผิดวิธีใช้',
+            'ลงข้อมูลก่อนเตรียมยาไม่ถูกต้อง',
+            'ลืมเตรียมยา',
+            'ไม่ได้ส่งการปรับปรุง order/stat',
+            'ไม่ได้อ่าน line ทำให้ไมไ่ด้เตรียมยา',
+            'ผลิตยาไม่ทัน',
+            'ติดฉลกายา prepack ผิดชนิด',
+            'ตรวจพบยาหมดอายุในจุดจ่าย',
+            'ไม่ได้ลงค่าใช้จ่ายด้านยา(ไมไ่ด้คิดค่ายาหรือเวชภัณฑ์อื่นๆ)',
+            'ไม่ได้หยุดยา/นำยาออก กรณีแพทย์สั่ง off ยา',
+            'เก็บยาผิดตำแหน่ง',
+            'คีย์สารละลายผิดขนาด ผิดชนิด',
+            'ไม่ได้เตรียม set IV เพื่อยาเคมีบำบัด'
+        ];
+        masterData.records = [
+            { 'วันที่เกิดเหตุการณ์': '2025-07-01', 'เวร': 'เช้า', 'สถานที่': 'หอผู้ป่วย 1', 'กระบวนการ': 'จัดยา', 'ข้อผิดพลาด': 'จัดผิดขนาด', 'รายการยาที่ผิด': 'Paracetamol', 'สาเหตุ': 'ลืม', 'ผู้บันทึก': 'Demo User' },
+            { 'วันที่เกิดเหตุการณ์': '2025-06-30', 'เวร': 'บ่าย', 'สถานที่': 'ห้องจ่ายยา', 'กระบวนการ': 'ลงข้อมูล', 'ข้อผิดพลาด': 'ไม่ติดฉลากยา', 'รายการยาที่ผิด': 'Morphine', 'สาเหตุ': 'ลืม', 'ผู้บันทึก': 'Demo User' },
+            { 'วันที่เกิดเหตุการณ์': '2025-06-25', 'เวร': 'ดึก', 'สถานที่': 'หอผู้ป่วย 1', 'กระบวนการ': 'จัดยา', 'ข้อผิดพลาด': 'จัดผิดชนิด', 'รายการยาที่ผิด': 'Paracetamol', 'สาเหตุ': 'สื่อสารผิด', 'ผู้บันทึก': 'Demo User' }
+        ];
+        showGlobalError('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์จริง กำลังใช้ข้อมูลตัวอย่างสำหรับการทดสอบ');
+        appPage.style.display = 'none';
+        loginPage.style.display = 'flex';
+        updateUserDisplay();
     }
 }
 
@@ -1527,69 +1581,290 @@ function renderRecordsList() {
 
 function renderDashboard() {
     const container = document.getElementById('dashboard-page');
-    if (container) {
-        container.innerHTML = '<div class="p-6 bg-white rounded-lg shadow-md">ยังไม่เปิดใช้งานฟีเจอร์นี้</div>';
-    }
-}
-
-function renderErrorTypesPage() {
-    const container = document.getElementById('error-types-page');
     if (!container) return;
-    // รายการข้อผิดพลาดทั้งหมด (static list ตามที่ผู้ใช้ให้มา)
-    const errorTypes = [
-        'ไม่ติดฉลากยา',
-        'จัดผิดขนาด',
-        'จัดผิดจำนวน',
-        'จัดไม่ครบชนิด',
-        'จัดผิดชนิด',
-        'จัดผิดรูปแบบ',
-        'จัดผิดคน',
-        'key ผิดขนาด',
-        'key ผิดจำนวน',
-        'key ไม่ครบชนิด',
-        'key ผิดคน',
-        'key ผิดวิธีใช้',
-        'ลงข้อมูลก่อนเตรียมยาไม่ถูกต้อง',
-        'ลืมเตรียมยา',
-        'ไม่ได้ส่งการปรับปรุง order/stat',
-        'ไม่ได้อ่าน line ทำให้ไมไ่ด้เตรียมยา',
-        'ผลิตยาไม่ทัน',
-        'ติดฉลกายา prepack ผิดชนิด',
-        'ตรวจพบยาหมดอายุในจุดจ่าย',
-        'ไม่ได้ลงค่าใช้จ่ายด้านยา(ไมไ่ด้คิดค่ายาหรือเวชภัณฑ์อื่นๆ)',
-        'ไม่ได้หยุดยา/นำยาออก กรณีแพทย์สั่ง off ยา',
-        'เก็บยาผิดตำแหน่ง',
-        'คีย์สารละลายผิดขนาด ผิดชนิด',
-        'ไม่ได้เตรียม set IV เพื่อยาเคมีบำบัด'
-    ];
+
+    // Check if records data is available
+    if (!masterData.records || masterData.records.length === 0) {
+        container.innerHTML = '<div class="p-6 bg-white rounded-lg shadow-md">ไม่พบข้อมูลสำหรับการแสดงแดชบอร์ด</div>';
+        return;
+    }
+
+    // Get date range for filtering
+    const now = new Date();
+    const lastMonth = new Date(now);
+    lastMonth.setMonth(now.getMonth() - 1);
+    
+    // Filter records from the last 30 days
+    const recentRecords = masterData.records.filter(record => {
+        const recordDate = new Date(record['วันที่เกิดเหตุการณ์']);
+        return recordDate >= lastMonth && recordDate <= now;
+    });
+
+    // Calculate statistics
+    const totalRecords = masterData.records.length;
+    const recentRecordsCount = recentRecords.length;
+
+    // Count errors by type
+    const errorsByType = {};
+    masterData.records.forEach(record => {
+        const errorType = record['ข้อผิดพลาด'] || 'ไม่ระบุ';
+        errorsByType[errorType] = (errorsByType[errorType] || 0) + 1;
+    });
+
+    // Count errors by process
+    const errorsByProcess = {};
+    masterData.records.forEach(record => {
+        const process = record['กระบวนการ'] || 'ไม่ระบุ';
+        errorsByProcess[process] = (errorsByProcess[process] || 0) + 1;
+    });
+
+    // Count errors by medicine
+    const errorsByMedicine = {};
+    masterData.records.forEach(record => {
+        const medicine = record['รายการยาที่ผิด'] || 'ไม่ระบุ';
+        errorsByMedicine[medicine] = (errorsByMedicine[medicine] || 0) + 1;
+    });
+
+    // Count errors by shift
+    const errorsByShift = {};
+    masterData.records.forEach(record => {
+        const shift = record['เวร'] || 'ไม่ระบุ';
+        errorsByShift[shift] = (errorsByShift[shift] || 0) + 1;
+    });
+
+    // Get top 5 error types
+    const topErrorTypes = Object.entries(errorsByType)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+    // Get top 5 medicines with errors
+    const topMedicinesWithErrors = Object.entries(errorsByMedicine)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+    // Render the dashboard HTML
     container.innerHTML = `
         <div class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการข้อผิดพลาด</h2>
-            <div class="mb-4">
-                <label for="error-type-dropdown" class="block text-sm font-medium text-gray-700 mb-2">ตัวเลือกข้อผิดพลาด</label>
-                <select id="error-type-dropdown" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                    <option value="">เลือก...</option>
-                    ${errorTypes.map(e => `<option value="${e}">${e}</option>`).join('')}
-                </select>
+            <h2 class="mb-6 text-xl font-bold text-gray-800">แดชบอร์ดข้อมูลความคลาดเคลื่อนทางยา</h2>
+            
+            <!-- Summary Statistics -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="p-4 bg-blue-50 rounded-lg shadow border border-blue-200">
+                    <h3 class="font-bold text-blue-800">จำนวนรายการทั้งหมด</h3>
+                    <p class="text-2xl font-bold">${totalRecords}</p>
+                </div>
+                <div class="p-4 bg-green-50 rounded-lg shadow border border-green-200">
+                    <h3 class="font-bold text-green-800">รายการในช่วง 30 วันที่ผ่านมา</h3>
+                    <p class="text-2xl font-bold">${recentRecordsCount}</p>
+                </div>
+                <div class="p-4 bg-yellow-50 rounded-lg shadow border border-yellow-200">
+                    <h3 class="font-bold text-yellow-800">จำนวนประเภทข้อผิดพลาด</h3>
+                    <p class="text-2xl font-bold">${Object.keys(errorsByType).length}</p>
+                </div>
             </div>
-            <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full bg-white divide-y divide-gray-200">
-                    <thead class="bg-gray-200">
-                        <tr>
-                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อข้อผิดพลาด</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${errorTypes.length > 0 ? errorTypes.map(e => `
-                            <tr class="hover:bg-gray-100">
-                                <td class="px-6 py-4 whitespace-nowrap">${e}</td>
+            
+            <!-- Top Error Types -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="p-4 bg-white rounded-lg shadow border">
+                    <h3 class="font-bold mb-3">ข้อผิดพลาดที่พบบ่อย</h3>
+                    <div class="relative" style="height: 300px;">
+                        <canvas id="errorTypesChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Error by Shift -->
+                <div class="p-4 bg-white rounded-lg shadow border">
+                    <h3 class="font-bold mb-3">ข้อผิดพลาดตามช่วงเวร</h3>
+                    <div class="relative" style="height: 300px;">
+                        <canvas id="errorsByShiftChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Errors by Process -->
+                <div class="p-4 bg-white rounded-lg shadow border">
+                    <h3 class="font-bold mb-3">ข้อผิดพลาดตามกระบวนการ</h3>
+                    <div class="relative" style="height: 300px;">
+                        <canvas id="errorsByProcessChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Top Medicines with Errors -->
+                <div class="p-4 bg-white rounded-lg shadow border">
+                    <h3 class="font-bold mb-3">รายการยาที่พบข้อผิดพลาดบ่อย</h3>
+                    <div class="relative" style="height: 300px;">
+                        <canvas id="medicineErrorsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Table View of Recent Errors -->
+            <div class="mt-6 p-4 bg-white rounded-lg shadow border">
+                <h3 class="font-bold mb-3">รายการข้อผิดพลาดล่าสุด</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เวร</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">กระบวนการ</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ข้อผิดพลาด</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รายการยา</th>
                             </tr>
-                        `).join('') : `<tr><td class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูลข้อผิดพลาด</td></tr>`}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${masterData.records.slice(0, 10).map(record => `
+                                <tr>
+                                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">${record['วันที่เกิดเหตุการณ์'] || '-'}</td>
+                                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">${record['เวร'] || '-'}</td>
+                                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">${record['กระบวนการ'] || '-'}</td>
+                                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">${record['ข้อผิดพลาด'] || '-'}</td>
+                                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">${record['รายการยาที่ผิด'] || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     `;
+
+    // Load Chart.js from CDN if not already loaded
+    if (!window.Chart) {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+        script.onload = renderCharts;
+        document.head.appendChild(script);
+    } else {
+        renderCharts();
+    }
+
+    function renderCharts() {
+        // Function to generate random colors for charts
+        const getRandomColor = () => {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        };
+
+        // Generate colors array
+        const generateColors = (count) => {
+            // Predefined colors for visual consistency
+            const predefinedColors = [
+                'rgba(54, 162, 235, 0.7)', // Blue
+                'rgba(255, 99, 132, 0.7)',  // Red
+                'rgba(255, 206, 86, 0.7)',  // Yellow
+                'rgba(75, 192, 192, 0.7)',  // Green
+                'rgba(153, 102, 255, 0.7)', // Purple
+                'rgba(255, 159, 64, 0.7)',  // Orange
+                'rgba(199, 199, 199, 0.7)', // Gray
+            ];
+            
+            // Return predefined colors or generate random ones if needed
+            return Array.from({length: count}, (_, i) => 
+                i < predefinedColors.length ? predefinedColors[i] : getRandomColor());
+        };
+
+        // Render Error Types Chart
+        const errorTypesCtx = document.getElementById('errorTypesChart').getContext('2d');
+        const errorTypeLabels = topErrorTypes.map(item => item[0]);
+        const errorTypeData = topErrorTypes.map(item => item[1]);
+        new Chart(errorTypesCtx, {
+            type: 'bar',
+            data: {
+                labels: errorTypeLabels,
+                datasets: [{
+                    label: 'จำนวนครั้ง',
+                    data: errorTypeData,
+                    backgroundColor: generateColors(errorTypeLabels.length),
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+
+        // Render Errors by Shift Chart
+        const errorsByShiftCtx = document.getElementById('errorsByShiftChart').getContext('2d');
+        const shiftLabels = Object.keys(errorsByShift);
+        const shiftData = Object.values(errorsByShift);
+        new Chart(errorsByShiftCtx, {
+            type: 'pie',
+            data: {
+                labels: shiftLabels,
+                datasets: [{
+                    data: shiftData,
+                    backgroundColor: generateColors(shiftLabels.length)
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // Render Errors by Process Chart
+        const errorsByProcessCtx = document.getElementById('errorsByProcessChart').getContext('2d');
+        const processLabels = Object.keys(errorsByProcess);
+        const processData = Object.values(errorsByProcess);
+        new Chart(errorsByProcessCtx, {
+            type: 'bar',
+            data: {
+                labels: processLabels,
+                datasets: [{
+                    label: 'จำนวนครั้ง',
+                    data: processData,
+                    backgroundColor: generateColors(processLabels.length)
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+
+        // Render Medicines Errors Chart
+        const medicineErrorsCtx = document.getElementById('medicineErrorsChart').getContext('2d');
+        const medicineLabels = topMedicinesWithErrors.map(item => item[0]);
+        const medicineData = topMedicinesWithErrors.map(item => item[1]);
+        new Chart(medicineErrorsCtx, {
+            type: 'doughnut',
+            data: {
+                labels: medicineLabels,
+                datasets: [{
+                    data: medicineData,
+                    backgroundColor: generateColors(medicineLabels.length)
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    }
 }
 </script>
 </body>
