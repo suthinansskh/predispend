@@ -1376,6 +1376,16 @@ function renderRecordsList() {
         container.innerHTML = '<div class="p-6 bg-white rounded-lg shadow-md">ไม่มีข้อมูลรายการล่าสุด</div>';
         return;
     }
+    // ฟังก์ชันแปลงวันที่เป็น yyyy-mm-dd
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d)) return dateStr;
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
     container.innerHTML = `
         <div class="p-6 bg-white rounded-lg shadow-md">
             <h2 class="mb-6 text-xl font-bold text-gray-800">รายการล่าสุด</h2>
@@ -1396,7 +1406,7 @@ function renderRecordsList() {
                     <tbody>
                         ${masterData.records.slice(0, 20).map(r => `
                             <tr class="hover:bg-gray-100">
-                                <td class="px-4 py-2 whitespace-nowrap">${r['วันที่เกิดเหตุการณ์'] || ''}</td>
+                                <td class="px-4 py-2 whitespace-nowrap">${formatDate(r['วันที่เกิดเหตุการณ์'])}</td>
                                 <td class="px-4 py-2 whitespace-nowrap">${r['เวร'] || ''}</td>
                                 <td class="px-4 py-2 whitespace-nowrap">${r['สถานที่'] || ''}</td>
                                 <td class="px-4 py-2 whitespace-nowrap">${r['กระบวนการ'] || ''}</td>
