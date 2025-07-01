@@ -259,7 +259,85 @@ let masterData = {
 };
 let currentPage = 1;      // Current page number for pagination
 let itemsPerPage = 10;    // Number of items to display per page
+let currentRecordsPerPage = 10;
 
+function renderRecordsList() {
+    const container = document.getElementById('records-list-page');
+    if (!container) return;
+    if (!masterData.records || masterData.records.length === 0) {
+        container.innerHTML = '<div class="p-6 bg-white rounded-lg shadow-md">ไม่มีข้อมูลรายการล่าสุด</div>';
+        return;
+    }
+    // ฟังก์ชันแปลงวันที่เป็น yyyy-mm-dd
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d)) return dateStr;
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+    // กำหนดจำนวนรายการที่แสดง
+    const perPageOptions = [10, 30, 50, 100];
+    // สร้างเลขที่รายงาน (ลำดับล่าสุด = 1)
+    const sortedRecords = [...masterData.records].sort((a, b) => new Date(b['วันที่เกิดเหตุการณ์']) - new Date(a['วันที่เกิดเหตุการณ์']));
+    sortedRecords.forEach((r, idx) => r.__reportNo = idx + 1);
+    // จำนวนที่จะแสดง
+    const showCount = currentRecordsPerPage;
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">รายการล่าสุด</h2>
+            <div class="mb-4 flex items-center gap-2">
+                <label for="records-per-page" class="text-sm">แสดง</label>
+                <select id="records-per-page" class="border border-gray-300 rounded px-2 py-1">
+                    ${perPageOptions.map(opt => `<option value="${opt}" ${opt === showCount ? 'selected' : ''}>${opt}</option>`).join('')}
+                </select>
+                <span class="text-sm">รายการ</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white divide-y divide-gray-200">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">เลขที่รายงาน</th>
+                            <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">วันที่เกิดเหตุการณ์</th>
+                            <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">เวร</th>
+                            <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">สถานที่</th>
+                            <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">กระบวนการ</th>
+                            <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">ข้อผิดพลาด</th>
+                            <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">รายการยาที่ผิด</th>
+                            <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">สาเหตุ</th>
+                            <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">ผู้บันทึก</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sortedRecords.slice(0, showCount).map(r => `
+                            <tr class="hover:bg-gray-100">
+                                <td class="px-4 py-2 whitespace-nowrap">${r.__reportNo}</td>
+                                <td class="px-4 py-2 whitespace-nowrap">${formatDate(r['วันที่เกิดเหตุการณ์'])}</td>
+                                <td class="px-4 py-2 whitespace-nowrap">${r['เวร'] || ''}</td>
+                                <td class="px-4 py-2 whitespace-nowrap">${r['สถานที่'] || ''}</td>
+                                <td class="px-4 py-2 whitespace-nowrap">${r['กระบวนการ'] || ''}</td>
+                                <td class="px-4 py-2 whitespace-nowrap">${r['ข้อผิดพลาด'] || ''}</td>
+                                <td class="px-4 py-2 whitespace-nowrap">${r['รายการยาที่ผิด'] || ''}</td>
+                                <td class="px-4 py-2 whitespace-nowrap">${r['สาเหตุ'] || ''}</td>
+                                <td class="px-4 py-2 whitespace-nowrap">${r['ผู้บันทึก'] || ''}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    // เพิ่ม event เปลี่ยนจำนวนรายการ
+    const perPageSelect = document.getElementById('records-per-page');
+    if (perPageSelect) {
+        perPageSelect.addEventListener('change', (e) => {
+            currentRecordsPerPage = parseInt(e.target.value, 10) || 10;
+            renderRecordsList();
+        });
+    }
+}
 // --- Enhanced Utility Functions ---
 
 /**
@@ -1386,13 +1464,28 @@ function renderRecordsList() {
         const dd = String(d.getDate()).padStart(2, '0');
         return `${yyyy}-${mm}-${dd}`;
     }
+    // กำหนดจำนวนรายการที่แสดง
+    const perPageOptions = [10, 30, 50, 100];
+    // สร้างเลขที่รายงาน (ลำดับล่าสุด = 1)
+    const sortedRecords = [...masterData.records].sort((a, b) => new Date(b['วันที่เกิดเหตุการณ์']) - new Date(a['วันที่เกิดเหตุการณ์']));
+    sortedRecords.forEach((r, idx) => r.__reportNo = idx + 1);
+    // จำนวนที่จะแสดง
+    const showCount = currentRecordsPerPage;
     container.innerHTML = `
         <div class="p-6 bg-white rounded-lg shadow-md">
             <h2 class="mb-6 text-xl font-bold text-gray-800">รายการล่าสุด</h2>
+            <div class="mb-4 flex items-center gap-2">
+                <label for="records-per-page" class="text-sm">แสดง</label>
+                <select id="records-per-page" class="border border-gray-300 rounded px-2 py-1">
+                    ${perPageOptions.map(opt => `<option value="${opt}" ${opt === showCount ? 'selected' : ''}>${opt}</option>`).join('')}
+                </select>
+                <span class="text-sm">รายการ</span>
+            </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full bg-white divide-y divide-gray-200">
                     <thead class="bg-gray-200">
                         <tr>
+                            <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">เลขที่รายงาน</th>
                             <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">วันที่เกิดเหตุการณ์</th>
                             <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">เวร</th>
                             <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">สถานที่</th>
@@ -1404,8 +1497,9 @@ function renderRecordsList() {
                         </tr>
                     </thead>
                     <tbody>
-                        ${masterData.records.slice(0, 20).map(r => `
+                        ${sortedRecords.slice(0, showCount).map(r => `
                             <tr class="hover:bg-gray-100">
+                                <td class="px-4 py-2 whitespace-nowrap">${r.__reportNo}</td>
                                 <td class="px-4 py-2 whitespace-nowrap">${formatDate(r['วันที่เกิดเหตุการณ์'])}</td>
                                 <td class="px-4 py-2 whitespace-nowrap">${r['เวร'] || ''}</td>
                                 <td class="px-4 py-2 whitespace-nowrap">${r['สถานที่'] || ''}</td>
@@ -1421,6 +1515,14 @@ function renderRecordsList() {
             </div>
         </div>
     `;
+    // เพิ่ม event เปลี่ยนจำนวนรายการ
+    const perPageSelect = document.getElementById('records-per-page');
+    if (perPageSelect) {
+        perPageSelect.addEventListener('change', (e) => {
+            currentRecordsPerPage = parseInt(e.target.value, 10) || 10;
+            renderRecordsList();
+        });
+    }
 }
 
 function renderDashboard() {
