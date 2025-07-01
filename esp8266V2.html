@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Temperature Monitoring</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            /* Light gray background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+            color: #334155;
+        }
+
+
+
+        .container {
+            background-color: #ffffff;
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            /* More rounded corners */
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+            /* Stronger, softer shadow */
+            width: 100%;
+            max-width: 1800px;
+            /* Wider for better data display */
+
+            animation: fadeIn 0.8s ease-out;
+
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            /* Larger heading */
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 2.5rem;
+            color: #1e293b;
+        }
+
+        .device-card-grid {
+            display: grid;
+            gap: 1.5rem;
+            /* Spacing between cards */
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            /* Responsive grid */
+        }
+
+        .device-card {
+            background-color: #f8fafc;
+            /* Lighter background for cards */
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            /* Card shadow */
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+            border: 1px solid #e2e8f0;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .device-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .device-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2563eb;
+            /* Blue for device title */
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .device-title svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+            margin-right: 0.5rem;
+            /* Space between icon and text */
+        }
+
+        .data-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 0;
+            border-bottom: 1px dashed #e2e8f0;
+            font-size: 0.95rem;
+        }
+
+        .data-item:last-child {
+            border-bottom: none;
+        }
+
+        .data-label {
+            font-weight: 500;
+            color: #475569;
+        }
+
+        .data-value {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .timestamp {
+            font-size: 0.8rem;
+            color: #64748b;
+            text-align: right;
+            margin-top: 1rem;
+        }
+
+        .status-indicator-wrapper {
+            display: flex;
+            align-items: center;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-left: auto;
+            /* Push to the right */
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #ccc;
+            /* Default gray */
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        .status-dot.online {
+            background-color: #22c55e;
+            /* Green */
+        }
+
+        .status-dot.offline {
+            background-color: #ef4444;
+            /* Red */
+        }
+
+        .status-text.online {
+            color: #22c55e;
+        }
+
+        .status-text.offline {
+            color: #ef4444;
+        }
+
+        .no-data-message {
+            text-align: center;
+            color: #64748b;
+            font-style: italic;
+            padding: 2rem;
+            background-color: #fdf2f2;
+            border-radius: 1rem;
+            border: 1px dashed #fca5a5;
+        }
+
+        /* Popup styles */
+        .popup-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            position: relative;
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .popup-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0;
+        }
+
+        .close-button {
+            background: #ef4444;
+            color: white;
+            border: none;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s ease;
+        }
+
+        .close-button:hover {
+            background: #dc2626;
+        }
+
+        .chart-container {
+            margin-bottom: 30px;
+            height: 400px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+
+        .data-table th {
+            background-color: #f8fafc;
+            color: #374151;
+            font-weight: 600;
+            padding: 12px 8px;
+            text-align: left;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .data-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .data-table tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+
+        .data-table tr:hover {
+            background-color: #f3f4f6;
+        }
+
+        .temp-value {
+            font-weight: 600;
+        }
+
+        .temp-normal {
+            color: #059669;
+        }
+
+        .temp-high {
+            color: #dc2626;
+        }
+
+        .temp-error {
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #6b7280;
+            font-style: italic;
+            padding: 40px;
+        }
+
+        .tab-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            border: none;
+            background-color: #e2e8f0;
+            color: #64748b;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            background-color: #2563eb;
+            color: white;
+        }
+
+        .tab-button:hover:not(.active) {
+            background-color: #cbd5e1;
+        }
+
+        .export-button {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .export-button:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
+        }
+
+        .export-button:active {
+            transform: translateY(0);
+        }
+
+        .delete-button {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .delete-button:hover {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(239, 68, 68, 0.4);
+        }
+
+        .delete-button:active {
+            transform: translateY(0);
+        }
+
+        .confirmation-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .confirmation-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .confirmation-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #dc2626;
+            margin-bottom: 15px;
+        }
+
+        .confirmation-message {
+            color: #374151;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .confirmation-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .confirm-btn {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .confirm-btn:hover {
+            background: #b91c1c;
+        }
+
+        .cancel-btn {
+            background: #6b7280;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .cancel-btn:hover {
+            background: #4b5563;
+        }
+
+        .device-delete-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            opacity: 0.7;
+        }
+
+        .device-delete-btn:hover {
+            background: #dc2626;
+            opacity: 1;
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Temperature Monitor Dashboard</h1>
+
+        <div id="deviceData" class="device-card-grid">
+            <p class="no-data-message" id="loadingMessage">กำลังโหลดข้อมูลจาก Firebase...</p>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+        import { getDatabase, ref, onValue, remove } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBtj8Jl6tRJyRUef145AtGvSADh37xSVSs",
+            authDomain: "tempsskh-f4318.firebaseapp.com",
+            databaseURL: "https://tempsskh-f4318-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "tempsskh-f4318",
+            storageBucket: "tempsskh-f4318.firebasestorage.app",
+            messagingSenderId: "989516171136",
+            appId: "1:989516171136:web:64cb3d46e3a546dd0c2365",
+            measurementId: "G-97L0RL7NP7"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // Get reference to the 'devices' path in your Firebase Realtime Database
+        const devicesRef = ref(database, 'devices');
+        const deviceDataContainer = document.getElementById('deviceData');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const chartPopup = document.getElementById('chartPopup');
+        const closePopup = document.getElementById('closePopup');
+        const myChartCanvas = document.getElementById('myChart');
+        let myChart;
+        let currentDeviceData = null;
+        let currentDeviceId = null;
+
+        // Function to delete device data
+        function deleteDeviceData(deviceId) {
+            showConfirmationDialog(
+                '🗑️ ลบข้อมูลอุปกรณ์',
+                `คุณต้องการลบข้อมูลทั้งหมดของ "${deviceId}" หรือไม่?\n\n⚠️ การดำเนินการนี้ไม่สามารถยกเลิกได้!`,
+                () => {
+                    // Confirm delete
+                    const deviceRef = ref(database, `devices/${deviceId}`);
+                    remove(deviceRef)
+                        .then(() => {
+                            alert(`✅ ลบข้อมูลของ "${deviceId}" เรียบร้อยแล้ว`);
+                            // Close popup if it's the deleted device
+                            if (currentDeviceId === deviceId) {
+                                chartPopup.style.display = 'none';
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('Error deleting device:', error);
+                            alert(`❌ เกิดข้อผิดพลาดในการลบข้อมูล: ${error.message}`);
+                        });
+                }
+            );
+        }
+
+        // Function to show confirmation dialog
+        function showConfirmationDialog(title, message, onConfirm) {
+            const dialog = document.getElementById('confirmationDialog');
+            const titleElement = document.getElementById('confirmationTitle');
+            const messageElement = document.getElementById('confirmationMessage');
+            const confirmBtn = document.getElementById('confirmBtn');
+            const cancelBtn = document.getElementById('cancelBtn');
+
+            titleElement.textContent = title;
+            messageElement.textContent = message;
+
+            // Remove old event listeners and add new ones
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            const newCancelBtn = cancelBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+            newConfirmBtn.addEventListener('click', () => {
+                dialog.style.display = 'none';
+                onConfirm();
+            });
+
+            newCancelBtn.addEventListener('click', () => {
+                dialog.style.display = 'none';
+            });
+
+            dialog.style.display = 'flex';
+        }
+        function exportToExcel(deviceId, logData, selectedSensor) {
+            if (!logData || Object.keys(logData).length === 0) {
+                alert('❌ ไม่มีข้อมูลสำหรับ Export');
+                return;
+            }
+
+            // Sort data by timestamp (newest first)
+            const sortedEntries = Object.entries(logData)
+                .sort(([, a], [, b]) => parseInt(b.timestamp) - parseInt(a.timestamp));
+
+            // Prepare data for Excel
+            const excelData = [];
+
+            // Add headers based on selected sensor
+            if (selectedSensor === 'both') {
+                excelData.push(['เวลา', 'อุณหภูมิ 1 (°C)', 'อุณหภูมิ 2 (°C)', 'โซน', 'IP Address', 'Timestamp']);
+            } else if (selectedSensor === 'temp1') {
+                excelData.push(['เวลา', 'อุณหภูมิ 1 (°C)', 'โซน', 'IP Address', 'Timestamp']);
+            } else if (selectedSensor === 'temp2') {
+                excelData.push(['เวลา', 'อุณหภูมิ 2 (°C)', 'โซน', 'IP Address', 'Timestamp']);
+            }
+
+            // Add data rows
+            sortedEntries.forEach(([logId, entry]) => {
+                const date = new Date(parseInt(entry.timestamp) * 1000);
+                const formattedTime = entry.datetime || date.toLocaleString('th-TH');
+
+                if (selectedSensor === 'both') {
+                    const temp1 = (entry.temp1 !== undefined && entry.temp1 !== -1000) ? entry.temp1 : 'Error';
+                    const temp2 = (entry.temp2 !== undefined && entry.temp2 !== -1000) ? entry.temp2 : 'Error';
+
+                    excelData.push([
+                        formattedTime,
+                        temp1,
+                        temp2,
+                        entry.zone || 'N/A',
+                        entry.ip || 'N/A',
+                        entry.timestamp
+                    ]);
+                } else if (selectedSensor === 'temp1') {
+                    const temp1 = (entry.temp1 !== undefined && entry.temp1 !== -1000) ? entry.temp1 : 'Error';
+
+                    excelData.push([
+                        formattedTime,
+                        temp1,
+                        entry.zone || 'N/A',
+                        entry.ip || 'N/A',
+                        entry.timestamp
+                    ]);
+                } else if (selectedSensor === 'temp2') {
+                    const temp2 = (entry.temp2 !== undefined && entry.temp2 !== -1000) ? entry.temp2 : 'Error';
+
+                    excelData.push([
+                        formattedTime,
+                        temp2,
+                        entry.zone || 'N/A',
+                        entry.ip || 'N/A',
+                        entry.timestamp
+                    ]);
+                }
+            });
+
+            // Create workbook and worksheet
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+            // Set column widths
+            const colWidths = [
+                { wch: 20 }, // เวลา
+                { wch: 15 }, // อุณหภูมิ 1
+                { wch: 15 }, // อุณหภูมิ 2 (if both)
+                { wch: 10 }, // โซน
+                { wch: 15 }, // IP Address
+                { wch: 12 }  // Timestamp
+            ];
+
+            if (selectedSensor !== 'both') {
+                colWidths.splice(2, 1); // Remove temp2 column width if not showing both
+            }
+
+            ws['!cols'] = colWidths;
+
+            // Style the header row
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            for (let col = range.s.c; col <= range.e.c; col++) {
+                const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+                if (!ws[cellAddress]) continue;
+
+                ws[cellAddress].s = {
+                    font: { bold: true, color: { rgb: "FFFFFF" } },
+                    fill: { fgColor: { rgb: "4F46E5" } },
+                    alignment: { horizontal: "center" }
+                };
+            }
+
+            // Add worksheet to workbook with device ID as sheet name
+            // Sanitize device ID for sheet name (Excel sheet names have restrictions)
+            const sanitizedDeviceId = deviceId.replace(/[\\\/\?\*\[\]]/g, '_').substring(0, 31);
+            XLSX.utils.book_append_sheet(wb, ws, sanitizedDeviceId);
+
+            // Generate filename
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const sensorStr = selectedSensor === 'both' ? 'All_Sensors' :
+                selectedSensor === 'temp1' ? 'Temp1' : 'Temp2';
+            const filename = `${deviceId}_${sensorStr}_${dateStr}.xlsx`;
+
+            // Save file
+            XLSX.writeFile(wb, filename);
+        }
+
+        // Define the threshold for considering a device online (e.g., 60 seconds)
+        const OFFLINE_THRESHOLD_MS = 60 * 1000; // 60 seconds in milliseconds
+
+        // Function to format temperature value with color coding
+        function formatTemperature(temp) {
+            if (temp === undefined || temp === -1000 || temp === null) {
+                return { value: 'Error', class: 'temp-error' };
+            }
+
+            const tempValue = parseFloat(temp);
+            let className = '';
+
+            if (tempValue >= 2 && tempValue <= 8) {
+                className = 'temp-normal';
+            } else if (tempValue > 8) {
+                className = 'temp-high';
+            }
+
+            return {
+                value: `${tempValue.toFixed(1)}°C`,
+                class: `temp-value ${className}`
+            };
+        }
+
+        // Function to create or update the chart
+        function createOrUpdateChart(deviceId, logData, selectedSensor) {
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            if (!logData || Object.keys(logData).length === 0) {
+                const ctx = myChartCanvas.getContext('2d');
+                ctx.clearRect(0, 0, myChartCanvas.width, myChartCanvas.height);
+                ctx.font = '16px Inter';
+                ctx.fillStyle = '#6b7280';
+                ctx.textAlign = 'center';
+                ctx.fillText('📊 ไม่มีข้อมูลสำหรับแสดงกราฟ', myChartCanvas.width / 2, myChartCanvas.height / 2);
+                return;
+            }
+
+            // Sort data by timestamp and limit to last 50 readings for better performance
+            const sortedEntries = Object.entries(logData)
+                .sort(([, a], [, b]) => parseInt(a.timestamp) - parseInt(b.timestamp))
+                .slice(-50);
+
+            const labels = sortedEntries.map(([, entry]) => {
+                const date = new Date(parseInt(entry.timestamp) * 1000);
+                return date.toLocaleDateString('th-TH') + '\n' + date.toLocaleTimeString('th-TH', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            });
+
+            const datasets = [];
+
+            if (selectedSensor === 'both' || selectedSensor === 'temp1') {
+                const temp1Data = sortedEntries.map(([, entry]) => {
+                    const temp = entry.temp1;
+                    return (temp !== undefined && temp !== -1000) ? temp : null;
+                });
+
+                datasets.push({
+                    label: '🌡️ อุณหภูมิ 1 (°C)',
+                    data: temp1Data,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    fill: false,
+                    pointRadius: 3,
+                    pointHoverRadius: 6
+                });
+            }
+
+            if (selectedSensor === 'both' || selectedSensor === 'temp2') {
+                const temp2Data = sortedEntries.map(([, entry]) => {
+                    const temp = entry.temp2;
+                    return (temp !== undefined && temp !== -1000) ? temp : null;
+                });
+
+                datasets.push({
+                    label: '🌡️ อุณหภูมิ 2 (°C)',
+                    data: temp2Data,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    tension: 0.4,
+                    fill: false,
+                    pointRadius: 3,
+                    pointHoverRadius: 6
+                });
+            }
+
+            myChart = new Chart(myChartCanvas, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: `📊 กราฟอุณหภูมิ - ${deviceId}`
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: '🕒 เวลา'
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: '🌡️ อุณหภูมิ (°C)'
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 30
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+        }
+
+        // Function to update data table
+        function updateDataTable(logData, selectedSensor) {
+            const tableBody = document.querySelector('#chartData tbody');
+            tableBody.innerHTML = '';
+
+            if (!logData || Object.keys(logData).length === 0) {
+                const noDataRow = document.createElement('tr');
+                noDataRow.innerHTML = `
+                    <td colspan="4" class="no-data">📭 ไม่มีข้อมูลสำหรับแสดง</td>
+                `;
+                tableBody.appendChild(noDataRow);
+                return;
+            }
+
+            // Sort data by timestamp (newest first) and limit to last 100 entries
+            const sortedEntries = Object.entries(logData)
+                .sort(([, a], [, b]) => parseInt(b.timestamp) - parseInt(a.timestamp))
+                .slice(0, 100);
+
+            sortedEntries.forEach(([logId, entry]) => {
+                const row = document.createElement('tr');
+                const date = new Date(parseInt(entry.timestamp) * 1000);
+                const formattedTime = entry.datetime || date.toLocaleString('th-TH');
+
+                if (selectedSensor === 'both') {
+                    const temp1Info = formatTemperature(entry.temp1);
+                    const temp2Info = formatTemperature(entry.temp2);
+
+                    row.innerHTML = `
+                        <td>${formattedTime}</td>
+                        <td class="${temp1Info.class}">${temp1Info.value}</td>
+                        <td class="${temp2Info.class}">${temp2Info.value}</td>
+                        <td>${entry.zone || 'N/A'}</td>
+                    `;
+                } else if (selectedSensor === 'temp1') {
+                    const temp1Info = formatTemperature(entry.temp1);
+
+                    row.innerHTML = `
+                        <td>${formattedTime}</td>
+                        <td class="${temp1Info.class}">${temp1Info.value}</td>
+                        <td>${entry.zone || 'N/A'}</td>
+                    `;
+                } else if (selectedSensor === 'temp2') {
+                    const temp2Info = formatTemperature(entry.temp2);
+
+                    row.innerHTML = `
+                        <td>${formattedTime}</td>
+                        <td class="${temp2Info.class}">${temp2Info.value}</td>
+                        <td>${entry.zone || 'N/A'}</td>
+                    `;
+                }
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Function to update table headers based on selected sensor
+        function updateTableHeaders(selectedSensor) {
+            const tableHead = document.querySelector('#chartData thead tr');
+
+            if (selectedSensor === 'both') {
+                tableHead.innerHTML = `
+                    <th>🕒 เวลา</th>
+                    <th>🌡️ อุณหภูมิ 1 (°C)</th>
+                    <th>🌡️ อุณหภูมิ 2 (°C)</th>
+                    <th>📍 โซน</th>
+                `;
+            } else if (selectedSensor === 'temp1') {
+                tableHead.innerHTML = `
+                    <th>🕒 เวลา</th>
+                    <th>🌡️ อุณหภูมิ 1 (°C)</th>
+                    <th>📍 โซน</th>
+                `;
+            } else if (selectedSensor === 'temp2') {
+                tableHead.innerHTML = `
+                    <th>🕒 เวลา</th>
+                    <th>🌡️ อุณหภูมิ 2 (°C)</th>
+                    <th>📍 โซน</th>
+                `;
+            }
+        }
+
+        // Function to show the chart popup
+        function showChartPopup(deviceId, deviceData) {
+            currentDeviceData = deviceData;
+            currentDeviceId = deviceId;
+            const logData = deviceData.log;
+
+            document.getElementById('popupTitle').textContent = `ข้อมูลอุณหภูมิ - ${deviceId}`;
+
+            // Set default tab to 'both'
+            const defaultTab = 'both';
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.sensor === defaultTab);
+            });
+
+            updateTableHeaders(defaultTab);
+            createOrUpdateChart(deviceId, logData, defaultTab);
+            updateDataTable(logData, defaultTab);
+
+            chartPopup.style.display = 'flex';
+        }
+
+        // Helper function to create a data item div
+        function createDataItem(label, value) {
+            const div = document.createElement('div');
+            div.className = 'data-item';
+            // ตรวจสอบถ้าเป็น temp1 หรือ temp2
+            let valueStr = value;
+            let colorClass = '';
+            if (label.includes('อุณหภูมิ')) {
+                // ดึงค่าตัวเลข temp ออกมา (เช่น 7.5°C)
+                const tempMatch = /([-\d.]+)\s*°C/.exec(value);
+                if (tempMatch) {
+                    const temp = parseFloat(tempMatch[1]);
+                    if (temp >= 2 && temp <= 8) {
+                        colorClass = 'text-green-600 font-bold';
+                    } else if (temp > 8) {
+                        colorClass = 'text-red-600 font-bold';
+                    }
+                }
+            }
+            div.innerHTML = `
+                <span class="data-label">${label}:</span>
+                <span class="data-value ${colorClass}">${value}</span>
+            `;
+            return div;
+        }
+
+        // Listen for data changes
+        onValue(devicesRef, (snapshot) => {
+            const devices = snapshot.val();
+            deviceDataContainer.innerHTML = ''; // Clear existing data
+
+            if (loadingMessage) {
+                loadingMessage.remove(); // Remove loading message once data arrives
+            }
+
+            if (devices) {
+                Object.keys(devices).forEach(deviceId => {
+                    const device = devices[deviceId];
+                    const logReadings = device.log; // Get time-series readings from 'log' path
+
+                    const deviceCard = document.createElement('div');
+                    deviceCard.className = 'device-card';
+                    deviceCard.style.position = 'relative'; // For absolute positioning of delete button
+                    deviceCard.addEventListener('click', () => {
+                        showChartPopup(deviceId, device);
+                    });
+
+                    // Add delete button to device card
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'device-delete-btn';
+                    deleteBtn.innerHTML = '🗑️';
+                    deleteBtn.title = `ลบข้อมูล ${deviceId}`;
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation(); // Prevent triggering the card click
+                        deleteDeviceData(deviceId);
+                    });
+                    deviceCard.appendChild(deleteBtn);
+
+                    const deviceTitleWrapper = document.createElement('h2');
+                    deviceTitleWrapper.className = 'device-title';
+                    deviceTitleWrapper.innerHTML = `
+                         ${deviceId}
+                    `;
+                    deviceCard.appendChild(deviceTitleWrapper);
+
+                    // Add a status indicator wrapper (dot + text)
+                    const statusIndicatorWrapper = document.createElement('div');
+                    statusIndicatorWrapper.className = 'status-indicator-wrapper';
+                    const statusDot = document.createElement('span');
+                    statusDot.className = 'status-dot';
+                    const statusText = document.createElement('span');
+                    statusText.className = 'status-text';
+                    statusIndicatorWrapper.appendChild(statusDot);
+                    statusIndicatorWrapper.appendChild(statusText);
+                    deviceTitleWrapper.appendChild(statusIndicatorWrapper); // Append to the title for alignment
+
+                    let latestReading = null;
+                    let lastSeenEpochMs = 0; // Initialize to 0
+
+                    if (logReadings) {
+                        // Get the latest reading from the 'log' path
+                        // Sort by key, assuming keys are timestamps or incrementing identifiers
+                        const latestLogKey = Object.keys(logReadings).sort().pop();
+                        latestReading = logReadings[latestLogKey];
+                        // Ensure timestamp is parsed as an integer and converted to milliseconds
+                        lastSeenEpochMs = parseInt(latestReading.timestamp) * 1000;
+                    }
+
+                    // Determine online/offline status based on latest log timestamp
+                    const currentTime = new Date().getTime();
+                    // Device is online if it has readings AND the last timestamp is within the threshold
+                    const isOnline = latestReading && ((currentTime - lastSeenEpochMs) < OFFLINE_THRESHOLD_MS);
+
+                    statusDot.classList.add(isOnline ? 'online' : 'offline');
+                    statusText.textContent = isOnline ? '🟢 ออนไลน์' : '🔴 ออฟไลน์';
+                    statusText.classList.add(isOnline ? 'online' : 'offline');
+
+                    if (latestReading) {
+                        // Display data from the latest reading in 'log'
+                        deviceCard.appendChild(createDataItem(' โซน', latestReading.zone || 'N/A'));
+                        deviceCard.appendChild(createDataItem('🌡️ อุณหภูมิ 1', latestReading.temp1 !== undefined && latestReading.temp1 !== -1000 ? `${latestReading.temp1.toFixed(1)}°C` : 'Error'));
+                        deviceCard.appendChild(createDataItem('🌡️ อุณหภูมิ 2', latestReading.temp2 !== undefined && latestReading.temp2 !== -1000 ? `${latestReading.temp2.toFixed(1)}°C` : 'Error'));
+                        deviceCard.appendChild(createDataItem('🌐 IP Address', latestReading.ip || 'N/A')); // ESP code uses 'ip'
+
+                        // Display timestamp using the 'datetime' field from ESP
+                        const timestampDiv = document.createElement('p');
+                        timestampDiv.className = 'timestamp';
+                        // Use latestReading.datetime if available, otherwise fallback to converting epoch time
+                        timestampDiv.textContent = `🕒 อัปเดตล่าสุด: ${latestReading.datetime || (lastSeenEpochMs > 0 ? new Date(lastSeenEpochMs).toLocaleString() : 'N/A')}`;
+                        deviceCard.appendChild(timestampDiv);
+
+                    } else {
+                        // Device has no readings in 'log' yet, consider it offline/unknown
+                        const noReadingMessage = document.createElement('p');
+                        noReadingMessage.className = 'text-center text-gray-500 italic mt-4';
+                        noReadingMessage.textContent = '❌ ยังไม่มีข้อมูลอุณหภูมิ';
+                        deviceCard.appendChild(noReadingMessage);
+                    }
+                    deviceDataContainer.appendChild(deviceCard);
+                });
+            } else {
+                // No devices found in Firebase
+                deviceDataContainer.innerHTML = '<p class="no-data-message">ยังไม่พบอุปกรณ์ใน Firebase Realtime Database</p>';
+            }
+        }, (error) => {
+            console.error("Firebase Read Failed: " + error.code);
+            deviceDataContainer.innerHTML = `<p class="no-data-message bg-red-100 text-red-800">เกิดข้อผิดพลาดในการดึงข้อมูลจาก Firebase: ${error.message}</p>`;
+        });
+
+        // Add event listeners after DOM is loaded
+        // Export button functionality
+        document.getElementById('exportExcel').addEventListener('click', () => {
+            const selectedSensor = document.querySelector('.tab-button.active').dataset.sensor;
+            if (currentDeviceData && currentDeviceId) {
+                exportToExcel(currentDeviceId, currentDeviceData.log, selectedSensor);
+            } else {
+                alert('❌ ไม่พบข้อมูลสำหรับ Export');
+            }
+        });
+
+        // Delete device data button functionality
+        document.getElementById('deleteDeviceData').addEventListener('click', () => {
+            if (currentDeviceId) {
+                deleteDeviceData(currentDeviceId);
+            } else {
+                alert('❌ ไม่พบข้อมูลอุปกรณ์');
+            }
+        });
+        document.addEventListener('DOMContentLoaded', function () {
+            // Close popup functionality
+            document.getElementById('closePopup').addEventListener('click', () => {
+                chartPopup.style.display = 'none';
+            });
+
+            // Tab switching functionality
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    const selectedSensor = button.dataset.sensor;
+
+                    // Update active tab
+                    document.querySelectorAll('.tab-button').forEach(btn => {
+                        btn.classList.toggle('active', btn === button);
+                    });
+
+                    // Update chart and table
+                    if (currentDeviceData) {
+                        updateTableHeaders(selectedSensor);
+                        createOrUpdateChart(document.getElementById('popupTitle').textContent.replace('ข้อมูลอุณหภูมิ - ', ''), currentDeviceData.log, selectedSensor);
+                        updateDataTable(currentDeviceData.log, selectedSensor);
+                    }
+                });
+            });
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Pop-up structure -->
+    <div id="chartPopup"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 1000; justify-content: center; align-items: center;">
+        <div class="popup-content">
+            <div class="popup-header">
+                <h3 id="popupTitle" class="popup-title">ข้อมูลอุณหภูมิ</h3>
+                <button id="closePopup" class="close-button">&times;</button>
+            </div>
+
+            <div class="tab-container">
+                <button class="tab-button active" data-sensor="both">📊 ทั้งสองเซ็นเซอร์</button>
+                <button class="tab-button" data-sensor="temp1">🌡️ อุณหภูมิ 1</button>
+                <button class="tab-button" data-sensor="temp2">🌡️ อุณหภูมิ 2</button>
+            </div>
+
+            <!-- Chart container -->
+            <div class="chart-container">
+                <canvas id="myChart"></canvas>
+            </div>
+
+            <!-- Data table -->
+            <table id="chartData" class="data-table">
+                <thead>
+                    <tr>
+                        <th>🕒 เวลา</th>
+                        <th>🌡️ อุณหภูมิ 1 (°C)</th>
+                        <th>🌡️ อุณหภูมิ 2 (°C)</th>
+                        <th>📍 โซน</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+
+            <!-- Export button -->
+            <button id="exportExcel" class="export-button">
+                📊 Export เป็น Excel
+            </button>
+
+            <!-- Delete device data button -->
+            <button id="deleteDeviceData" class="delete-button">
+                🗑️ ลบข้อมูลอุปกรณ์นี้
+            </button>
+        </div>
+    </div>
+
+    <!-- Confirmation Dialog -->
+    <div id="confirmationDialog" class="confirmation-dialog">
+        <div class="confirmation-content">
+            <h3 id="confirmationTitle" class="confirmation-title"></h3>
+            <p id="confirmationMessage" class="confirmation-message"></p>
+            <div class="confirmation-buttons">
+                <button id="confirmBtn" class="confirm-btn">ยืนยัน</button>
+                <button id="cancelBtn" class="cancel-btn">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
