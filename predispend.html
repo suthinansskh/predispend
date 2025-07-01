@@ -8,7 +8,9 @@
     <title>ระบบบันทึกความคลาดเคลื่อนทางยา</title>
     
     <!-- Add polyfills for older browsers -->
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6,fetch,Promise"></script>
+    <!-- <script src="https://polyfill.io/v3/polyfill.min.js?features=es6,fetch,Promise"></script> -->
+    <!-- Polyfill CDN commented out due to DNS error. 
+         If you need polyfills, use a local fallback or another CDN. -->
     
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -16,8 +18,8 @@
     <!-- Sarabun font for Thai language support and overall aesthetics -->
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
     
-    <!-- Chart.js for data visualization - Updated to latest version -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js"></script>
+    <!-- Chart.js for data visualization - Updated to latest version (UMD build for browser compatibility) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     
     <!-- SweetAlert2 for beautiful alerts -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -80,8 +82,6 @@
                 flex-wrap: wrap;
             }
             .grid > * {
-                flex: 1;
-                min-width: 300px;
                 margin: 0.5rem;
             }
         }
@@ -214,8 +214,8 @@
             <h2 class="mb-6 text-xl font-bold text-gray-800">ลงชื่อเข้าใช้งาน</h2>
             <form id="login-form" class="space-y-4">
                 <div>
-                    <label for="username" class="block text-sm font-medium text-gray-700">ชื่อผู้ใช้</label>
-                    <input type="text" id="username" name="username" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                    <label for="username" class="block text-sm font-medium text-gray-700">ID (13 หลัก)</label>
+                    <input type="text" id="username" name="username" required maxlength="13" pattern="\d{13}" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md" placeholder="กรุณากรอก ID 13 หลัก">
                 </div>
                 <div>
                     <label for="password" class="block text-sm font-medium text-gray-700">รหัสผ่าน</label>
@@ -339,6 +339,83 @@ const loadingModal = document.getElementById('loading-modal');
 const successModal = document.getElementById('success-modal');
 const loginPage = document.getElementById('login-page');
 const loginForm = document.getElementById('login-form');
+const logoutBtn = document.getElementById('logout-btn');
+
+// --- Navigation Event Listeners ---
+navLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+        const pageId = link.dataset.page;
+        if (pageId) {
+            showPage(pageId);
+        }
+    });
+});
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', logout);
+}
+
+// --- App Initialization ---
+async function initializeApp() {
+    try {
+        console.log('กำลังโหลดข้อมูลเริ่มต้น...');
+        
+        // Load users data for login
+        const usersResponse = await fetch(`${SCRIPT_URL}?action=getusers`);
+        if (usersResponse.ok) {
+            const usersData = await usersResponse.json();
+            if (usersData.status === 'success') {
+                masterData.users = usersData.result || [];
+                console.log('โหลดข้อมูลผู้ใช้สำเร็จ:', masterData.users.length, 'คน');
+            }
+        }
+        
+        // Load other reference data
+        const endpoints = ['getmedicines', 'getplaces', 'getprocesses', 'getcauses'];
+        const keys = ['medicines', 'places', 'processes', 'causes'];
+        
+        for (let i = 0; i < endpoints.length; i++) {
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=${endpoints[i]}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        masterData[keys[i]] = data.result || [];
+                        console.log(`โหลด${keys[i]}สำเร็จ:`, masterData[keys[i]].length, 'รายการ');
+                    }
+                }
+            } catch (error) {
+                console.error(`Failed to load ${keys[i]}:`, error);
+            }
+        }
+        
+        // Load records after other master data
+        masterData.records = await fetchDataFromSheet('getRecords');
+        masterData.records.sort((a,b) => new Date(b.วันที่เกิดเหตุการณ์) - new Date(a.วันที่เกิดเหตุการณ์));
+        // Hide app until login
+        appPage.style.display = 'none';
+        loginPage.style.display = 'flex';
+        updateUserDisplay();
+        // If already logged in, show app
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            loginPage.style.display = 'none';
+            appPage.style.display = 'block';
+            updateUserDisplay();
+            showPage('record-form-page');
+        }
+    } catch (error) {
+        console.error('Failed to load initial data:', error);
+        console.log('ใช้ข้อมูลตัวอย่างสำหรับการทดสอบ');
+    }
+}
+
+// --- On page load, initialize app ---
+window.addEventListener('DOMContentLoaded', initializeApp);
+
+// Ensure login form event is always attached
+if (loginForm) {
+    loginForm.addEventListener('submit', handleLogin);
+}
 
 // --- Enhanced Network Status Detection ---
 window.addEventListener('online', () => {
@@ -412,7 +489,10 @@ function updateUserDisplay() {
     const logoutBtn = document.getElementById('logout-btn');
     
     if (currentUser && userDisplay) {
-        userDisplay.textContent = `ผู้ใช้: ${currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ'}`;
+        // Updated to use correct column names: Name, Position
+        const displayName = currentUser.Name || 'ไม่ระบุ';
+        const position = currentUser.Position ? ` (${currentUser.Position})` : '';
+        userDisplay.textContent = `ผู้ใช้: ${displayName}${position}`;
         logoutBtn.classList.remove('hidden');
     } else if (userDisplay) {
         userDisplay.textContent = '';
@@ -431,34 +511,47 @@ async function handleLogin(e) {
     const password = sanitizeInput(document.getElementById('password').value.trim());
     
     if (!username || !password) {
-        showError('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
+        showError('กรุณากรอก ID และรหัสผ่าน');
         return;
     }
     
-    if (username.length < 3) {
-        showError('ชื่อผู้ใช้ต้องมีอย่างน้อย 3 ตัวอักษร');
+    if (username.length !== 13 || !/^\d{13}$/.test(username)) {
+        showError('ID ต้องเป็นตัวเลข 13 หลัก');
         return;
     }
     
     showLoading('กำลังตรวจสอบข้อมูลผู้ใช้...');
     
     try {
-        // Find user in masterData.users array
+        // Find user in masterData.users array - updated for correct column names
         const user = masterData.users.find(u => u.ID13 === username && u.Password === password);
         
         if (user) {
             setCurrentUser(user);
-            updateUserDisplay(); // อัพเดตการแสดงชื่อผู้ใช้ใน navbar
+            updateUserDisplay();
             loginPage.style.display = 'none';
             appPage.style.display = 'block';
-            showPage('record-form-page'); // Show main page after login
+            // Fetch all master data after login
+            showLoading('กำลังโหลดข้อมูล...');
+            try {
+                masterData.medicines = await fetchDataFromSheet('getmedicines');
+                masterData.places = await fetchDataFromSheet('getplaces');
+                masterData.processes = await fetchDataFromSheet('getprocesses');
+                masterData.causes = await fetchDataFromSheet('getcauses');
+                masterData.records = await fetchDataFromSheet('getRecords');
+                masterData.records.sort((a,b) => new Date(b.วันที่เกิดเหตุการณ์) - new Date(a.วันที่เกิดเหตุการณ์));
+            } catch (err) {
+                // fallback: keep old data
+            }
+            hideLoading();
+            showPage('record-form-page');
             console.log('เข้าสู่ระบบสำเร็จ');
             
             // Clear login form
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
         } else {
-            showError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+            showError('ID หรือรหัสผ่านไม่ถูกต้อง');
         }
     } catch (error) {
         console.error('Login error:', error);
@@ -592,6 +685,116 @@ function showPage(pageId) {
     }
 }
 
+/**
+ * Renders the record form page for entering medication error data.
+ */
+function renderRecordForm() {
+    const container = document.getElementById('record-form-page');
+    
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">บันทึกรายการความคลาดเคลื่อนทางยา</h2>
+            <form id="record-form" class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div class="md:col-span-2">
+                    <label for="event_date" class="block text-sm font-medium text-gray-700">วันที่เกิดเหตุการณ์</label>
+                    <input type="date" id="event_date" name="event_date" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label for="shift" class="block text-sm font-medium text-gray-700">เวร</label>
+                    <select id="shift" name="shift" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                        <option value="" selected>เลือก...</option>
+                        <option value="เช้า">เช้า</option>
+                        <option value="บ่าย">บ่าย</option>
+                        <option value="ดึก">ดึก</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="patient_type" class="block text-sm font-medium text-gray-700">ประเภทผู้ป่วย</label>
+                    <select id="patient_type" name="patient_type" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                        <option value="" selected>เลือก...</option>
+                        <option value="นอก">นอก (OPD)</option>
+                        <option value="ใน">ใน (IPD)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="place" class="block text-sm font-medium text-gray-700">สถานที่</label>
+                    <select id="place" name="place" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                        <option value="" selected>เลือก...</option>
+                        ${(masterData.places || []).map(p => `<option value="${p.Name || p.name || ''}">${p.Name || p.name || ''}</option>`).join('')}
+                    </select>
+                </div>
+                <div>
+                    <label for="process" class="block text-sm font-medium text-gray-700">กระบวนการ</label>
+                    <select id="process" name="process" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                        <option value="" selected>เลือก...</option>
+                        ${(masterData.processes || []).map(p => `<option value="${p.Name || p.name || ''}">${p.Name || p.name || ''}</option>`).join('')}
+                        <option value="อื่นๆ">อื่นๆ (โปรดระบุ)</option>
+                    </select>
+                    <input type="text" id="process_other" name="process_other" class="hidden w-full px-3 py-2 mt-2 border border-gray-300 rounded-md" placeholder="ระบุกระบวนการอื่นๆ">
+                </div>
+                <div>
+                    <label for="error_type" class="block text-sm font-medium text-gray-700">ข้อผิดพลาด</label>
+                    <select id="error_type" name="error_type" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                        <option value="" selected>กรุณาเลือกกระบวนการก่อน</option>
+                    </select>
+                    <input type="text" id="error_type_other" name="error_type_other" class="hidden w-full px-3 py-2 mt-2 border border-gray-300 rounded-md" placeholder="ระบุข้อผิดพลาดอื่นๆ">
+                </div>
+                <div>
+                    <label for="correct_medicine_search" class="block text-sm font-medium text-gray-700">รายการยาที่ถูกต้อง</label>
+                    <input type="text" id="correct_medicine_search" name="correct_medicine_search" list="medicine-list" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md" placeholder="ค้นหายา...">
+                </div>
+                <div>
+                    <label for="incorrect_medicine_search" class="block text-sm font-medium text-gray-700">รายการยาที่ผิด</label>
+                    <input type="text" id="incorrect_medicine_search" name="incorrect_medicine_search" list="medicine-list" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md" placeholder="ค้นหายา...">
+                </div>
+                <datalist id="medicine-list">
+                    ${(masterData.medicines || []).map(m => `<option value="${m.Name || m.name || ''}" data-code="${m.Code || ''}">`).join('')}
+                </datalist>
+                <div class="p-3 bg-teal-100 border-l-4 border-teal-500 rounded-md md:col-span-2">
+                    <p class="font-bold text-teal-800">High Alert Drug (HAD)</p>
+                    <p id="had_status" class="text-teal-700">กรุณาเลือกยาเพื่อตรวจสอบสถานะ HAD</p>
+                </div>
+                <div class="md:col-span-2">
+                    <label for="cause" class="block text-sm font-medium text-gray-700">สาเหตุ</label>
+                    <select id="cause" name="cause" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md">
+                       <option value="" selected>เลือก...</option>
+                       ${(masterData.causes || []).map(c => `<option value="${c.Name || c.name || ''}">${c.Name || c.name || ''}</option>`).join('')}
+                       <option value="อื่นๆ">อื่นๆ (โปรดระบุ)</option>
+                    </select>
+                    <input type="text" id="cause_other" name="cause_other" class="hidden w-full px-3 py-2 mt-2 border border-gray-300 rounded-md" placeholder="ระบุสาเหตุอื่นๆ">
+                </div>
+                <div class="md:col-span-2">
+                    <label for="details" class="block text-sm font-medium text-gray-700">รายละเอียดเพิ่มเติม</label>
+                    <textarea id="details" name="details" rows="4" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"></textarea>
+                </div>
+                <div>
+                    <label for="reporter" class="block text-sm font-medium text-gray-700">ผู้บันทึก</label>
+                    <input type="text" id="reporter" name="reporter" readonly class="w-full px-3 py-2 mt-1 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed">
+                </div>
+                <div class="md:col-span-2 flex justify-end gap-2 mt-4">
+                    <button type="button" id="reset-form-btn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">ล้างข้อมูล</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700">บันทึกข้อมูล</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    // Set default date for new record form to today
+    document.getElementById('event_date').valueAsDate = new Date();
+    
+    // Set reporter name from current user - updated for correct User sheet columns
+    const currentUser = getCurrentUser();
+    const reporterField = document.getElementById('reporter');
+    if (reporterField && currentUser) {
+        const reporterName = currentUser.Name || 'ไม่ระบุ';
+        reporterField.value = reporterName;
+        reporterField.dataset.reporterId = currentUser.ID13 || '';
+    }
+
+    // Setup form event listeners after rendering
+    setupFormEventListeners();
+}
+
 // --- Enhanced Data Fetching Functions ---
 
 /**
@@ -708,7 +911,7 @@ async function handleRecordSubmit(e) {
         recordData['ผู้บันทึก'] = sanitizeInput(reporterField.value);
         recordData['ผู้บันทึก_ID'] = reporterField.dataset.reporterId || '';
     } else {
-        recordData['ผู้บันทึก'] = currentUser ? (currentUser.ชื่อจริง || currentUser.RealName || currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ') : 'ไม่ระบุ';
+        recordData['ผู้บันทึก'] = currentUser ? (currentUser.Name || 'ไม่ระบุ') : 'ไม่ระบุ';
         recordData['ผู้บันทึก_ID'] = currentUser ? (currentUser.ID13 || '') : '';
     }
 
@@ -749,7 +952,7 @@ async function handleRecordSubmit(e) {
             // Set reporter name again after reset
             const reporterField = document.getElementById('reporter');
             if (reporterField && currentUser) {
-                const reporterName = currentUser.ชื่อจริง || currentUser.RealName || currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ';
+                const reporterName = currentUser.Name || 'ไม่ระบุ';
                 reporterField.value = reporterName;
                 reporterField.dataset.reporterId = currentUser.ID13 || '';
             }
@@ -806,6 +1009,7 @@ function setupFormEventListeners() {
         const correctMedName = correctMedicineInput?.value || '';
         const incorrectMedName = incorrectMedicineInput?.value || '';
         
+        // Updated to work with Medicine sheet structure: Code, Name, HAD
         const correctMed = masterData.medicines.find(m => m.Name === correctMedName);
         const incorrectMed = masterData.medicines.find(m => m.Name === incorrectMedName);
         
@@ -958,7 +1162,7 @@ function setupFormEventListeners() {
             const currentUser = getCurrentUser();
             const reporterField = document.getElementById('reporter');
             if (reporterField && currentUser) {
-                const reporterName = currentUser.ชื่อจริง || currentUser.RealName || currentUser.ชื่อ || currentUser.Name || 'ไม่ระบุ';
+                const reporterName = currentUser.Name || 'ไม่ระบุ';
                 reporterField.value = reporterName;
                 reporterField.dataset.reporterId = currentUser.ID13 || '';
             }
@@ -976,96 +1180,196 @@ function setupFormEventListeners() {
     }
 }
 
-// --- Enhanced Application Initialization ---
-document.addEventListener('DOMContentLoaded', async function() {
-    try {
-        console.log('Initializing application...');
-        
-        // Load all master data first
-        await loadAllMasterData();
-        
-        // Check if user is already logged in
-        const currentUser = getCurrentUser();
-        if (currentUser) {
-            console.log('User already logged in:', currentUser.ชื่อ || currentUser.Name);
-            updateUserDisplay();
-            loginPage.style.display = 'none';
-            appPage.style.display = 'block';
-            showPage('record-form-page');
-        } else {
-            console.log('No user logged in, showing login page');
-            loginPage.style.display = 'flex';
-            appPage.style.display = 'none';
-        }
-        
-        // Add navigation event listeners
-        navLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const pageId = link.dataset.page;
-                if (pageId) {
-                    // Check if user is logged in for protected pages
-                    const currentUser = getCurrentUser();
-                    if (!currentUser && pageId !== 'login-page') {
-                        console.log('กรุณาเข้าสู่ระบบก่อนใช้งาน');
-                        loginPage.style.display = 'flex';
-                        appPage.style.display = 'none';
-                        return;
-                    }
-                    showPage(pageId);
-                }
-            });
-        });
-        
-        // Add login form event listener
-        if (loginForm) {
-            loginForm.addEventListener('submit', handleLogin);
-        }
-        
-        // Add logout button event listener
-        const logoutBtn = document.getElementById('logout-btn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', logout);
-        }
-        
-        // Add keyboard shortcuts for better accessibility
-        document.addEventListener('keydown', (e) => {
-            // Escape key to close modals
-            if (e.key === 'Escape') {
-                if (loadingModal && loadingModal.style.display === 'flex') {
-                    hideLoading();
-                }
-                if (successModal && successModal.style.display === 'flex') {
-                    successModal.style.display = 'none';
-                }
-            }
-        });
-        
-        console.log('Application initialized successfully');
-        
-    } catch (error) {
-        console.error('Error during application initialization:', error);
-        console.log('เกิดข้อผิดพลาดในการเริ่มต้นระบบ กรุณาโหลดหน้าเว็บใหม่');
-        loginPage.style.display = 'flex';
-        appPage.style.display = 'none';
-    }
-});
-
-// --- Service Worker Registration for Better Caching (Optional) ---
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        // You can register a service worker here for better offline support
-        console.log('Service Worker support detected');
-    });
+/**
+ * Renders the users management page.
+ */
+function renderUsersPage() {
+    const container = document.getElementById('users-page');
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการผู้ใช้</h2>
+            <p class="text-gray-600 mb-4">หน้านี้สำหรับดูข้อมูลผู้ใช้งานในระบบ</p>
+            <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full bg-white divide-y divide-gray-200">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ID13</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อ</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ตำแหน่ง</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ระดับ</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">PScode</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body" class="divide-y divide-gray-200">
+                        ${(masterData.users || []).length > 0 ? (masterData.users || []).map(user => `
+                            <tr class="hover:bg-gray-100">
+                                <td class="px-6 py-4 whitespace-nowrap">${user.ID13 || ''}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${user.Name || ''}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${user.Position || ''}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${user.Level || ''}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${user.PScode || ''}</td>
+                            </tr>
+                        `).join('') : `<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">ไม่มีข้อมูลผู้ใช้งาน</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
 }
 
-// --- Performance Monitoring ---
-window.addEventListener('load', () => {
-    if (window.performance && window.performance.timing) {
-        const loadTime = window.performance.timing.loadEventEnd - window.performance.timing.navigationStart;
-        console.log('Page load time:', loadTime + 'ms');
+// Placeholder functions for other management pages
+function renderMedicinesPage() {
+    const container = document.getElementById('medicines-page');
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการรายการยา</h2>
+            <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full bg-white divide-y divide-gray-200">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">รหัสยา</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อยา</th>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">HAD</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(masterData.medicines || []).map(med => `
+                            <tr class="hover:bg-gray-100">
+                                <td class="px-6 py-4 whitespace-nowrap">${med.Code || ''}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${med.Name || ''}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full ${
+                                        (med.HAD && String(med.HAD).toLowerCase() === 'yes') 
+                                            ? 'bg-red-100 text-red-800' 
+                                            : 'bg-green-100 text-green-800'
+                                    }">
+                                        ${(med.HAD && String(med.HAD).toLowerCase() === 'yes') ? 'HAD' : 'ไม่ใช่ HAD'}
+                                    </span>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function renderShiftsPage() {
+    const container = document.getElementById('shifts-page');
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการเวร</h2>
+            <div class="space-y-2">
+                <div class="p-3 bg-gray-50 rounded">เช้า</div>
+                <div class="p-3 bg-gray-50 rounded">บ่าย</div>
+                <div class="p-3 bg-gray-50 rounded">ดึก</div>
+            </div>
+        </div>
+    `;
+}
+
+function renderPatientTypesPage() {
+    const container = document.getElementById('patient-types-page');
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการประเภทผู้ป่วย</h2>
+            <div class="space-y-2">
+                <div class="p-3 bg-gray-50 rounded">นอก (OPD)</div>
+                <div class="p-3 bg-gray-50 rounded">ใน (IPD)</div>
+            </div>
+        </div>
+    `;
+}
+
+function renderPlacesPage() {
+    const container = document.getElementById('places-page');
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการสถานที่</h2>
+            <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full bg-white divide-y divide-gray-200">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อสถานที่</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(masterData.places || []).map(place => `
+                            <tr class="hover:bg-gray-100">
+                                <td class="px-6 py-4 whitespace-nowrap">${place.Name || ''}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function renderProcessesPage() {
+    const container = document.getElementById('processes-page');
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการกระบวนการ</h2>
+            <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full bg-white divide-y divide-gray-200">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อกระบวนการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(masterData.processes || []).map(process => `
+                            <tr class="hover:bg-gray-100">
+                                <td class="px-6 py-4 whitespace-nowrap">${process.Name || ''}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function renderCausesPage() {
+    const container = document.getElementById('causes-page');
+    container.innerHTML = `
+        <div class="p-6 bg-white rounded-lg shadow-md">
+            <h2 class="mb-6 text-xl font-bold text-gray-800">จัดการสาเหตุ</h2>
+            <div class="mt-4 overflow-x-auto">
+                <table class="min-w-full bg-white divide-y divide-gray-200">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ชื่อสาเหตุ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(masterData.causes || []).map(cause => `
+                            <tr class="hover:bg-gray-100">
+                                <td class="px-6 py-4 whitespace-nowrap">${cause.Name || ''}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function renderRecordsList() {
+    const container = document.getElementById('records-list-page');
+    if (container) {
+        container.innerHTML = '<div class="p-6 bg-white rounded-lg shadow-md">ยังไม่เปิดใช้งานฟีเจอร์นี้</div>';
     }
-});
+}
+
+function renderDashboard() {
+    const container = document.getElementById('dashboard-page');
+    if (container) {
+        container.innerHTML = '<div class="p-6 bg-white rounded-lg shadow-md">ยังไม่เปิดใช้งานฟีเจอร์นี้</div>';
+    }
+}
 </script>
 </body>
 </html>

@@ -67,15 +67,17 @@ Application initialized successfully
 Your Google Sheets should have these sheets with these column headers:
 
 #### User Sheet
-- ID13
-- Password  
-- Name (or ชื่อ)
-- Level
-- RealName (or ชื่อจริง) [optional]
+- ID13 (username for login)
+- Name (display name)
+- Position (user position/role)
+- Level (user level)
+- Password (for authentication)
+- PScode (additional identifier)
 
 #### Medicine Sheet
-- Name
-- HAD (values: "yes" or "no")
+- Code (medicine code/identifier)
+- Name (medicine name - used for autocomplete)
+- HAD (High Alert Drug status: "yes" or "no")
 
 #### Place Sheet
 - Name

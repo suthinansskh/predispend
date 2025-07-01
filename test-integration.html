@@ -11,6 +11,14 @@
         .error { background-color: #f8d7da; border-color: #f5c6cb; }
         button { padding: 10px 15px; margin: 5px; cursor: pointer; }
         pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: inline-block; margin-right: 10px; }
+        .form-group input { padding: 8px; margin-right: 15px; border: 1px solid #ccc; border-radius: 4px; }
+        .troubleshoot-info { margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-left: 4px solid #6c757d; }
+        .troubleshoot-info h4 { margin-top: 0; margin-bottom: 8px; }
+        .troubleshoot-info ol { padding-left: 20px; margin-bottom: 0; }
+        .connection-info { margin-bottom: 10px; }
+        .connection-info code { background-color: #f8f9fa; padding: 2px 4px; font-family: monospace; }
     </style>
 </head>
 <body>
@@ -18,8 +26,19 @@
     
     <div class="test-section">
         <h3>1. Test Script URL Connection</h3>
+        <p class="connection-info">Current Script URL: <code id="current-url"></code></p>
         <button onclick="testConnection()">Test Connection</button>
+        <button onclick="checkCORS()">Check CORS Settings</button>
         <div id="connection-result"></div>
+        <div class="troubleshoot-info">
+            <h4>Troubleshooting "Failed to fetch" errors:</h4>
+            <ol>
+                <li>Verify the Apps Script is <strong>deployed as a web app</strong> and accessible to <strong>Anyone, even anonymous</strong></li>
+                <li>Make sure you're using the <strong>latest deployment URL</strong> (not the development URL)</li>
+                <li>Check that the script has been properly <strong>saved and deployed</strong> after changes</li>
+                <li>Try accessing the URL directly in a browser to verify it's working</li>
+            </ol>
+        </div>
     </div>
     
     <div class="test-section">
@@ -34,7 +53,69 @@
     </div>
     
     <div class="test-section">
-        <h3>3. Test Record Submission</h3>
+        <h3>Troubleshooting Guide</h3>
+        <h4>If you're seeing "Failed to fetch" errors:</h4>
+        <ol>
+            <li><strong>Verify Apps Script Deployment:</strong>
+                <ul>
+                    <li>Open your Google Apps Script project</li>
+                    <li>Go to <code>Deploy > New deployment</code></li>
+                    <li>Select "Web app" as the deployment type</li>
+                    <li>Set "Execute as" to "Me"</li>
+                    <li>Set "Who has access" to "Anyone, even anonymous"</li>
+                    <li>Click "Deploy" and copy the new Web App URL</li>
+                    <li>Replace the SCRIPT_URL in this file with the new URL</li>
+                </ul>
+            </li>
+            <li><strong>CORS Issues:</strong>
+                <ul>
+                    <li>Google Apps Script web apps should allow CORS by default</li>
+                    <li>Make sure you're using the correct deployment URL (not the script editor URL)</li>
+                    <li>Apps Script URLs should start with <code>https://script.google.com/macros/s/</code> followed by a long ID</li>
+                </ul>
+            </li>
+            <li><strong>Script Authorization:</strong>
+                <ul>
+                    <li>Run the script from the script editor first and authorize all required permissions</li>
+                    <li>If you've updated the script code, create a new deployment</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h3>Expected Sheet Structures</h3>
+        <h4>User Sheet:</h4>
+        <ul style="list-style-type: disc; margin-left: 20px;">
+            <li><strong>ID13</strong> - Username for login</li>
+            <li><strong>Name</strong> - Display name</li>
+            <li><strong>Position</strong> - User position/role</li>
+            <li><strong>Level</strong> - User level</li>
+            <li><strong>Password</strong> - Password for authentication</li>
+            <li><strong>PScode</strong> - Additional identifier</li>
+        </ul>
+        <h4>Medicine Sheet:</h4>
+        <ul style="list-style-type: disc; margin-left: 20px;">
+            <li><strong>Code</strong> - Medicine code/identifier</li>
+            <li><strong>Name</strong> - Medicine name (used for autocomplete)</li>
+            <li><strong>HAD</strong> - High Alert Drug status ("yes" or "no")</li>
+        </ul>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Test Login</h3>
+        <div class="form-group">
+            <label for="test-id13">ID13:</label>
+            <input type="text" id="test-id13" value="" placeholder="Enter ID13" maxlength="13">
+            <label for="test-password">Password:</label>
+            <input type="password" id="test-password" value="" placeholder="Enter Password">
+            <button onclick="testLogin()">Test Login</button>
+        </div>
+        <div id="login-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. Test Record Submission</h3>
         <button onclick="testAddRecord()">Test Add Record</button>
         <div id="submission-result"></div>
     </div>
@@ -42,6 +123,11 @@
     <script>
         // ใส่ URL ของ Google Apps Script ของคุณที่นี่
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzFrW_xMdCukPq_nx3FsoYHxxq3hH5hSRtvIKfAioJfqet_MKAJjACugUQ-X6ngZ1NqyQ/exec";
+        
+        // Display the current script URL when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('current-url').textContent = SCRIPT_URL;
+        });
         
         function showResult(elementId, result, isSuccess = true) {
             const element = document.getElementById(elementId);
@@ -51,33 +137,124 @@
         
         async function testConnection() {
             try {
-                const response = await fetch(SCRIPT_URL + '?action=getUsers');
+                document.getElementById('current-url').textContent = SCRIPT_URL;
+                
+                // Set a timeout to catch hanging requests
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+                
+                const response = await fetch(SCRIPT_URL + '?action=getusers', {
+                    method: 'GET',
+                    signal: controller.signal,
+                    mode: 'cors'
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
                 const data = await response.json();
                 showResult('connection-result', {
                     status: 'SUCCESS',
                     message: 'Connection established',
+                    url: SCRIPT_URL,
+                    httpStatus: response.status,
                     response: data
                 });
             } catch (error) {
+                let errorDetails = {
+                    status: 'ERROR',
+                    message: error.message,
+                    url: SCRIPT_URL,
+                    possibleCauses: []
+                };
+                
+                if (error.name === 'AbortError') {
+                    errorDetails.message = 'Request timed out after 15 seconds';
+                    errorDetails.possibleCauses.push('Script execution taking too long', 'Server not responding');
+                } else if (error.message.includes('Failed to fetch')) {
+                    errorDetails.possibleCauses.push(
+                        'CORS not configured properly',
+                        'Script URL is incorrect',
+                        'Script not deployed as web app',
+                        'Script permissions not set to "Anyone, even anonymous"'
+                    );
+                }
+                
+                showResult('connection-result', errorDetails, false);
+            }
+        }
+        
+        async function checkCORS() {
+            try {
+                const testURL = new URL(SCRIPT_URL);
+                const results = {
+                    url: SCRIPT_URL,
+                    checks: {}
+                };
+                
+                // Check URL format
+                results.checks.urlFormat = {
+                    status: 'OK',
+                    details: 'URL format appears valid'
+                };
+                
+                if (!SCRIPT_URL.includes('script.google.com/macros/s/')) {
+                    results.checks.urlFormat = {
+                        status: 'WARNING',
+                        details: 'URL does not match expected Apps Script deployment URL format'
+                    };
+                }
+                
+                // Check if URL is accessible with HEAD request
+                try {
+                    const headResponse = await fetch(SCRIPT_URL, {
+                        method: 'HEAD',
+                        mode: 'no-cors'
+                    });
+                    
+                    results.checks.accessibility = {
+                        status: 'OK',
+                        details: 'Server responded to HEAD request'
+                    };
+                } catch (headError) {
+                    results.checks.accessibility = {
+                        status: 'ERROR',
+                        details: 'Server did not respond to HEAD request: ' + headError.message
+                    };
+                }
+                
+                // Provide deployment guidance
+                results.guidance = [
+                    'Make sure script is deployed as web app (Publish > Deploy as web app)',
+                    'Set access to "Anyone, even anonymous" in deployment settings',
+                    'After making changes, create a new deployment or update existing one',
+                    'Use the "web app URL" from the deployment screen, not the script editor URL'
+                ];
+                
+                showResult('connection-result', results, true);
+            } catch (error) {
                 showResult('connection-result', {
                     status: 'ERROR',
-                    message: error.message
+                    message: 'CORS check failed: ' + error.message
                 }, false);
             }
         }
         
         async function testGetUsers() {
             try {
-                const response = await fetch(SCRIPT_URL + '?action=getUsers');
+                const response = await fetch(SCRIPT_URL + '?action=getusers');
                 const data = await response.json();
                 showResult('data-result', {
-                    action: 'getUsers',
+                    action: 'getusers',
                     count: data.result?.length || 0,
                     data: data.result?.slice(0, 3) || [] // Show first 3 records
                 });
             } catch (error) {
                 showResult('data-result', {
-                    action: 'getUsers',
+                    action: 'getusers',
                     error: error.message
                 }, false);
             }
@@ -85,16 +262,16 @@
         
         async function testGetMedicines() {
             try {
-                const response = await fetch(SCRIPT_URL + '?action=getMedicines');
+                const response = await fetch(SCRIPT_URL + '?action=getmedicines');
                 const data = await response.json();
                 showResult('data-result', {
-                    action: 'getMedicines',
+                    action: 'getmedicines',
                     count: data.result?.length || 0,
                     data: data.result?.slice(0, 3) || []
                 });
             } catch (error) {
                 showResult('data-result', {
-                    action: 'getMedicines',
+                    action: 'getmedicines',
                     error: error.message
                 }, false);
             }
@@ -102,16 +279,16 @@
         
         async function testGetPlaces() {
             try {
-                const response = await fetch(SCRIPT_URL + '?action=getPlaces');
+                const response = await fetch(SCRIPT_URL + '?action=getplaces');
                 const data = await response.json();
                 showResult('data-result', {
-                    action: 'getPlaces',
+                    action: 'getplaces',
                     count: data.result?.length || 0,
                     data: data.result?.slice(0, 3) || []
                 });
             } catch (error) {
                 showResult('data-result', {
-                    action: 'getPlaces',
+                    action: 'getplaces',
                     error: error.message
                 }, false);
             }
@@ -119,16 +296,16 @@
         
         async function testGetProcesses() {
             try {
-                const response = await fetch(SCRIPT_URL + '?action=getProcesses');
+                const response = await fetch(SCRIPT_URL + '?action=getprocesses');
                 const data = await response.json();
                 showResult('data-result', {
-                    action: 'getProcesses',
+                    action: 'getprocesses',
                     count: data.result?.length || 0,
                     data: data.result?.slice(0, 3) || []
                 });
             } catch (error) {
                 showResult('data-result', {
-                    action: 'getProcesses',
+                    action: 'getprocesses',
                     error: error.message
                 }, false);
             }
@@ -136,16 +313,16 @@
         
         async function testGetCauses() {
             try {
-                const response = await fetch(SCRIPT_URL + '?action=getCauses');
+                const response = await fetch(SCRIPT_URL + '?action=getcauses');
                 const data = await response.json();
                 showResult('data-result', {
-                    action: 'getCauses',
+                    action: 'getcauses',
                     count: data.result?.length || 0,
                     data: data.result?.slice(0, 3) || []
                 });
             } catch (error) {
                 showResult('data-result', {
-                    action: 'getCauses',
+                    action: 'getcauses',
                     error: error.message
                 }, false);
             }
@@ -153,17 +330,75 @@
         
         async function testGetRecords() {
             try {
-                const response = await fetch(SCRIPT_URL + '?action=getRecords');
+                const response = await fetch(SCRIPT_URL + '?action=getrecords');
                 const data = await response.json();
                 showResult('data-result', {
-                    action: 'getRecords',
+                    action: 'getrecords',
                     count: data.result?.length || 0,
                     data: data.result?.slice(0, 2) || [] // Show first 2 records only
                 });
             } catch (error) {
                 showResult('data-result', {
-                    action: 'getRecords',
+                    action: 'getrecords',
                     error: error.message
+                }, false);
+            }
+        }
+        
+        async function testLogin() {
+            try {
+                // First get users to simulate the login process
+                const id13 = document.getElementById('test-id13').value.trim();
+                const password = document.getElementById('test-password').value.trim();
+                
+                if (!id13 || !password) {
+                    showResult('login-result', {
+                        status: 'ERROR',
+                        message: 'Please enter both ID13 and Password'
+                    }, false);
+                    return;
+                }
+                
+                // Get users from the API
+                const response = await fetch(SCRIPT_URL + '?action=getusers');
+                const data = await response.json();
+                
+                if (data.status !== 'success' || !Array.isArray(data.result)) {
+                    showResult('login-result', {
+                        status: 'ERROR',
+                        message: 'Failed to retrieve user data',
+                        response: data
+                    }, false);
+                    return;
+                }
+                
+                // Find matching user
+                const user = data.result.find(u => u.ID13 === id13 && u.Password === password);
+                
+                if (user) {
+                    // Login successful
+                    showResult('login-result', {
+                        status: 'SUCCESS',
+                        message: 'Login successful',
+                        user: {
+                            ID13: user.ID13,
+                            Name: user.Name,
+                            Position: user.Position,
+                            Level: user.Level
+                        }
+                    });
+                } else {
+                    // Login failed
+                    showResult('login-result', {
+                        status: 'ERROR',
+                        message: 'Invalid ID13 or Password',
+                        usersFound: data.result.length
+                    }, false);
+                }
+            } catch (error) {
+                showResult('login-result', {
+                    status: 'ERROR',
+                    message: error.message
                 }, false);
             }
         }

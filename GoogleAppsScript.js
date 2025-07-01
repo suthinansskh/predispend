@@ -15,7 +15,25 @@ const SHEET_NAMES = {
   CAUSE: "Cause"
 };
 
-const ss = SpreadsheetApp.openByUrl(SPREADSHEET_URL);
+// Expected column structure for User sheet:
+// ID13, Name, Position, Level, Password, PScode
+
+// Expected column structure for Medicine sheet:
+// Code, Name, HAD
+
+// Expected column structure for Record sheet:
+// เลขที่รายงาน, วันที่เกิดเหตุการณ์, เวร, สถานที่, ประเภทผู้ป่วย, กระบวนการ, ข้อผิดพลาด, รายการยาที่ถูกต้อง, รายการยาที่ผิด, HAD, สาเหตุ, รายละเอียด, วันที่บันทึก, ผู้บันทึก
+
+// Expected column structure for Place sheet:
+// Name
+
+// Expected column structure for Process sheet:
+// กระบวนการ, ข้อผิดพลาด
+
+// Expected column structure for Cause sheet:
+// สาเหตุ
+
+const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
 
 /**
  * Helper function for consistent JSON error responses.
@@ -85,13 +103,52 @@ function doGet(e) {
         return ContentService
             .createTextOutput(JSON.stringify({ status: "success", message: "Data saved successfully." }))
             .setMimeType(ContentService.MimeType.JSON);
+      case 'getlastrecord':
+        const records = getDataFromSheet(SHEET_NAMES.RECORDS);
+        data = records.length > 0 ? records[records.length - 1] : null;
+        break;
+      case 'getlastprocess':
+        const processes = getDataFromSheet(SHEET_NAMES.PROCESS);
+        data = processes.length > 0 ? processes[processes.length - 1] : null;
+        break;
+      case 'getlastcause':
+        const causes = getDataFromSheet(SHEET_NAMES.CAUSE);
+        data = causes.length > 0 ? causes[causes.length - 1] : null;
+        break;
+      case 'getlastuser':
+        const users = getDataFromSheet(SHEET_NAMES.USERS);
+        data = users.length > 0 ? users[users.length - 1] : null;
+        break;
+      case 'getlastmedicine':
+        const medicines = getDataFromSheet(SHEET_NAMES.MEDICINE);
+        data = medicines.length > 0 ? medicines[medicines.length - 1] : null;
+        break;
+      case 'getlastplace':
+        const places = getDataFromSheet(SHEET_NAMES.PLACE);
+        data = places.length > 0 ? places[places.length - 1] : null;
+        break;
+      case 'getprocessoptions':
+        const processData = getDataFromSheet(SHEET_NAMES.PROCESS);
+        data = processData.map(row => ({ 
+          กระบวนการ: row['กระบวนการ'] || null,
+          ข้อผิดพลาด: row['ข้อผิดพลาด'] || null
+        }));
+        break;
+      case 'getprocessnames':
+        const processNames = getDataFromSheet(SHEET_NAMES.PROCESS);
+        data = processNames.map(row => row['กระบวนการ']).filter(name => name !== null && name !== '');
+        break;
+      case 'geterroroptions':
+        const errorOptions = getDataFromSheet(SHEET_NAMES.PROCESS);
+        data = errorOptions.map(row => row['ข้อผิดพลาด']).filter(error => error !== null && error !== '');
+        break;
       default:
         throw new Error("Invalid action specified for GET request.");
     }
 
-    return ContentService
-      .createTextOutput(JSON.stringify({ status: "success", result: data }))
+    let output = ContentService.createTextOutput(JSON.stringify({ status: "success", result: data }))
       .setMimeType(ContentService.MimeType.JSON);
+    return output;
 
   } catch (error) {
     // Catch specific errors thrown by getDataFromSheet or invalid action
@@ -106,6 +163,15 @@ function doGet(e) {
  * @param {string} sheetName - The name of the sheet to retrieve data from.
  * @returns {Array<Object>} An array of objects, where each object represents a row.
  * @throws {Error} If the specified sheet is not found.
+ */
+/**
+ * Gets data from a specified sheet and returns it as an array of objects.
+ * Expected sheet structures:
+ * - User sheet: ID13, Name, Position, Level, Password, PScode
+ * - Medicine sheet: Code, Name, HAD
+ * - Record sheet: เลขที่รายงาน, วันที่เกิดเหตุการณ์, เวร, สถานที่, ประเภทผู้ป่วย, กระบวนการ, ข้อผิดพลาด, รายการยาที่ถูกต้อง, รายการยาที่ผิด, HAD, สาเหตุ, รายละเอียด, วันที่บันทึก, ผู้บันทึก
+ * @param {string} sheetName - The name of the sheet to retrieve data from
+ * @returns {Array} Array of objects representing the sheet data
  */
 function getDataFromSheet(sheetName) {
   const sheet = ss.getSheetByName(sheetName);
@@ -145,6 +211,7 @@ function getDataFromSheet(sheetName) {
  * @throws {Error} If the "Record" sheet is not found, or required data is missing/invalid.
  */
 function addRecord(recordData) {
+  // Record sheet columns: เลขที่รายงาน, วันที่เกิดเหตุการณ์, เวร, สถานที่, ประเภทผู้ป่วย, กระบวนการ, ข้อผิดพลาด, รายการยาที่ถูกต้อง, รายการยาที่ผิด, HAD, สาเหตุ, รายละเอียด, วันที่บันทึก, ผู้บันทึก
   const sheet = ss.getSheetByName(SHEET_NAMES.RECORDS);
   if (!sheet) {
     throw new Error(`Sheet with name "${SHEET_NAMES.RECORDS}" not found.`);
