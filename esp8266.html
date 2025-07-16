@@ -273,42 +273,6 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-2">
-                    <div class="stat-item">
-                        <button class="btn btn-warning btn-sm" onclick="checkFirebaseConnection()" title="Debug Firebase Connection">
-                            <i class="fas fa-bug me-2"></i>Debug FB
-                        </button>
-                        <div class="stat-label mt-1">
-                            <small class="text-warning">
-                                <i class="fas fa-database me-1"></i>Firebase
-                            </small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="stat-item">
-                        <button class="btn btn-success btn-sm" onclick="validateDeviceCounters()" title="Validate Device Counters">
-                            <i class="fas fa-check-circle me-2"></i>Check Count
-                        </button>
-                        <div class="stat-label mt-1">
-                            <small class="text-success">
-                                <i class="fas fa-calculator me-1"></i>Validate
-                            </small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="stat-item">
-                        <button class="btn btn-info btn-sm" onclick="getDataUsageStats()" title="Data Usage Statistics">
-                            <i class="fas fa-chart-bar me-2"></i>Data Stats
-                        </button>
-                        <div class="stat-label mt-1">
-                            <small class="text-success">
-                                <i class="fas fa-leaf me-1"></i>Optimized
-                            </small>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -429,9 +393,13 @@
                 yPos += 10;
                 doc.text(`Critical Offline: ${stats.criticalOffline}`, 25, yPos);
                 yPos += 10;
-                doc.text(`Average Temperature: ${stats.avgTemp}°C`, 25, yPos);
+                doc.text(`Average Temperature 1: ${stats.avgTemp1}°C`, 25, yPos);
                 yPos += 10;
-                doc.text(`Temperature Range: ${stats.tempRange.min}°C - ${stats.tempRange.max}°C`, 25, yPos);
+                doc.text(`Average Temperature 2: ${stats.avgTemp2}°C`, 25, yPos);
+                yPos += 10;
+                doc.text(`Temperature 1 Range: ${stats.temp1Range.min}°C - ${stats.temp1Range.max}°C`, 25, yPos);
+                yPos += 10;
+                doc.text(`Temperature 2 Range: ${stats.temp2Range.min}°C - ${stats.temp2Range.max}°C`, 25, yPos);
                 yPos += 20;
 
                 // Add temperature classification report
@@ -441,11 +409,21 @@
                 doc.setFontSize(10);
                 
                 const tempClassification = getTemperatureClassificationReport();
-                doc.text(`Cold Devices (<2°C): ${tempClassification.cold.count}`, 25, yPos);
-                yPos += 10;
-                doc.text(`Optimal Devices (2-8°C): ${tempClassification.optimal.count}`, 25, yPos);
-                yPos += 10;
-                doc.text(`Hot Devices (>8°C): ${tempClassification.hot.count}`, 25, yPos);
+                doc.text(`Temperature 1 - Cold (<2°C): ${tempClassification.temp1.cold} readings`, 25, yPos);
+                yPos += 8;
+                doc.text(`Temperature 1 - Optimal (2-8°C): ${tempClassification.temp1.optimal} readings`, 25, yPos);
+                yPos += 8;
+                doc.text(`Temperature 1 - Hot (>8°C): ${tempClassification.temp1.hot} readings`, 25, yPos);
+                yPos += 8;
+                doc.text(`Temperature 1 - Errors: ${tempClassification.temp1.error} readings`, 25, yPos);
+                yPos += 12;
+                doc.text(`Temperature 2 - Cold (<2°C): ${tempClassification.temp2.cold} readings`, 25, yPos);
+                yPos += 8;
+                doc.text(`Temperature 2 - Optimal (2-8°C): ${tempClassification.temp2.optimal} readings`, 25, yPos);
+                yPos += 8;
+                doc.text(`Temperature 2 - Hot (>8°C): ${tempClassification.temp2.hot} readings`, 25, yPos);
+                yPos += 8;
+                doc.text(`Temperature 2 - Errors: ${tempClassification.temp2.error} readings`, 25, yPos);
                 yPos += 20;
 
                 // Add device details
@@ -454,12 +432,13 @@
                 yPos += 10;
                 doc.setFontSize(8);
 
-                // Table headers
+                // Table headers - Updated for both temperatures
                 doc.text('Device ID', 25, yPos);
-                doc.text('Status', 70, yPos);
-                doc.text('Temperature', 100, yPos);
-                doc.text('Last Update', 130, yPos);
-                doc.text('Classification', 170, yPos);
+                doc.text('Status', 65, yPos);
+                doc.text('Temp1', 85, yPos);
+                doc.text('Temp2', 110, yPos);
+                doc.text('Last Update', 135, yPos);
+                doc.text('IP Address', 170, yPos);
                 yPos += 5;
 
                 // Add line separator
@@ -471,13 +450,32 @@
                     if (yPos > 270) { // Page break
                         doc.addPage();
                         yPos = 20;
+                        // Re-add headers on new page
+                        doc.setFontSize(8);
+                        doc.text('Device ID', 25, yPos);
+                        doc.text('Status', 65, yPos);
+                        doc.text('Temp1', 85, yPos);
+                        doc.text('Temp2', 110, yPos);
+                        doc.text('Last Update', 135, yPos);
+                        doc.text('IP Address', 170, yPos);
+                        yPos += 5;
+                        doc.line(20, yPos, 190, yPos);
+                        yPos += 5;
                     }
                     
                     doc.text(device.deviceId, 25, yPos);
-                    doc.text(device.status, 70, yPos);
-                    doc.text(device.temperature ? `${device.temperature}°C` : 'N/A', 100, yPos);
-                    doc.text(device.lastUpdate || 'Never', 130, yPos);
-                    doc.text(device.classification || 'Unknown', 170, yPos);
+                    doc.text(device.status.toUpperCase(), 65, yPos);
+                    
+                    // Temperature 1
+                    const temp1Text = device.temp1 !== null ? `${device.temp1.toFixed(2)}°C` : 'ERROR';
+                    doc.text(temp1Text, 85, yPos);
+                    
+                    // Temperature 2
+                    const temp2Text = device.temp2 !== null ? `${device.temp2.toFixed(2)}°C` : 'ERROR';
+                    doc.text(temp2Text, 110, yPos);
+                    
+                    doc.text(device.lastUpdate || 'Never', 135, yPos);
+                    doc.text(device.ip || 'N/A', 170, yPos);
                     yPos += 8;
                 });
 
@@ -514,9 +512,12 @@
                 onlineDevices: 0,
                 offlineDevices: 0,
                 criticalOffline: 0,
-                avgTemp: 0,
-                tempRange: { min: Infinity, max: -Infinity },
-                validTemps: []
+                avgTemp1: 0,
+                avgTemp2: 0,
+                temp1Range: { min: Infinity, max: -Infinity },
+                temp2Range: { min: Infinity, max: -Infinity },
+                validTemp1: [],
+                validTemp2: []
             };
 
             lastReportData.forEach(device => {
@@ -529,22 +530,42 @@
                     }
                 }
 
-                if (device.temperature !== null && device.temperature !== undefined) {
-                    const temp = parseFloat(device.temperature);
-                    if (!isNaN(temp)) {
-                        stats.validTemps.push(temp);
-                        stats.tempRange.min = Math.min(stats.tempRange.min, temp);
-                        stats.tempRange.max = Math.max(stats.tempRange.max, temp);
+                // Process Temperature 1
+                if (device.temp1 !== null && device.temp1 !== undefined) {
+                    const temp1 = parseFloat(device.temp1);
+                    if (!isNaN(temp1)) {
+                        stats.validTemp1.push(temp1);
+                        stats.temp1Range.min = Math.min(stats.temp1Range.min, temp1);
+                        stats.temp1Range.max = Math.max(stats.temp1Range.max, temp1);
+                    }
+                }
+
+                // Process Temperature 2
+                if (device.temp2 !== null && device.temp2 !== undefined) {
+                    const temp2 = parseFloat(device.temp2);
+                    if (!isNaN(temp2)) {
+                        stats.validTemp2.push(temp2);
+                        stats.temp2Range.min = Math.min(stats.temp2Range.min, temp2);
+                        stats.temp2Range.max = Math.max(stats.temp2Range.max, temp2);
                     }
                 }
             });
 
-            if (stats.validTemps.length > 0) {
-                stats.avgTemp = (stats.validTemps.reduce((a, b) => a + b, 0) / stats.validTemps.length).toFixed(2);
+            // Calculate averages
+            if (stats.validTemp1.length > 0) {
+                stats.avgTemp1 = (stats.validTemp1.reduce((a, b) => a + b, 0) / stats.validTemp1.length).toFixed(2);
             } else {
-                stats.avgTemp = 'N/A';
-                stats.tempRange.min = 'N/A';
-                stats.tempRange.max = 'N/A';
+                stats.avgTemp1 = 'N/A';
+                stats.temp1Range.min = 'N/A';
+                stats.temp1Range.max = 'N/A';
+            }
+
+            if (stats.validTemp2.length > 0) {
+                stats.avgTemp2 = (stats.validTemp2.reduce((a, b) => a + b, 0) / stats.validTemp2.length).toFixed(2);
+            } else {
+                stats.avgTemp2 = 'N/A';
+                stats.temp2Range.min = 'N/A';
+                stats.temp2Range.max = 'N/A';
             }
 
             return stats;
@@ -841,16 +862,27 @@
         // Function to update device card
         function updateDeviceCard(deviceId, data) {
             const cardElement = document.querySelector(`[data-device-id="${deviceId}"]`);
-            if (!cardElement) return;
+            if (!cardElement) {
+                console.warn(`Card element not found for device: ${deviceId}`);
+                return;
+            }
 
             const isOnline = isDeviceOnline(data.timestamp);
             const isCriticallyOffline = isDeviceCriticallyOffline(data.timestamp);
             const offlineDuration = getOfflineDuration(data.timestamp);
 
+            // Debug red card logic
+            console.log(`Updating card for ${deviceId}:`);
+            console.log(`  Online: ${isOnline}`);
+            console.log(`  Critical Offline: ${isCriticallyOffline}`);
+            console.log(`  Offline Duration: ${offlineDuration} minutes`);
+
             // Update card styling based on critical offline status
             if (isCriticallyOffline && !isOnline) {
+                console.log(`  -> Adding RED CARD styling to ${deviceId}`);
                 cardElement.classList.add('offline-critical');
             } else {
+                console.log(`  -> Removing RED CARD styling from ${deviceId}`);
                 cardElement.classList.remove('offline-critical');
             }
 
@@ -940,6 +972,9 @@
             if (lastUpdateElement) {
                 lastUpdateElement.textContent = `อัปเดตล่าสุด: ${data.datetime || '-'}`;
             }
+
+            // Log final card state
+            console.log(`  Final card state: ${cardElement.classList.contains('offline-critical') ? 'RED CARD' : 'NORMAL CARD'}`);
         }
 
         // Function to update statistics
@@ -1034,6 +1069,297 @@
             return validateDeviceCounters();
         }
 
+        // Function to check red card status for offline devices
+        function checkRedCardStatus() {
+            console.log('=== RED CARD STATUS ANALYSIS ===');
+            console.log('Analyzing offline device red card display...');
+            console.log('');
+            
+            const currentTime = Math.floor(Date.now() / 1000);
+            const criticalOfflineThreshold = 30 * 60; // 30 minutes in seconds
+            
+            console.log(`Current time: ${currentTime} (${new Date().toLocaleString()})`);
+            console.log(`Online threshold: ${DATA_OPTIMIZATION.onlineThreshold} seconds (${Math.floor(DATA_OPTIMIZATION.onlineThreshold / 60)} minutes)`);
+            console.log(`Critical offline threshold: ${criticalOfflineThreshold} seconds (${Math.floor(criticalOfflineThreshold / 60)} minutes)`);
+            console.log('');
+            
+            let redCardDevices = [];
+            let normalOfflineDevices = [];
+            let onlineDevices = [];
+            
+            deviceList.forEach(deviceId => {
+                const data = deviceData[deviceId];
+                const cardElement = document.querySelector(`[data-device-id="${deviceId}"]`);
+                
+                if (data && data.timestamp) {
+                    const deviceTime = parseInt(data.timestamp);
+                    const timeDifference = currentTime - deviceTime;
+                    const isOnline = timeDifference < DATA_OPTIMIZATION.onlineThreshold;
+                    const isCriticallyOffline = timeDifference > criticalOfflineThreshold;
+                    
+                    const deviceStatus = {
+                        deviceId: deviceId,
+                        timestamp: deviceTime,
+                        lastUpdate: data.datetime || 'N/A',
+                        timeDifference: timeDifference,
+                        timeDifferenceMinutes: Math.floor(timeDifference / 60),
+                        isOnline: isOnline,
+                        isCriticallyOffline: isCriticallyOffline,
+                        hasRedCard: cardElement ? cardElement.classList.contains('offline-critical') : false,
+                        cardExists: !!cardElement
+                    };
+                    
+                    if (isOnline) {
+                        onlineDevices.push(deviceStatus);
+                    } else if (isCriticallyOffline) {
+                        redCardDevices.push(deviceStatus);
+                    } else {
+                        normalOfflineDevices.push(deviceStatus);
+                    }
+                } else {
+                    // Device with no data should be considered critically offline
+                    const deviceStatus = {
+                        deviceId: deviceId,
+                        timestamp: null,
+                        lastUpdate: 'Never',
+                        timeDifference: null,
+                        timeDifferenceMinutes: null,
+                        isOnline: false,
+                        isCriticallyOffline: true,
+                        hasRedCard: cardElement ? cardElement.classList.contains('offline-critical') : false,
+                        cardExists: !!cardElement
+                    };
+                    redCardDevices.push(deviceStatus);
+                }
+            });
+            
+            console.log(`📊 SUMMARY:`);
+            console.log(`  Online devices: ${onlineDevices.length}`);
+            console.log(`  Normal offline devices: ${normalOfflineDevices.length}`);
+            console.log(`  Critical offline devices (RED CARD): ${redCardDevices.length}`);
+            console.log('');
+            
+            // Analyze red card devices
+            if (redCardDevices.length > 0) {
+                console.log('🔴 RED CARD DEVICES (Critical Offline > 30 minutes):');
+                redCardDevices.forEach((device, index) => {
+                    console.log(`  ${index + 1}. ${device.deviceId}`);
+                    console.log(`     Last Update: ${device.lastUpdate}`);
+                    if (device.timeDifferenceMinutes !== null) {
+                        console.log(`     Offline Duration: ${device.timeDifferenceMinutes} minutes`);
+                    } else {
+                        console.log(`     Offline Duration: No data received`);
+                    }
+                    console.log(`     Card has red styling: ${device.hasRedCard ? '✅' : '❌'}`);
+                    console.log(`     Card exists in DOM: ${device.cardExists ? '✅' : '❌'}`);
+                    console.log('');
+                });
+            }
+            
+            // Analyze normal offline devices
+            if (normalOfflineDevices.length > 0) {
+                console.log('🟡 NORMAL OFFLINE DEVICES (5-30 minutes):');
+                normalOfflineDevices.forEach((device, index) => {
+                    console.log(`  ${index + 1}. ${device.deviceId}`);
+                    console.log(`     Last Update: ${device.lastUpdate}`);
+                    console.log(`     Offline Duration: ${device.timeDifferenceMinutes} minutes`);
+                    console.log(`     Card has red styling: ${device.hasRedCard ? '❌ (Should NOT be red)' : '✅'}`);
+                    console.log(`     Card exists in DOM: ${device.cardExists ? '✅' : '❌'}`);
+                    console.log('');
+                });
+            }
+            
+            // Analyze online devices
+            if (onlineDevices.length > 0) {
+                console.log('🟢 ONLINE DEVICES (< 5 minutes):');
+                onlineDevices.forEach((device, index) => {
+                    console.log(`  ${index + 1}. ${device.deviceId}`);
+                    console.log(`     Last Update: ${device.lastUpdate}`);
+                    console.log(`     Last data: ${Math.floor(device.timeDifference / 60)} minutes ago`);
+                    console.log(`     Card has red styling: ${device.hasRedCard ? '❌ (Should NOT be red)' : '✅'}`);
+                    console.log(`     Card exists in DOM: ${device.cardExists ? '✅' : '❌'}`);
+                    console.log('');
+                });
+            }
+            
+            // Check for styling inconsistencies
+            const stylingIssues = [];
+            
+            // Red cards that shouldn't be red
+            onlineDevices.concat(normalOfflineDevices).forEach(device => {
+                if (device.hasRedCard) {
+                    stylingIssues.push(`${device.deviceId}: Has red styling but should NOT (${device.isOnline ? 'online' : 'normal offline'})`);
+                }
+            });
+            
+            // Devices that should be red but aren't
+            redCardDevices.forEach(device => {
+                if (!device.hasRedCard && device.cardExists) {
+                    stylingIssues.push(`${device.deviceId}: Should have red styling but doesn't (critical offline)`);
+                }
+            });
+            
+            if (stylingIssues.length > 0) {
+                console.log('⚠️  STYLING ISSUES DETECTED:');
+                stylingIssues.forEach(issue => {
+                    console.log(`  - ${issue}`);
+                });
+            } else {
+                console.log('✅ All card stylings are correct!');
+            }
+            
+            console.log('=== END RED CARD STATUS ANALYSIS ===');
+            
+            return {
+                onlineDevices,
+                normalOfflineDevices,
+                redCardDevices,
+                stylingIssues,
+                summary: {
+                    online: onlineDevices.length,
+                    normalOffline: normalOfflineDevices.length,
+                    criticalOffline: redCardDevices.length,
+                    total: deviceList.length
+                }
+            };
+        }
+
+        // Function to fix red card styling issues
+        function fixRedCardStyling() {
+            console.log('=== FIXING RED CARD STYLING ===');
+            
+            const currentTime = Math.floor(Date.now() / 1000);
+            const criticalOfflineThreshold = 30 * 60; // 30 minutes in seconds
+            let fixedCount = 0;
+            
+            deviceList.forEach(deviceId => {
+                const data = deviceData[deviceId];
+                const cardElement = document.querySelector(`[data-device-id="${deviceId}"]`);
+                
+                if (!cardElement) {
+                    console.log(`❌ Card element not found for ${deviceId}`);
+                    return;
+                }
+                
+                let shouldBeRed = false;
+                
+                if (data && data.timestamp) {
+                    const deviceTime = parseInt(data.timestamp);
+                    const timeDifference = currentTime - deviceTime;
+                    const isOnline = timeDifference < DATA_OPTIMIZATION.onlineThreshold;
+                    const isCriticallyOffline = timeDifference > criticalOfflineThreshold;
+                    
+                    shouldBeRed = !isOnline && isCriticallyOffline;
+                } else {
+                    // No data = critically offline
+                    shouldBeRed = true;
+                }
+                
+                const hasRedCard = cardElement.classList.contains('offline-critical');
+                
+                if (shouldBeRed && !hasRedCard) {
+                    console.log(`🔧 Adding red styling to ${deviceId} (critical offline)`);
+                    cardElement.classList.add('offline-critical');
+                    fixedCount++;
+                } else if (!shouldBeRed && hasRedCard) {
+                    console.log(`🔧 Removing red styling from ${deviceId} (not critical offline)`);
+                    cardElement.classList.remove('offline-critical');
+                    fixedCount++;
+                }
+            });
+            
+            console.log(`✅ Fixed ${fixedCount} styling issues`);
+            console.log('=== END FIXING RED CARD STYLING ===');
+            
+            return fixedCount;
+        }
+
+        // Function to get a quick summary of red card status
+        function getRedCardSummary() {
+            const currentTime = Math.floor(Date.now() / 1000);
+            const criticalOfflineThreshold = 30 * 60; // 30 minutes in seconds
+            
+            let summary = {
+                total: deviceList.length,
+                online: 0,
+                normalOffline: 0,
+                criticalOffline: 0,
+                redCardCount: 0,
+                stylingIssues: 0,
+                devicesWithRedCards: [],
+                devicesWithStylingIssues: []
+            };
+            
+            deviceList.forEach(deviceId => {
+                const data = deviceData[deviceId];
+                const cardElement = document.querySelector(`[data-device-id="${deviceId}"]`);
+                const hasRedCard = cardElement ? cardElement.classList.contains('offline-critical') : false;
+                
+                if (hasRedCard) {
+                    summary.redCardCount++;
+                    summary.devicesWithRedCards.push(deviceId);
+                }
+                
+                if (data && data.timestamp) {
+                    const deviceTime = parseInt(data.timestamp);
+                    const timeDifference = currentTime - deviceTime;
+                    const isOnline = timeDifference < DATA_OPTIMIZATION.onlineThreshold;
+                    const isCriticallyOffline = timeDifference > criticalOfflineThreshold;
+                    
+                    if (isOnline) {
+                        summary.online++;
+                        if (hasRedCard) {
+                            summary.stylingIssues++;
+                            summary.devicesWithStylingIssues.push(`${deviceId} (online but red)`);
+                        }
+                    } else if (isCriticallyOffline) {
+                        summary.criticalOffline++;
+                        if (!hasRedCard) {
+                            summary.stylingIssues++;
+                            summary.devicesWithStylingIssues.push(`${deviceId} (critical offline but not red)`);
+                        }
+                    } else {
+                        summary.normalOffline++;
+                        if (hasRedCard) {
+                            summary.stylingIssues++;
+                            summary.devicesWithStylingIssues.push(`${deviceId} (normal offline but red)`);
+                        }
+                    }
+                } else {
+                    // No data = critically offline
+                    summary.criticalOffline++;
+                    if (!hasRedCard) {
+                        summary.stylingIssues++;
+                        summary.devicesWithStylingIssues.push(`${deviceId} (no data but not red)`);
+                    }
+                }
+            });
+            
+            return summary;
+        }
+
+        // Add keyboard shortcut for red card status check
+        document.addEventListener('keydown', function(event) {
+            // Ctrl+R for red card status check
+            if (event.ctrlKey && event.key === 'r') {
+                event.preventDefault();
+                checkRedCardStatus();
+            }
+            // Ctrl+F for fix red card styling
+            if (event.ctrlKey && event.key === 'f') {
+                event.preventDefault();
+                fixRedCardStyling();
+            }
+        });
+
+        // Auto-check red card status every 2 minutes
+        setInterval(() => {
+            const summary = getRedCardSummary();
+            if (summary.stylingIssues > 0) {
+                console.warn(`⚠️  ${summary.stylingIssues} red card styling issues detected. Use Ctrl+R to analyze or Ctrl+F to fix.`);
+            }
+        }, 120000); // 2 minutes
+
         // Function to query and display last temperature readings from all devices
         function queryLastTemperatures() {
             const queryTime = new Date();
@@ -1123,10 +1449,15 @@
                 deviceId: device.deviceId,
                 zone: device.zone,
                 status: device.status.toLowerCase(),
-                temperature: device.temp1 !== 'ERROR' ? parseFloat(device.temp1) : null,
+                temp1: device.temp1 !== 'ERROR' ? parseFloat(device.temp1) : null,
+                temp1Status: device.temp1Status,
+                temp1Class: device.temp1Class || 'unknown',
+                temp2: device.temp2 !== 'ERROR' ? parseFloat(device.temp2) : null,
+                temp2Status: device.temp2Status,
+                temp2Class: device.temp2Class || 'unknown',
                 lastUpdate: device.lastUpdate,
                 criticalOffline: device.status === 'CRITICAL_OFFLINE',
-                classification: device.temp1Class || 'unknown'
+                ip: device.ip || 'N/A'
             }));
             lastReportGenerated = queryTimeString;
             
@@ -1209,6 +1540,15 @@
         // Function to get temperature classification report
         function getTemperatureClassificationReport() {
             const classification = {
+                temp1: {
+                    cold: 0, optimal: 0, hot: 0, error: 0,
+                    devices: { cold: [], optimal: [], hot: [], error: [] }
+                },
+                temp2: {
+                    cold: 0, optimal: 0, hot: 0, error: 0,
+                    devices: { cold: [], optimal: [], hot: [], error: [] }
+                },
+                // Legacy fields for backward compatibility
                 cold: { devices: [], count: 0, range: '< 2°C' },
                 optimal: { devices: [], count: 0, range: '2-8°C' },
                 hot: { devices: [], count: 0, range: '> 8°C' },
@@ -1220,45 +1560,97 @@
                 if (data) {
                     // Check temp1
                     const temp1Class = getTemperatureClass(data.temp1, data.status_temp1);
-                    if (temp1Class !== 'error') {
-                        classification[temp1Class].devices.push(`${deviceId} (T1: ${parseFloat(data.temp1).toFixed(2)}°C)`);
-                        classification[temp1Class].count++;
+                    if (temp1Class === 'cold') {
+                        classification.temp1.cold++;
+                        classification.temp1.devices.cold.push(`${deviceId} (${parseFloat(data.temp1).toFixed(2)}°C)`);
+                        // Legacy
+                        classification.cold.devices.push(`${deviceId} (T1: ${parseFloat(data.temp1).toFixed(2)}°C)`);
+                        classification.cold.count++;
+                    } else if (temp1Class === 'optimal') {
+                        classification.temp1.optimal++;
+                        classification.temp1.devices.optimal.push(`${deviceId} (${parseFloat(data.temp1).toFixed(2)}°C)`);
+                        // Legacy
+                        classification.optimal.devices.push(`${deviceId} (T1: ${parseFloat(data.temp1).toFixed(2)}°C)`);
+                        classification.optimal.count++;
+                    } else if (temp1Class === 'hot') {
+                        classification.temp1.hot++;
+                        classification.temp1.devices.hot.push(`${deviceId} (${parseFloat(data.temp1).toFixed(2)}°C)`);
+                        // Legacy
+                        classification.hot.devices.push(`${deviceId} (T1: ${parseFloat(data.temp1).toFixed(2)}°C)`);
+                        classification.hot.count++;
                     } else {
+                        classification.temp1.error++;
+                        classification.temp1.devices.error.push(`${deviceId} (Error)`);
+                        // Legacy
                         classification.error.devices.push(`${deviceId} (T1: Error)`);
                         classification.error.count++;
                     }
                     
                     // Check temp2
                     const temp2Class = getTemperatureClass(data.temp2, data.status_temp2);
-                    if (temp2Class !== 'error') {
-                        classification[temp2Class].devices.push(`${deviceId} (T2: ${parseFloat(data.temp2).toFixed(2)}°C)`);
-                        classification[temp2Class].count++;
+                    if (temp2Class === 'cold') {
+                        classification.temp2.cold++;
+                        classification.temp2.devices.cold.push(`${deviceId} (${parseFloat(data.temp2).toFixed(2)}°C)`);
+                        // Legacy
+                        classification.cold.devices.push(`${deviceId} (T2: ${parseFloat(data.temp2).toFixed(2)}°C)`);
+                        classification.cold.count++;
+                    } else if (temp2Class === 'optimal') {
+                        classification.temp2.optimal++;
+                        classification.temp2.devices.optimal.push(`${deviceId} (${parseFloat(data.temp2).toFixed(2)}°C)`);
+                        // Legacy
+                        classification.optimal.devices.push(`${deviceId} (T2: ${parseFloat(data.temp2).toFixed(2)}°C)`);
+                        classification.optimal.count++;
+                    } else if (temp2Class === 'hot') {
+                        classification.temp2.hot++;
+                        classification.temp2.devices.hot.push(`${deviceId} (${parseFloat(data.temp2).toFixed(2)}°C)`);
+                        // Legacy
+                        classification.hot.devices.push(`${deviceId} (T2: ${parseFloat(data.temp2).toFixed(2)}°C)`);
+                        classification.hot.count++;
                     } else {
+                        classification.temp2.error++;
+                        classification.temp2.devices.error.push(`${deviceId} (Error)`);
+                        // Legacy
                         classification.error.devices.push(`${deviceId} (T2: Error)`);
                         classification.error.count++;
                     }
                 }
             });
             
-            console.log('=== TEMPERATURE CLASSIFICATION REPORT ===');
-            console.log(`🟦 Cold Temperatures ${classification.cold.range}: ${classification.cold.count} readings`);
-            if (classification.cold.count > 0) {
-                classification.cold.devices.forEach(device => console.log(`  ${device}`));
+            console.log('=== ENHANCED TEMPERATURE CLASSIFICATION REPORT ===');
+            console.log('TEMPERATURE 1 READINGS:');
+            console.log(`🟦 Cold (<2°C): ${classification.temp1.cold} readings`);
+            if (classification.temp1.cold > 0) {
+                classification.temp1.devices.cold.forEach(device => console.log(`  ${device}`));
+            }
+            console.log(`🟢 Optimal (2-8°C): ${classification.temp1.optimal} readings`);
+            if (classification.temp1.optimal > 0) {
+                classification.temp1.devices.optimal.forEach(device => console.log(`  ${device}`));
+            }
+            console.log(`� Hot (>8°C): ${classification.temp1.hot} readings`);
+            if (classification.temp1.hot > 0) {
+                classification.temp1.devices.hot.forEach(device => console.log(`  ${device}`));
+            }
+            console.log(`❌ Errors: ${classification.temp1.error} readings`);
+            if (classification.temp1.error > 0) {
+                classification.temp1.devices.error.forEach(device => console.log(`  ${device}`));
             }
             
-            console.log(`🟢 Optimal Temperatures ${classification.optimal.range}: ${classification.optimal.count} readings`);
-            if (classification.optimal.count > 0) {
-                classification.optimal.devices.forEach(device => console.log(`  ${device}`));
+            console.log('\nTEMPERATURE 2 READINGS:');
+            console.log(`� Cold (<2°C): ${classification.temp2.cold} readings`);
+            if (classification.temp2.cold > 0) {
+                classification.temp2.devices.cold.forEach(device => console.log(`  ${device}`));
             }
-            
-            console.log(`🔴 Hot Temperatures ${classification.hot.range}: ${classification.hot.count} readings`);
-            if (classification.hot.count > 0) {
-                classification.hot.devices.forEach(device => console.log(`  ${device}`));
+            console.log(`🟢 Optimal (2-8°C): ${classification.temp2.optimal} readings`);
+            if (classification.temp2.optimal > 0) {
+                classification.temp2.devices.optimal.forEach(device => console.log(`  ${device}`));
             }
-            
-            console.log(`❌ Error Readings: ${classification.error.count} readings`);
-            if (classification.error.count > 0) {
-                classification.error.devices.forEach(device => console.log(`  ${device}`));
+            console.log(`🔴 Hot (>8°C): ${classification.temp2.hot} readings`);
+            if (classification.temp2.hot > 0) {
+                classification.temp2.devices.hot.forEach(device => console.log(`  ${device}`));
+            }
+            console.log(`❌ Errors: ${classification.temp2.error} readings`);
+            if (classification.temp2.error > 0) {
+                classification.temp2.devices.error.forEach(device => console.log(`  ${device}`));
             }
             
             console.log('==========================================');
