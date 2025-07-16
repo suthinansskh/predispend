@@ -158,6 +158,18 @@
             color: #27ae60;
         }
 
+        .temp-value.cold {
+            color: #3498db;
+        }
+
+        .temp-value.optimal {
+            color: #27ae60;
+        }
+
+        .temp-value.hot {
+            color: #e74c3c;
+        }
+
         .ip-address {
             color: #6c757d;
             font-size: 0.9rem;
@@ -251,6 +263,30 @@
                 </div>
                 <div class="col-md-2">
                     <div class="stat-item">
+                        <button class="btn btn-danger btn-sm" onclick="generatePDFReport()" title="Export Last Report to PDF">
+                            <i class="fas fa-file-pdf me-2"></i>Export PDF
+                        </button>
+                        <div class="stat-label mt-1">
+                            <small class="text-info">
+                                <i class="fas fa-download me-1"></i>Report
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="stat-item">
+                        <button class="btn btn-warning btn-sm" onclick="checkFirebaseConnection()" title="Debug Firebase Connection">
+                            <i class="fas fa-bug me-2"></i>Debug FB
+                        </button>
+                        <div class="stat-label mt-1">
+                            <small class="text-warning">
+                                <i class="fas fa-database me-1"></i>Firebase
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="stat-item">
                         <button class="btn btn-success btn-sm" onclick="validateDeviceCounters()" title="Validate Device Counters">
                             <i class="fas fa-check-circle me-2"></i>Check Count
                         </button>
@@ -290,6 +326,8 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
         import { getDatabase, ref, onValue, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
@@ -310,6 +348,11 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
+        // Add Firebase connection monitoring
+        console.log('Firebase initialized successfully');
+        console.log('Database URL:', firebaseConfig.databaseURL);
+        console.log('Connecting to Firebase...');
+
         // Define the specific devices to monitor (will be populated from database)
         let deviceList = [];
 
@@ -318,16 +361,21 @@
         let onlineCount = 0;
         let offlineCount = 0;
         
-        // Data optimization settings
+        // Data optimization settings (enhanced for latest data only)
         const DATA_OPTIMIZATION = {
-            maxLogEntries: 50,        // Keep only last 50 entries per device
-            cleanupInterval: 300000,  // Clean old data every 5 minutes
-            onlineThreshold: 300,     // 5 minutes in seconds
-            maxDataAge: 86400,        // 24 hours in seconds
-            batchSize: 10,            // Process devices in batches
+            maxLogEntries: 20,        // Reduced from 50 to 20 - Keep only last 20 entries per device
+            cleanupInterval: 600000,  // Increased to 10 minutes - Less frequent cleanup
+            onlineThreshold: 300,     // 5 minutes in seconds - **CRITICAL: This determines online/offline status**
+            maxDataAge: 43200,        // Reduced from 24 hours to 12 hours - Keep only recent data
+            batchSize: 8,             // Reduced from 10 to 8 - Smaller batches
             useCompression: true,     // Enable data compression
-            cacheTimeout: 60000       // Cache timeout 1 minute
+            cacheTimeout: 120000,     // Increased to 2 minutes - Longer cache duration
+            maxCacheSize: 100,        // Maximum cache entries
+            useLatestDataOnly: true,  // Flag to ensure only latest data is used
+            minQueryInterval: 30000   // Minimum 30 seconds between queries
         };
+
+        console.log('⚙️  Current online threshold:', DATA_OPTIMIZATION.onlineThreshold, 'seconds (', Math.floor(DATA_OPTIMIZATION.onlineThreshold / 60), 'minutes )');
 
         // Cache for reducing duplicate queries
         const dataCache = new Map();
@@ -335,7 +383,276 @@
         // Listener references for cleanup
         const deviceListeners = new Map();
 
-        // Function to create device card HTML
+        // PDF generation functions
+        let lastReportData = null;
+        let lastReportGenerated = null;
+
+        async function generatePDFReport() {
+            try {
+                // Show loading indicator
+                const loadingToast = showToast('Generating PDF report...', 'info');
+                
+                // Use last report data if available, otherwise generate new report
+                if (!lastReportData) {
+                    showToast('No report data available. Please run "Query Temps" first.', 'warning');
+                    return;
+                }
+
+                // Generate PDF with jsPDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                // Add title
+                doc.setFontSize(20);
+                doc.text('ESP8266 Temperature Monitoring Report', 20, 20);
+                
+                // Add generation timestamp
+                doc.setFontSize(12);
+                doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 35);
+                
+                if (lastReportGenerated) {
+                    doc.text(`Query Time: ${lastReportGenerated}`, 20, 45);
+                }
+
+                // Add summary statistics
+                doc.setFontSize(14);
+                doc.text('Summary Statistics:', 20, 60);
+                doc.setFontSize(10);
+                
+                let yPos = 75;
+                const stats = getReportStatistics();
+                doc.text(`Total Devices: ${stats.totalDevices}`, 25, yPos);
+                yPos += 10;
+                doc.text(`Online Devices: ${stats.onlineDevices}`, 25, yPos);
+                yPos += 10;
+                doc.text(`Offline Devices: ${stats.offlineDevices}`, 25, yPos);
+                yPos += 10;
+                doc.text(`Critical Offline: ${stats.criticalOffline}`, 25, yPos);
+                yPos += 10;
+                doc.text(`Average Temperature: ${stats.avgTemp}°C`, 25, yPos);
+                yPos += 10;
+                doc.text(`Temperature Range: ${stats.tempRange.min}°C - ${stats.tempRange.max}°C`, 25, yPos);
+                yPos += 20;
+
+                // Add temperature classification report
+                doc.setFontSize(14);
+                doc.text('Temperature Classification:', 20, yPos);
+                yPos += 10;
+                doc.setFontSize(10);
+                
+                const tempClassification = getTemperatureClassificationReport();
+                doc.text(`Cold Devices (<2°C): ${tempClassification.cold.count}`, 25, yPos);
+                yPos += 10;
+                doc.text(`Optimal Devices (2-8°C): ${tempClassification.optimal.count}`, 25, yPos);
+                yPos += 10;
+                doc.text(`Hot Devices (>8°C): ${tempClassification.hot.count}`, 25, yPos);
+                yPos += 20;
+
+                // Add device details
+                doc.setFontSize(14);
+                doc.text('Device Details:', 20, yPos);
+                yPos += 10;
+                doc.setFontSize(8);
+
+                // Table headers
+                doc.text('Device ID', 25, yPos);
+                doc.text('Status', 70, yPos);
+                doc.text('Temperature', 100, yPos);
+                doc.text('Last Update', 130, yPos);
+                doc.text('Classification', 170, yPos);
+                yPos += 5;
+
+                // Add line separator
+                doc.line(20, yPos, 190, yPos);
+                yPos += 5;
+
+                // Add device data
+                lastReportData.forEach(device => {
+                    if (yPos > 270) { // Page break
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    doc.text(device.deviceId, 25, yPos);
+                    doc.text(device.status, 70, yPos);
+                    doc.text(device.temperature ? `${device.temperature}°C` : 'N/A', 100, yPos);
+                    doc.text(device.lastUpdate || 'Never', 130, yPos);
+                    doc.text(device.classification || 'Unknown', 170, yPos);
+                    yPos += 8;
+                });
+
+                // Add footer
+                const pageCount = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.text(`Page ${i} of ${pageCount}`, 170, 285);
+                    doc.text('Generated by ESP8266 Temperature Monitor', 20, 285);
+                }
+
+                // Generate filename with timestamp
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                const filename = `temperature-report-${timestamp}.pdf`;
+
+                // Save PDF
+                doc.save(filename);
+
+                // Hide loading and show success
+                showToast(`PDF report exported successfully: ${filename}`, 'success');
+
+            } catch (error) {
+                console.error('PDF generation error:', error);
+                showToast('Error generating PDF report. Please try again.', 'error');
+            }
+        }
+
+        function getReportStatistics() {
+            if (!lastReportData) return {};
+            
+            const stats = {
+                totalDevices: lastReportData.length,
+                onlineDevices: 0,
+                offlineDevices: 0,
+                criticalOffline: 0,
+                avgTemp: 0,
+                tempRange: { min: Infinity, max: -Infinity },
+                validTemps: []
+            };
+
+            lastReportData.forEach(device => {
+                if (device.status === 'online') {
+                    stats.onlineDevices++;
+                } else {
+                    stats.offlineDevices++;
+                    if (device.criticalOffline) {
+                        stats.criticalOffline++;
+                    }
+                }
+
+                if (device.temperature !== null && device.temperature !== undefined) {
+                    const temp = parseFloat(device.temperature);
+                    if (!isNaN(temp)) {
+                        stats.validTemps.push(temp);
+                        stats.tempRange.min = Math.min(stats.tempRange.min, temp);
+                        stats.tempRange.max = Math.max(stats.tempRange.max, temp);
+                    }
+                }
+            });
+
+            if (stats.validTemps.length > 0) {
+                stats.avgTemp = (stats.validTemps.reduce((a, b) => a + b, 0) / stats.validTemps.length).toFixed(2);
+            } else {
+                stats.avgTemp = 'N/A';
+                stats.tempRange.min = 'N/A';
+                stats.tempRange.max = 'N/A';
+            }
+
+            return stats;
+        }
+
+        // Debug function to check Firebase connectivity
+        function checkFirebaseConnection() {
+            console.log('=== FIREBASE CONNECTION CHECK ===');
+            console.log('Firebase Config:', firebaseConfig);
+            console.log('Database URL:', firebaseConfig.databaseURL);
+            
+            // Test basic connectivity
+            const testRef = ref(database, '.info/connected');
+            onValue(testRef, (snapshot) => {
+                const connected = snapshot.val();
+                console.log('Firebase connected:', connected);
+                
+                if (connected) {
+                    console.log('✅ Firebase connection is active');
+                    
+                    // Test reading from devices path
+                    const devicesRef = ref(database, 'devices');
+                    onValue(devicesRef, (snapshot) => {
+                        const data = snapshot.val();
+                        console.log('Devices data structure:', data);
+                        
+                        if (data) {
+                            console.log('✅ Can read devices data');
+                            console.log('Available devices:', Object.keys(data));
+                            
+                            // Check each device's log structure
+                            Object.keys(data).forEach(deviceId => {
+                                const deviceData = data[deviceId];
+                                console.log(`Device ${deviceId}:`, deviceData);
+                                
+                                if (deviceData.log) {
+                                    const logEntries = Object.values(deviceData.log);
+                                    console.log(`  Log entries count: ${logEntries.length}`);
+                                    
+                                    // Find latest log entry
+                                    let latest = null;
+                                    let latestTimestamp = 0;
+                                    
+                                    logEntries.forEach(entry => {
+                                        if (entry.timestamp && parseInt(entry.timestamp) > latestTimestamp) {
+                                            latestTimestamp = parseInt(entry.timestamp);
+                                            latest = entry;
+                                        }
+                                    });
+                                    
+                                    if (latest) {
+                                        const age = Math.floor(Date.now() / 1000) - parseInt(latest.timestamp);
+                                        console.log(`  Latest entry: ${new Date(latest.timestamp * 1000).toLocaleString()}`);
+                                        console.log(`  Age: ${age} seconds (${Math.floor(age/60)}m ${age%60}s)`);
+                                        console.log(`  Temperature 1: ${latest.temp1}°C`);
+                                        console.log(`  Temperature 2: ${latest.temp2}°C`);
+                                        console.log(`  Status: ${age < DATA_OPTIMIZATION.onlineThreshold ? 'ONLINE' : 'OFFLINE'}`);
+                                    }
+                                } else {
+                                    console.log(`  ❌ No log data found for ${deviceId}`);
+                                }
+                            });
+                        } else {
+                            console.log('❌ No devices data found');
+                        }
+                    }, { once: true });
+                } else {
+                    console.log('❌ Firebase connection failed');
+                }
+            }, { once: true });
+            
+            console.log('===================================');
+        }
+        function showToast(message, type = 'info') {
+            // Create toast container if not exists
+            let toastContainer = document.getElementById('toast-container');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.id = 'toast-container';
+                toastContainer.style.position = 'fixed';
+                toastContainer.style.top = '20px';
+                toastContainer.style.right = '20px';
+                toastContainer.style.zIndex = '9999';
+                document.body.appendChild(toastContainer);
+            }
+
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show`;
+            toast.style.marginBottom = '10px';
+            toast.style.minWidth = '300px';
+            toast.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+            // Add to container
+            toastContainer.appendChild(toast);
+
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 5000);
+
+            return toast;
+        }
         function createDeviceCard(deviceId) {
             const zone = deviceId.split('-')[0]; // Extract zone from device ID
             return `
@@ -393,9 +710,22 @@
 
         // Function to determine if device is online (data received within last 5 minutes)
         function isDeviceOnline(timestamp) {
+            if (!timestamp) {
+                console.warn('No timestamp provided for device online check');
+                return false;
+            }
+            
             const now = Math.floor(Date.now() / 1000);
             const deviceTime = parseInt(timestamp);
-            return (now - deviceTime) < DATA_OPTIMIZATION.onlineThreshold;
+            const timeDifference = now - deviceTime;
+            
+            // Debug logging
+            console.log(`Device online check: Current time: ${now}, Device time: ${deviceTime}, Difference: ${timeDifference}s, Threshold: ${DATA_OPTIMIZATION.onlineThreshold}s`);
+            
+            const isOnline = timeDifference < DATA_OPTIMIZATION.onlineThreshold;
+            console.log(`Device is ${isOnline ? 'ONLINE' : 'OFFLINE'} (${Math.floor(timeDifference / 60)}m ${timeDifference % 60}s ago)`);
+            
+            return isOnline;
         }
 
         // Function to determine if device is critically offline (over 30 minutes)
@@ -416,13 +746,20 @@
             return Math.floor(durationSeconds / 60); // Return minutes
         }
 
-        // Function to check if data is fresh (within cache timeout)
+        // Enhanced cache management for latest data only
         function isDataFresh(cacheKey) {
             const cached = dataCache.get(cacheKey);
             if (!cached) return false;
             
             const now = Date.now();
-            return (now - cached.timestamp) < DATA_OPTIMIZATION.cacheTimeout;
+            const isStillFresh = (now - cached.timestamp) < DATA_OPTIMIZATION.cacheTimeout;
+            
+            // Log cache usage for monitoring
+            if (isStillFresh) {
+                console.log(`Cache hit for ${cacheKey} (${Math.round((now - cached.timestamp) / 1000)}s old)`);
+            }
+            
+            return isStillFresh;
         }
 
         // Function to compress data object (remove unnecessary fields)
@@ -455,20 +792,50 @@
             };
         }
 
-        // Function to format temperature value
+        // Function to format temperature value with 2 decimal places
         function formatTemperature(temp, status) {
             if (status === "SENSOR_ERROR" || temp === -127) {
                 return "Error";
             }
-            return `${temp}°C`;
+            // Format temperature to 2 decimal places
+            return `${parseFloat(temp).toFixed(2)}°C`;
         }
 
-        // Function to get temperature CSS class
+        // Function to get temperature CSS class based on temperature ranges
         function getTemperatureClass(temp, status) {
             if (status === "SENSOR_ERROR" || temp === -127) {
                 return "error";
             }
-            return "normal";
+            
+            const temperature = parseFloat(temp);
+            
+            // Temperature classification:
+            // Cold: < 2°C (blue)
+            // Optimal: 2-8°C (green)
+            // Hot: > 8°C (red)
+            
+            if (temperature < 2) {
+                return "cold";
+            } else if (temperature >= 2 && temperature <= 8) {
+                return "optimal";
+            } else {
+                return "hot";
+            }
+        }
+
+        // Helper function to get temperature class from value (for averages)
+        function getTemperatureClassFromValue(value) {
+            if (value === 'N/A') return 'N/A';
+            
+            const temperature = parseFloat(value);
+            
+            if (temperature < 2) {
+                return "cold";
+            } else if (temperature >= 2 && temperature <= 8) {
+                return "optimal";
+            } else {
+                return "hot";
+            }
         }
 
         // Function to update device card
@@ -702,10 +1069,12 @@
                         deviceId: deviceId,
                         zone: data.zone || deviceId.split('-')[0],
                         status: isOnline ? 'ONLINE' : (isCriticallyOffline ? 'CRITICAL_OFFLINE' : 'OFFLINE'),
-                        temp1: data.temp1 === -127 ? 'ERROR' : `${data.temp1}°C`,
+                        temp1: data.temp1 === -127 ? 'ERROR' : `${parseFloat(data.temp1).toFixed(2)}°C`,
                         temp1Status: temp1Status,
-                        temp2: data.temp2 === -127 ? 'ERROR' : `${data.temp2}°C`,
+                        temp1Class: getTemperatureClass(data.temp1, data.status_temp1),
+                        temp2: data.temp2 === -127 ? 'ERROR' : `${parseFloat(data.temp2).toFixed(2)}°C`,
                         temp2Status: temp2Status,
+                        temp2Class: getTemperatureClass(data.temp2, data.status_temp2),
                         ip: data.ip || 'N/A',
                         lastUpdate: data.datetime || 'N/A',
                         timestamp: data.timestamp,
@@ -720,8 +1089,8 @@
                     if (!isOnline && offlineDuration !== null) {
                         console.log(`  Offline Duration: ${offlineDuration} minutes`);
                     }
-                    console.log(`  Temperature 1: ${deviceReport.temp1} (${temp1Status})`);
-                    console.log(`  Temperature 2: ${deviceReport.temp2} (${temp2Status})`);
+                    console.log(`  Temperature 1: ${deviceReport.temp1} (${temp1Status}) [${deviceReport.temp1Class}]`);
+                    console.log(`  Temperature 2: ${deviceReport.temp2} (${temp2Status}) [${deviceReport.temp2Class}]`);
                     console.log(`  IP Address: ${deviceReport.ip}`);
                     console.log(`  Last Update: ${deviceReport.lastUpdate}`);
                     console.log('  ---');
@@ -748,6 +1117,18 @@
             console.log(`Online Devices: ${onlineCount}`);
             console.log(`Offline Devices: ${offlineCount}`);
             console.log('=== END OF TEMPERATURE REPORT ===');
+            
+            // Store report data for PDF export
+            lastReportData = temperatureReport.map(device => ({
+                deviceId: device.deviceId,
+                zone: device.zone,
+                status: device.status.toLowerCase(),
+                temperature: device.temp1 !== 'ERROR' ? parseFloat(device.temp1) : null,
+                lastUpdate: device.lastUpdate,
+                criticalOffline: device.status === 'CRITICAL_OFFLINE',
+                classification: device.temp1Class || 'unknown'
+            }));
+            lastReportGenerated = queryTimeString;
             
             return temperatureReport;
         }
@@ -782,14 +1163,14 @@
                         zoneSummary[zone].offlineCount++;
                     }
                     
-                    // Calculate average temperatures (excluding errors)
+                    // Calculate average temperatures (excluding errors) with 2 decimal places
                     if (data.temp1 !== -127 && data.status_temp1 !== "SENSOR_ERROR") {
-                        zoneSummary[zone].avgTemp1 += data.temp1;
+                        zoneSummary[zone].avgTemp1 += parseFloat(data.temp1);
                         zoneSummary[zone].validTemp1Count++;
                     }
                     
                     if (data.temp2 !== -127 && data.status_temp2 !== "SENSOR_ERROR") {
-                        zoneSummary[zone].avgTemp2 += data.temp2;
+                        zoneSummary[zone].avgTemp2 += parseFloat(data.temp2);
                         zoneSummary[zone].validTemp2Count++;
                     }
                 } else {
@@ -797,16 +1178,16 @@
                 }
             });
             
-            // Calculate averages
+            // Calculate averages with 2 decimal places
             Object.keys(zoneSummary).forEach(zone => {
                 if (zoneSummary[zone].validTemp1Count > 0) {
-                    zoneSummary[zone].avgTemp1 = (zoneSummary[zone].avgTemp1 / zoneSummary[zone].validTemp1Count).toFixed(1);
+                    zoneSummary[zone].avgTemp1 = (zoneSummary[zone].avgTemp1 / zoneSummary[zone].validTemp1Count).toFixed(2);
                 } else {
                     zoneSummary[zone].avgTemp1 = 'N/A';
                 }
                 
                 if (zoneSummary[zone].validTemp2Count > 0) {
-                    zoneSummary[zone].avgTemp2 = (zoneSummary[zone].avgTemp2 / zoneSummary[zone].validTemp2Count).toFixed(1);
+                    zoneSummary[zone].avgTemp2 = (zoneSummary[zone].avgTemp2 / zoneSummary[zone].validTemp2Count).toFixed(2);
                 } else {
                     zoneSummary[zone].avgTemp2 = 'N/A';
                 }
@@ -817,14 +1198,73 @@
                 console.log(`Zone: ${zone}`);
                 console.log(`  Devices: ${summary.devices.join(', ')}`);
                 console.log(`  Online: ${summary.onlineCount}, Offline: ${summary.offlineCount}`);
-                console.log(`  Average Temp1: ${summary.avgTemp1}°C`);
-                console.log(`  Average Temp2: ${summary.avgTemp2}°C`);
+                console.log(`  Average Temp1: ${summary.avgTemp1}°C [${getTemperatureClassFromValue(summary.avgTemp1)}]`);
+                console.log(`  Average Temp2: ${summary.avgTemp2}°C [${getTemperatureClassFromValue(summary.avgTemp2)}]`);
                 console.log('  ---');
             });
             
             return zoneSummary;
         }
 
+        // Function to get temperature classification report
+        function getTemperatureClassificationReport() {
+            const classification = {
+                cold: { devices: [], count: 0, range: '< 2°C' },
+                optimal: { devices: [], count: 0, range: '2-8°C' },
+                hot: { devices: [], count: 0, range: '> 8°C' },
+                error: { devices: [], count: 0, range: 'Error' }
+            };
+            
+            deviceList.forEach(deviceId => {
+                const data = deviceData[deviceId];
+                if (data) {
+                    // Check temp1
+                    const temp1Class = getTemperatureClass(data.temp1, data.status_temp1);
+                    if (temp1Class !== 'error') {
+                        classification[temp1Class].devices.push(`${deviceId} (T1: ${parseFloat(data.temp1).toFixed(2)}°C)`);
+                        classification[temp1Class].count++;
+                    } else {
+                        classification.error.devices.push(`${deviceId} (T1: Error)`);
+                        classification.error.count++;
+                    }
+                    
+                    // Check temp2
+                    const temp2Class = getTemperatureClass(data.temp2, data.status_temp2);
+                    if (temp2Class !== 'error') {
+                        classification[temp2Class].devices.push(`${deviceId} (T2: ${parseFloat(data.temp2).toFixed(2)}°C)`);
+                        classification[temp2Class].count++;
+                    } else {
+                        classification.error.devices.push(`${deviceId} (T2: Error)`);
+                        classification.error.count++;
+                    }
+                }
+            });
+            
+            console.log('=== TEMPERATURE CLASSIFICATION REPORT ===');
+            console.log(`🟦 Cold Temperatures ${classification.cold.range}: ${classification.cold.count} readings`);
+            if (classification.cold.count > 0) {
+                classification.cold.devices.forEach(device => console.log(`  ${device}`));
+            }
+            
+            console.log(`🟢 Optimal Temperatures ${classification.optimal.range}: ${classification.optimal.count} readings`);
+            if (classification.optimal.count > 0) {
+                classification.optimal.devices.forEach(device => console.log(`  ${device}`));
+            }
+            
+            console.log(`🔴 Hot Temperatures ${classification.hot.range}: ${classification.hot.count} readings`);
+            if (classification.hot.count > 0) {
+                classification.hot.devices.forEach(device => console.log(`  ${device}`));
+            }
+            
+            console.log(`❌ Error Readings: ${classification.error.count} readings`);
+            if (classification.error.count > 0) {
+                classification.error.devices.forEach(device => console.log(`  ${device}`));
+            }
+            
+            console.log('==========================================');
+            
+            return classification;
+        }
         // Function to get critically offline devices (>30 minutes)
         function getCriticalOfflineDevices() {
             const criticalDevices = [];
@@ -877,24 +1317,36 @@
             return criticalDevices;
         }
 
-        // Function to cleanup old cache entries
+        // Enhanced cache cleanup to prevent memory bloat
         function cleanupCache() {
             const now = Date.now();
             const keysToDelete = [];
             
+            // Check cache size limit
+            if (dataCache.size > DATA_OPTIMIZATION.maxCacheSize) {
+                // Sort by timestamp and remove oldest entries
+                const sortedEntries = Array.from(dataCache.entries())
+                    .sort((a, b) => a[1].timestamp - b[1].timestamp);
+                
+                const excessEntries = sortedEntries.slice(0, dataCache.size - DATA_OPTIMIZATION.maxCacheSize);
+                excessEntries.forEach(([key]) => keysToDelete.push(key));
+            }
+            
+            // Remove expired entries
             dataCache.forEach((value, key) => {
                 const age = now - value.timestamp;
-                if (age > DATA_OPTIMIZATION.cacheTimeout * 2) { // Double the timeout for cleanup
+                if (age > DATA_OPTIMIZATION.cacheTimeout * 3) { // 3x timeout for cleanup
                     keysToDelete.push(key);
                 }
             });
             
+            // Perform cleanup
             keysToDelete.forEach(key => {
                 dataCache.delete(key);
             });
             
             if (keysToDelete.length > 0) {
-                console.log(`Cleaned up ${keysToDelete.length} cache entries`);
+                console.log(`Cleaned up ${keysToDelete.length} cache entries (cache size: ${dataCache.size})`);
             }
         }
 
@@ -909,23 +1361,82 @@
             deviceListeners.clear();
         }
 
-        // Function to get data usage statistics
+        // Enhanced data usage statistics with latest data monitoring
         function getDataUsageStats() {
             const stats = {
                 cacheSize: dataCache.size,
+                maxCacheSize: DATA_OPTIMIZATION.maxCacheSize,
                 activeListeners: deviceListeners.size,
                 deviceDataSize: Object.keys(deviceData).length,
-                optimizationSettings: DATA_OPTIMIZATION
+                optimizationSettings: DATA_OPTIMIZATION,
+                cacheHitRate: calculateCacheHitRate(),
+                averageDataAge: calculateAverageDataAge(),
+                lastDataUpdate: getLastDataUpdate()
             };
             
-            console.log('=== DATA USAGE STATISTICS ===');
-            console.log('Cache entries:', stats.cacheSize);
+            console.log('=== ENHANCED DATA USAGE STATISTICS ===');
+            console.log('Cache entries:', stats.cacheSize, '/', stats.maxCacheSize);
             console.log('Active listeners:', stats.activeListeners);
             console.log('Device data entries:', stats.deviceDataSize);
+            console.log('Cache hit rate:', stats.cacheHitRate);
+            console.log('Average data age:', stats.averageDataAge);
+            console.log('Last data update:', stats.lastDataUpdate);
+            console.log('Latest data only mode:', DATA_OPTIMIZATION.useLatestDataOnly);
             console.log('Optimization settings:', stats.optimizationSettings);
-            console.log('==============================');
+            console.log('======================================');
             
             return stats;
+        }
+
+        // Calculate cache hit rate for monitoring
+        function calculateCacheHitRate() {
+            // This is a simplified calculation
+            const cacheEntries = dataCache.size;
+            const totalDevices = deviceList.length;
+            
+            if (totalDevices === 0) return '0%';
+            
+            const hitRate = Math.round((cacheEntries / (totalDevices * 2)) * 100); // *2 for device + monitoring cache
+            return `${Math.min(hitRate, 100)}%`;
+        }
+
+        // Calculate average age of cached data
+        function calculateAverageDataAge() {
+            if (dataCache.size === 0) return '0s';
+            
+            const now = Date.now();
+            let totalAge = 0;
+            
+            dataCache.forEach(value => {
+                totalAge += (now - value.timestamp);
+            });
+            
+            const averageAge = Math.round((totalAge / dataCache.size) / 1000);
+            return `${averageAge}s`;
+        }
+
+        // Get timestamp of last data update
+        function getLastDataUpdate() {
+            let lastUpdate = 0;
+            
+            Object.values(deviceData).forEach(data => {
+                if (data.timestamp && parseInt(data.timestamp) > lastUpdate) {
+                    lastUpdate = parseInt(data.timestamp);
+                }
+            });
+            
+            if (lastUpdate === 0) return 'Never';
+            
+            const now = Math.floor(Date.now() / 1000);
+            const ageInSeconds = now - lastUpdate;
+            
+            if (ageInSeconds < 60) {
+                return `${ageInSeconds}s ago`;
+            } else if (ageInSeconds < 3600) {
+                return `${Math.floor(ageInSeconds / 60)}m ago`;
+            } else {
+                return `${Math.floor(ageInSeconds / 3600)}h ago`;
+            }
         }
 
         // Handle page unload to cleanup connections
@@ -946,12 +1457,16 @@
                     return;
                 }
                 
+                console.log('Fetching devices from Firebase...');
                 const devicesRef = ref(database, 'devices');
                 
                 onValue(devicesRef, (snapshot) => {
                     const data = snapshot.val();
+                    console.log('Raw Firebase data:', data);
+                    
                     if (data) {
                         const devices = Object.keys(data);
+                        console.log('Device keys found:', devices);
                         
                         // Cache the result
                         dataCache.set(cacheKey, {
@@ -959,24 +1474,34 @@
                             timestamp: Date.now()
                         });
                         
-                        console.log('Found devices in database:', devices);
+                        console.log('Successfully found devices in database:', devices);
                         resolve(devices);
                     } else {
-                        console.log('No devices found in database');
+                        console.error('No devices found in Firebase database');
+                        console.log('Database path checked: devices/');
                         resolve([]);
                     }
                 }, (error) => {
-                    console.error('Error fetching devices:', error);
+                    console.error('Firebase error fetching devices:', error);
+                    console.error('Error code:', error.code);
+                    console.error('Error message:', error.message);
                     reject(error);
                 }, { once: true });
             });
         }
 
-        // Optimized function to clean old log entries
+        // Optimized function to clean old log entries (using limited query)
         function cleanOldLogEntries(deviceId) {
             const deviceLogRef = ref(database, `devices/${deviceId}/log`);
             
-            onValue(deviceLogRef, (snapshot) => {
+            // Use a query to get only recent entries for checking
+            const recentQuery = query(
+                deviceLogRef,
+                orderByChild('timestamp'),
+                limitToLast(DATA_OPTIMIZATION.maxLogEntries + 20) // Get slightly more than needed
+            );
+            
+            onValue(recentQuery, (snapshot) => {
                 const logData = snapshot.val();
                 if (logData) {
                     const entries = Object.entries(logData);
@@ -984,17 +1509,17 @@
                     // Sort by timestamp (newest first)
                     entries.sort((a, b) => parseInt(b[1].timestamp) - parseInt(a[1].timestamp));
                     
-                    // Keep only the latest entries
+                    // Check if we need to clean up old entries
                     if (entries.length > DATA_OPTIMIZATION.maxLogEntries) {
                         const entriesToDelete = entries.slice(DATA_OPTIMIZATION.maxLogEntries);
-                        console.log(`Cleaning ${entriesToDelete.length} old entries for ${deviceId}`);
+                        console.log(`Found ${entriesToDelete.length} old entries for ${deviceId} (cleanup needed)`);
                         
                         // Note: In a real implementation, you would delete these entries
                         // For now, we'll just log the cleanup action
                         // This requires Firebase Admin SDK or Cloud Functions
                     }
                     
-                    // Remove very old entries (older than maxDataAge)
+                    // Check for very old entries (older than maxDataAge)
                     const now = Math.floor(Date.now() / 1000);
                     const oldEntries = entries.filter(([key, data]) => {
                         const age = now - parseInt(data.timestamp);
@@ -1002,20 +1527,36 @@
                     });
                     
                     if (oldEntries.length > 0) {
-                        console.log(`Found ${oldEntries.length} entries older than 24 hours for ${deviceId}`);
+                        console.log(`Found ${oldEntries.length} entries older than 24 hours for ${deviceId} (cleanup needed)`);
                     }
                 }
             }, { once: true });
         }
 
-        // Function to check for new devices periodically
+        // Function to check for new devices periodically (optimized)
         function monitorDeviceChanges() {
             const devicesRef = ref(database, 'devices');
+            
+            // Use cache to reduce monitoring frequency
+            const cacheKey = 'device_monitoring';
             
             onValue(devicesRef, async (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
                     const currentDevices = Object.keys(data);
+                    
+                    // Check cache to avoid unnecessary processing
+                    const cached = dataCache.get(cacheKey);
+                    if (cached && JSON.stringify(cached.data) === JSON.stringify(currentDevices)) {
+                        return; // No change, skip processing
+                    }
+                    
+                    // Cache current device list
+                    dataCache.set(cacheKey, {
+                        data: currentDevices,
+                        timestamp: Date.now()
+                    });
+                    
                     const newDevices = currentDevices.filter(device => !deviceList.includes(device));
                     const removedDevices = deviceList.filter(device => !currentDevices.includes(device));
                     
@@ -1036,10 +1577,16 @@
                             listenToDevice(deviceId);
                         });
                         
-                        // Clean up removed devices from deviceData
+                        // Clean up removed devices from deviceData and listeners
                         removedDevices.forEach(deviceId => {
                             if (deviceData[deviceId]) {
                                 delete deviceData[deviceId];
+                            }
+                            // Clean up listener
+                            if (deviceListeners.has(deviceId)) {
+                                const unsubscribe = deviceListeners.get(deviceId);
+                                if (unsubscribe) unsubscribe();
+                                deviceListeners.delete(deviceId);
                             }
                         });
                         
@@ -1072,15 +1619,17 @@
             // Use orderByChild and limitToLast to get only the latest entry
             const deviceLogRef = ref(database, `devices/${deviceId}/log`);
             
-            // Create a query to get only the latest entries
+            // Create a query to get only the latest entries (reduced from 5 to 3)
             const latestQuery = query(
                 deviceLogRef,
                 orderByChild('timestamp'),
-                limitToLast(5) // Get only last 5 entries to reduce data transfer
+                limitToLast(3) // Reduced from 5 to 3 - Even more minimal data transfer
             );
             
             const unsubscribe = onValue(latestQuery, (snapshot) => {
                 const logData = snapshot.val();
+                console.log(`Firebase data received for ${deviceId}:`, logData);
+                
                 if (logData) {
                     // Find the latest entry by timestamp
                     let latestData = null;
@@ -1094,9 +1643,13 @@
                     });
 
                     if (latestData) {
+                        console.log(`Latest data for ${deviceId}:`, latestData);
+                        console.log(`Device ${deviceId} timestamp: ${latestData.timestamp} (${new Date(latestData.timestamp * 1000).toLocaleString()})`);
+                        
                         // Check cache to avoid unnecessary updates
                         const cached = dataCache.get(cacheKey);
                         if (cached && cached.data.timestamp === latestData.timestamp) {
+                            console.log(`Data unchanged for ${deviceId}, skipping update`);
                             return; // No change, skip update
                         }
                         
@@ -1111,20 +1664,26 @@
 
                         const wasOnline = deviceData[deviceId] ? isDeviceOnline(deviceData[deviceId].timestamp) : false;
                         const isOnline = isDeviceOnline(latestData.timestamp);
+                        
+                        console.log(`Device ${deviceId} status change: ${wasOnline ? 'ONLINE' : 'OFFLINE'} -> ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
 
                         // Update online/offline counts
                         if (wasOnline && !isOnline) {
                             onlineCount--;
                             offlineCount++;
+                            console.log(`Device ${deviceId} went offline. Online: ${onlineCount}, Offline: ${offlineCount}`);
                         } else if (!wasOnline && isOnline) {
                             onlineCount++;
                             offlineCount--;
+                            console.log(`Device ${deviceId} came online. Online: ${onlineCount}, Offline: ${offlineCount}`);
                         } else if (!deviceData[deviceId]) {
                             // First time loading this device
                             if (isOnline) {
                                 onlineCount++;
+                                console.log(`New device ${deviceId} is online. Online: ${onlineCount}`);
                             } else {
                                 offlineCount++;
+                                console.log(`New device ${deviceId} is offline. Offline: ${offlineCount}`);
                             }
                         }
 
@@ -1141,7 +1700,7 @@
                         }
                     }
                 } else {
-                    console.log(`No log data found for ${deviceId}`);
+                    console.warn(`No log data found for ${deviceId}`);
                     if (deviceData[deviceId] && isDeviceOnline(deviceData[deviceId].timestamp)) {
                         onlineCount--;
                         offlineCount++;
@@ -1211,23 +1770,23 @@
                     monitorDeviceChanges();
                 }, 5000); // Delay device monitoring
 
-                // Start periodic temperature monitoring (reduced frequency)
+                // Start periodic temperature monitoring (reduced to every 2 minutes)
                 setInterval(() => {
                     queryLastTemperatures();
-                }, 60000); // Every 60 seconds instead of 30
+                }, 120000); // Every 120 seconds (2 minutes) instead of 60
 
-                // Start periodic cache cleanup
+                // Start periodic cache cleanup (increased to every 10 minutes)
                 setInterval(() => {
                     cleanupCache();
                 }, DATA_OPTIMIZATION.cleanupInterval);
 
-                // Start periodic log cleanup (check every 10 minutes)
+                // Start periodic log cleanup (check every 15 minutes instead of 10)
                 setInterval(() => {
                     if (deviceList.length > 0) {
                         const randomDevice = deviceList[Math.floor(Math.random() * deviceList.length)];
                         cleanOldLogEntries(randomDevice);
                     }
-                }, 600000); // 10 minutes
+                }, 900000); // 15 minutes instead of 10
 
                 // Start periodic counter validation (every 2 minutes)
                 setInterval(() => {
@@ -1247,7 +1806,13 @@
 
                 // Make functions available globally for manual console queries
                 window.queryLastTemperatures = queryLastTemperatures;
+                window.generatePDFReport = generatePDFReport;
+                window.getReportStatistics = getReportStatistics;
+                window.checkFirebaseConnection = checkFirebaseConnection;
+                window.resetDeviceCounters = resetDeviceCounters;
+                window.validateDeviceCounters = validateDeviceCounters;
                 window.getTemperatureSummaryByZone = getTemperatureSummaryByZone;
+                window.getTemperatureClassificationReport = getTemperatureClassificationReport;
                 window.getCriticalOfflineDevices = getCriticalOfflineDevices;
                 window.getDataUsageStats = getDataUsageStats;
                 window.validateDeviceCounters = validateDeviceCounters;
@@ -1261,9 +1826,15 @@
                 console.log('All device listeners started successfully');
                 console.log('Available console commands:');
                 console.log('- queryLastTemperatures(): Get current temperature readings');
+                console.log('- generatePDFReport(): Export last temperature report to PDF');
+                console.log('- getReportStatistics(): Get summary statistics of last report');
+                console.log('- checkFirebaseConnection(): Debug Firebase connectivity');
+                console.log('- resetDeviceCounters(): Reset and recalculate device counters');
+                console.log('- validateDeviceCounters(): Validate device counter accuracy');
                 console.log('- getTemperatureSummaryByZone(): Get temperature summary by zone');
+                console.log('- getTemperatureClassificationReport(): Get temperature classification by ranges');
                 console.log('- getCriticalOfflineDevices(): Get devices offline >30 minutes');
-                console.log('- getDataUsageStats(): Get data usage and optimization statistics');
+                console.log('- getDataUsageStats(): Get enhanced data usage and optimization statistics');
                 console.log('- validateDeviceCounters(): Check counter accuracy');
                 console.log('- resetDeviceCounters(): Reset and recalculate counters');
                 console.log('- cleanupCache(): Manually cleanup cache');
@@ -1273,6 +1844,8 @@
                 console.log('- dataCache: Access cache data');
                 console.log('📊 Data optimization is ACTIVE - Firebase usage minimized!');
                 console.log('🔴 Red cards will appear for devices offline >30 minutes');
+                console.log('⚡ LATEST DATA ONLY MODE - Using minimal Firebase queries!');
+                console.log('🌡️ Temperature color coding: Cold(<2°C)=Blue, Optimal(2-8°C)=Green, Hot(>8°C)=Red');
                 
             } catch (error) {
                 console.error('Error starting application:', error);
