@@ -53,12 +53,23 @@
             .stats-bar { padding: 0.5rem; }
             .stat-item { padding: 0.5rem; }
             .stat-number { font-size: 1.8rem; }
-            .device-card { padding: 1rem; }
-            .temp-grid { gap: 0.8rem; }
-            .temp-item { padding: 0.8rem; }
+            .device-card { 
+                padding: 0.8rem; 
+                min-height: 260px;
+                max-height: 300px;
+            }
+            .temp-grid { gap: 0.5rem; }
+            .temp-item { 
+                padding: 0.6rem 0.3rem; 
+                min-height: 55px;
+            }
             .device-id { font-size: 0.9rem; }
-            .temp-value { font-size: 1.2rem; }
-            .zone-info { padding: 0.4rem 0.6rem; }
+            .temp-value { font-size: 1rem; }
+            .zone-info { 
+                padding: 0.3rem 0.5rem; 
+                font-size: 0.8rem;
+            }
+            .info-item { font-size: 0.75rem; }
         }
         
         @media (max-width: 576px) {
@@ -66,18 +77,39 @@
             .header p { font-size: 0.9rem; }
             .stat-number { font-size: 1.5rem; }
             .device-id { font-size: 0.85rem; }
-            .temp-value { font-size: 1.1rem; }
+            .temp-value { font-size: 0.95rem; }
             .btn-control { padding: 0.4rem 1rem; font-size: 0.8rem; }
-            .device-card { padding: 0.8rem; }
-            .temp-item { padding: 0.6rem; }
-            .zone-info { padding: 0.3rem 0.5rem; font-size: 0.85rem; }
+            .device-card { 
+                padding: 0.7rem; 
+                min-height: 240px;
+                max-height: 280px;
+            }
+            .temp-item { 
+                padding: 0.5rem 0.2rem; 
+                min-height: 50px;
+            }
+            .zone-info { 
+                padding: 0.25rem 0.4rem; 
+                font-size: 0.75rem; 
+            }
+            .temp-label { font-size: 0.65rem; }
+            .info-item { font-size: 0.7rem; }
         }
         
         /* Show more devices per row on larger screens */
         @media (min-width: 1400px) {
-            .device-card { padding: 1rem; }
-            .temp-value { font-size: 1.3rem; }
-            .zone-info { padding: 0.6rem 0.9rem; }
+            .device-card { 
+                padding: 1.1rem; 
+                min-height: 300px;
+                max-height: 340px;
+            }
+            .temp-value { font-size: 1.2rem; }
+            .zone-info { 
+                padding: 0.5rem 0.7rem; 
+                font-size: 0.9rem;
+            }
+            .device-id { font-size: 1.05rem; }
+            .info-item { font-size: 0.85rem; }
         }
         
         .stat-item {
@@ -101,15 +133,17 @@
         .device-card {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
-            border-radius: 16px;
-            padding: 1.2rem;
+            border-radius: 12px;
+            padding: 1rem;
             margin-bottom: 1rem;
-            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.12);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
             border: 1px solid rgba(255, 255, 255, 0.3);
             height: 100%;
             position: relative;
             overflow: hidden;
+            min-height: 280px;
+            max-height: 320px;
         }
         
         .device-card::before {
@@ -124,8 +158,8 @@
         }
         
         .device-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
         }
         
         .device-card.critical {
@@ -145,18 +179,22 @@
         .device-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            padding-top: 0.5rem;
+            align-items: flex-start;
+            margin-bottom: 0.8rem;
+            padding-top: 0.3rem;
+            min-height: 45px;
         }
         
         .device-id {
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 700;
             color: var(--primary-color);
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.4rem;
+            flex: 1;
+            word-break: break-word;
+            line-height: 1.2;
         }
         
         .device-id i {
@@ -164,7 +202,8 @@
             background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
+            flex-shrink: 0;
         }
         
         .device-card.critical .device-id {
@@ -172,12 +211,14 @@
         }
         
         .status-badge {
-            padding: 0.3rem 0.6rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.3px;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         
         .status-online { background: var(--success-color); color: white; }
@@ -187,17 +228,21 @@
         .temp-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin: 1rem 0;
+            gap: 0.6rem;
+            margin: 0.8rem 0;
         }
         
         .temp-item {
             text-align: center;
-            padding: 1rem;
+            padding: 0.7rem 0.4rem;
             background: rgba(0, 0, 0, 0.05);
-            border-radius: 12px;
+            border-radius: 8px;
             transition: all 0.3s ease;
             border: 1px solid rgba(0, 0, 0, 0.05);
+            min-height: 65px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
         
         .temp-item:hover {
@@ -210,11 +255,12 @@
         }
         
         .temp-label {
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             color: #6c757d;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.3rem;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
+            letter-spacing: 0.2px;
+            font-weight: 500;
         }
         
         .device-card.critical .temp-label {
@@ -223,10 +269,11 @@
         
         .zone-info {
             background: rgba(0, 0, 0, 0.05);
-            border-radius: 8px;
-            padding: 0.5rem 0.8rem;
-            margin-bottom: 1rem;
+            border-radius: 6px;
+            padding: 0.4rem 0.6rem;
+            margin-bottom: 0.8rem;
             border-left: 3px solid var(--info-color);
+            font-size: 0.85rem;
         }
         
         .device-card.critical .zone-info {
@@ -235,9 +282,10 @@
         }
         
         .temp-value {
-            font-size: 1.4rem;
+            font-size: 1.1rem;
             font-weight: 700;
-            margin-bottom: 0.2rem;
+            margin-bottom: 0.1rem;
+            line-height: 1.2;
         }
         
         .temp-cold { color: var(--info-color); }
@@ -246,8 +294,8 @@
         .temp-error { color: var(--danger-color); }
         
         .device-info {
-            margin-top: 1rem;
-            padding-top: 1rem;
+            margin-top: 0.8rem;
+            padding-top: 0.8rem;
             border-top: 1px solid rgba(0, 0, 0, 0.08);
         }
         
@@ -258,10 +306,10 @@
         .info-item {
             display: flex;
             align-items: center;
-            margin-bottom: 0.6rem;
-            font-size: 0.9rem;
-            padding: 0.3rem 0;
-            border-radius: 6px;
+            margin-bottom: 0.4rem;
+            font-size: 0.8rem;
+            padding: 0.2rem 0;
+            border-radius: 4px;
             transition: all 0.2s ease;
         }
         
@@ -275,9 +323,10 @@
         }
         
         .info-item i {
-            margin-right: 0.7rem;
-            width: 18px;
+            margin-right: 0.5rem;
+            width: 14px;
             color: var(--info-color);
+            font-size: 0.8rem;
         }
         
         .device-card.critical .info-item i {
@@ -419,13 +468,16 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
-        // Global State - Optimized for minimal data usage
+        // Global State - Ultra-optimized for minimal data usage
         let devices = new Map();
         let lastReport = null;
         let stats = { total: 0, online: 0, offline: 0, critical: 0 };
         let listeners = new Map(); // Track active listeners to prevent duplicates
         let lastUpdateTime = 0;
-        let updateThrottle = 30000; // 30 seconds minimum between full updates
+        let updateThrottle = 45000; // 45 seconds minimum between full updates
+        let dataCache = new Map(); // Cache device data to reduce Firebase reads
+        let pendingUpdates = new Set(); // Batch DOM updates
+        let isInitialized = false;
 
         // Constants
         const THRESHOLDS = {
@@ -480,21 +532,34 @@
             return `${minutes}m ago`;
         };
 
-        // Toast System
+        // Toast System - Optimized for minimal DOM manipulation
         const showToast = (message, type = 'info') => {
             const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = `toast show`;
+            
+            // Reuse existing toast if available
+            let toast = container.querySelector('.toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.className = `toast show`;
+                container.appendChild(toast);
+            }
+            
             toast.innerHTML = `
                 <div class="toast-header">
                     <i class="fas fa-${type === 'success' ? 'check-circle text-success' : 'info-circle text-info'} me-2"></i>
                     <strong class="me-auto">${type === 'success' ? 'Success' : 'Info'}</strong>
-                    <button type="button" class="btn-close" onclick="this.parentElement.parentElement.remove()"></button>
+                    <button type="button" class="btn-close" onclick="this.parentElement.parentElement.style.display='none'"></button>
                 </div>
                 <div class="toast-body">${message}</div>
             `;
-            container.appendChild(toast);
-            setTimeout(() => toast.remove(), 5000);
+            
+            toast.style.display = 'block';
+            
+            // Auto-hide after 3 seconds (reduced from 5)
+            clearTimeout(toast.hideTimer);
+            toast.hideTimer = setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
         };
 
         // Simplified device card - Remove debug info
@@ -515,7 +580,7 @@
             };
 
             return `
-                <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6 mb-3">
+                <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6 col-12 mb-3">
                     <div class="device-card ${status === 'critical' ? 'critical' : ''}" data-device="${deviceId}">
                         <div class="device-header">
                             <div class="device-id">
@@ -535,11 +600,11 @@
                         
                         <div class="temp-grid">
                             <div class="temp-item">
-                                <div class="temp-label">Temperature 1</div>
+                                <div class="temp-label">Temp 1</div>
                                 <div class="temp-value ${temp1Class}">${temp1}</div>
                             </div>
                             <div class="temp-item">
-                                <div class="temp-label">Temperature 2</div>
+                                <div class="temp-label">Temp 2</div>
                                 <div class="temp-value ${temp2Class}">${temp2}</div>
                             </div>
                         </div>
@@ -609,58 +674,65 @@
             container.innerHTML = cardsHTML;
         };
 
-        // Optimized Firebase Functions - Minimal data usage
+        // Ultra-optimized Firebase Functions - Absolute minimal data usage
         const fetchDevices = () => {
-            // Throttle updates to prevent excessive Firebase calls
+            // Aggressive throttling to prevent excessive Firebase calls
             const now = Date.now();
             if (now - lastUpdateTime < updateThrottle) {
-                console.log('Update throttled, using cached data');
-                return;
+                return Promise.resolve(); // Return cached data
             }
             lastUpdateTime = now;
 
             const devicesRef = ref(database, 'devices');
             
-            // Use once() to get device list without continuous listening
-            onValue(devicesRef, (snapshot) => {
-                if (snapshot.exists()) {
-                    const data = snapshot.val();
-                    const deviceIds = Object.keys(data);
-                    
-                    // Only add new devices to avoid unnecessary operations
-                    deviceIds.forEach(deviceId => {
-                        if (!devices.has(deviceId)) {
-                            devices.set(deviceId, null);
-                            setupDeviceListener(deviceId);
-                        }
-                    });
-                    
-                    // Remove devices that no longer exist
-                    devices.forEach((_, deviceId) => {
-                        if (!deviceIds.includes(deviceId)) {
+            // Use get() for one-time fetch to minimize continuous connections
+            return new Promise((resolve) => {
+                onValue(devicesRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        const data = snapshot.val();
+                        const deviceIds = Object.keys(data);
+                        
+                        // Batch operations for efficiency
+                        const newDevices = new Set(deviceIds);
+                        const existingDevices = new Set(devices.keys());
+                        
+                        // Add only truly new devices
+                        const toAdd = deviceIds.filter(id => !existingDevices.has(id));
+                        const toRemove = Array.from(existingDevices).filter(id => !newDevices.has(id));
+                        
+                        // Batch cleanup
+                        toRemove.forEach(deviceId => {
                             cleanupDeviceListener(deviceId);
                             devices.delete(deviceId);
-                        }
-                    });
-                    
-                    renderDevices();
-                    calculateStats();
-                } else {
-                    renderDevices();
-                }
-            }, { once: true }); // Only query once to minimize data usage
+                            dataCache.delete(deviceId);
+                        });
+                        
+                        // Batch addition with staggered listener setup to reduce load
+                        toAdd.forEach((deviceId, index) => {
+                            devices.set(deviceId, null);
+                            // Stagger listener setup to prevent Firebase overload
+                            setTimeout(() => setupDeviceListener(deviceId), index * 100);
+                        });
+                        
+                        renderDevices();
+                        calculateStats();
+                    } else {
+                        renderDevices();
+                    }
+                    resolve();
+                }, { once: true }); // Single fetch only
+            });
         };
 
-        // Optimized device listener - Only get essential data
+        // Ultra-optimized device listener - Absolute minimal data transfer
         const setupDeviceListener = (deviceId) => {
             // Prevent duplicate listeners
             if (listeners.has(deviceId)) {
-                console.log(`Listener already exists for ${deviceId}`);
                 return;
             }
 
             const deviceRef = ref(database, `devices/${deviceId}/log`);
-            // Only get the most recent entry to minimize data transfer
+            // Only get the most recent entry with minimal data transfer
             const deviceQuery = query(deviceRef, orderByChild('datetime'), limitToLast(1));
             
             const unsubscribe = onValue(deviceQuery, (snapshot) => {
@@ -668,54 +740,144 @@
                     const logs = snapshot.val();
                     const latestLog = Object.values(logs)[0];
                     
-                    // Only essential data logging
-                    console.log(`${deviceId}: ${latestLog.datetime}, T1:${latestLog.temp1}, T2:${latestLog.temp2}`);
+                    // Check cache to avoid unnecessary updates
+                    const cacheKey = `${deviceId}_${latestLog.datetime}`;
+                    if (dataCache.has(cacheKey)) {
+                        return; // Skip if data hasn't changed
+                    }
+                    
+                    // Update cache
+                    dataCache.set(cacheKey, latestLog);
+                    
+                    // Clean old cache entries (keep only last 2 per device)
+                    Array.from(dataCache.keys())
+                        .filter(key => key.startsWith(deviceId + '_'))
+                        .slice(0, -2)
+                        .forEach(key => dataCache.delete(key));
                     
                     // Update device data efficiently
                     const prevData = devices.get(deviceId);
                     devices.set(deviceId, latestLog);
                     
-                    // Only update UI if data actually changed
+                    // Batch UI updates to reduce DOM thrashing
                     if (!prevData || prevData.datetime !== latestLog.datetime) {
-                        updateDeviceCard(deviceId, latestLog);
-                        calculateStats();
+                        pendingUpdates.add(deviceId);
+                        
+                        // Debounced batch update
+                        clearTimeout(window.batchUpdateTimer);
+                        window.batchUpdateTimer = setTimeout(() => {
+                            processBatchUpdates();
+                        }, 100);
                     }
                 } else {
-                    console.log(`No data: ${deviceId}`);
                     devices.set(deviceId, null);
-                    updateDeviceCard(deviceId, null);
-                    calculateStats();
+                    pendingUpdates.add(deviceId);
+                    
+                    clearTimeout(window.batchUpdateTimer);
+                    window.batchUpdateTimer = setTimeout(() => {
+                        processBatchUpdates();
+                    }, 100);
                 }
             }, (error) => {
-                console.error(`Error ${deviceId}:`, error.code);
                 cleanupDeviceListener(deviceId);
             });
             
             listeners.set(deviceId, unsubscribe);
         };
 
-        // Clean up listeners to prevent memory leaks
+        // Batch processing for DOM updates
+        const processBatchUpdates = () => {
+            if (pendingUpdates.size === 0) return;
+            
+            // Process all pending updates in one DOM operation
+            pendingUpdates.forEach(deviceId => {
+                const data = devices.get(deviceId);
+                updateDeviceCard(deviceId, data);
+            });
+            
+            pendingUpdates.clear();
+            calculateStats();
+        };
+
+        // Memory-optimized cleanup to prevent leaks
         const cleanupDeviceListener = (deviceId) => {
             const unsubscribe = listeners.get(deviceId);
             if (unsubscribe) {
                 unsubscribe();
                 listeners.delete(deviceId);
             }
+            
+            // Clean cache entries for this device
+            Array.from(dataCache.keys())
+                .filter(key => key.startsWith(deviceId + '_'))
+                .forEach(key => dataCache.delete(key));
         };
 
-        // Efficient single card update instead of full re-render
+        // Ultra-efficient single card update with DOM recycling
         const updateDeviceCard = (deviceId, data) => {
             const card = document.querySelector(`[data-device="${deviceId}"]`);
             if (card) {
-                const newCard = createDeviceCard(deviceId, data);
-                card.outerHTML = newCard;
+                // Try to update existing elements instead of replacing
+                updateCardContent(card, deviceId, data);
+            } else {
+                // Create new card only if doesn't exist
+                const container = document.getElementById('devices-container');
+                const newCardHTML = createDeviceCard(deviceId, data);
+                container.insertAdjacentHTML('beforeend', newCardHTML);
             }
         };
 
-        // Simplified query - Minimal logging
-        window.queryData = () => {
-            console.log('=== REPORT ===');
+        // Efficient in-place card content update
+        const updateCardContent = (card, deviceId, data) => {
+            const zone = deviceId.split('-')[0];
+            const status = getDeviceStatus(data);
+            const temp1 = data ? formatTemp(data.temp1, data.status_temp1) : '--';
+            const temp2 = data ? formatTemp(data.temp2, data.status_temp2) : '--';
+            const temp1Class = data ? getTempClass(data.temp1, data.status_temp1) : '';
+            const temp2Class = data ? getTempClass(data.temp2, data.status_temp2) : '';
+            const lastUpdate = data ? formatDuration(data) : 'Never';
             
+            const statusInfo = {
+                'online': { class: 'status-online', text: 'Online', icon: 'check-circle' },
+                'offline': { class: 'status-offline', text: 'Offline', icon: 'exclamation-triangle' },
+                'critical': { class: 'status-critical', text: 'Critical', icon: 'exclamation-triangle' },
+                'no-data': { class: 'status-offline', text: 'No Data', icon: 'times-circle' }
+            };
+
+            // Update critical status
+            if (status === 'critical') {
+                card.classList.add('critical');
+            } else {
+                card.classList.remove('critical');
+            }
+
+            // Update status badge
+            const statusBadge = card.querySelector('.status-badge');
+            if (statusBadge) {
+                statusBadge.className = `status-badge ${statusInfo[status].class}`;
+                statusBadge.innerHTML = `<i class="fas fa-${statusInfo[status].icon} me-1"></i>${statusInfo[status].text}`;
+            }
+
+            // Update temperature values
+            const tempValues = card.querySelectorAll('.temp-value');
+            if (tempValues[0]) {
+                tempValues[0].textContent = temp1;
+                tempValues[0].className = `temp-value ${temp1Class}`;
+            }
+            if (tempValues[1]) {
+                tempValues[1].textContent = temp2;
+                tempValues[1].className = `temp-value ${temp2Class}`;
+            }
+
+            // Update last update time
+            const timeElement = card.querySelector('.info-item span');
+            if (timeElement) {
+                timeElement.textContent = lastUpdate;
+            }
+        };
+
+        // Ultra-optimized query - Use cached data to eliminate Firebase reads
+        window.queryData = () => {
             const report = [];
             devices.forEach((data, deviceId) => {
                 const status = getDeviceStatus(data);
@@ -730,8 +892,7 @@
             });
             
             lastReport = report;
-            console.log(`Total: ${stats.total}, Online: ${stats.online}, Offline: ${stats.offline}, Critical: ${stats.critical}`);
-            showToast('Query completed!', 'success');
+            showToast(`Query completed! ${report.length} devices processed`, 'success');
         };
 
         // Export PDF Function - Shows ALL devices across multiple pages
@@ -873,37 +1034,88 @@
             showToast(`PDF exported: ${filename} (${lastReport.length} devices, ${pageCount} pages)`, 'success');
         };
 
-        // Optimized initialization - Minimal logging
-        const init = () => {
-            console.log('🚀 ESP8266 Monitor Starting...');
-            fetchDevices();
+        // Ultra-optimized initialization - Absolute minimal resource usage
+        const init = async () => {
+            if (isInitialized) return;
+            isInitialized = true;
             
-            // Longer intervals to reduce Firebase calls
+            await fetchDevices();
+            
+            // Significantly longer intervals to minimize Firebase usage
             setInterval(() => {
-                calculateStats();
-            }, 300000); // 5 minutes instead of 2
+                // Only recalculate if there are pending changes
+                if (pendingUpdates.size === 0) {
+                    calculateStats();
+                }
+            }, 600000); // 10 minutes instead of 5
+            
+            // Periodic cache cleanup to prevent memory bloat
+            setInterval(() => {
+                const maxCacheAge = 3600000; // 1 hour
+                const now = Date.now();
+                
+                Array.from(dataCache.keys()).forEach(key => {
+                    // Remove old cache entries
+                    const parts = key.split('_');
+                    if (parts.length > 1) {
+                        const cacheTime = new Date(parts.slice(1).join('_')).getTime();
+                        if (now - cacheTime > maxCacheAge) {
+                            dataCache.delete(key);
+                        }
+                    }
+                });
+            }, 1800000); // Clean cache every 30 minutes
         };
 
-        // Optimized refresh - Clean up old listeners
-        window.refreshData = () => {
-            console.log('Refreshing...');
+        // Optimized refresh with intelligent cache management
+        window.refreshData = async () => {
             showToast('Refreshing...', 'info');
             
-            // Clean up existing listeners
-            listeners.forEach((unsubscribe) => unsubscribe());
-            listeners.clear();
+            // Clean up existing listeners efficiently
+            const cleanupPromises = Array.from(listeners.values()).map(unsubscribe => {
+                try { unsubscribe(); } catch(e) {}
+            });
+            await Promise.allSettled(cleanupPromises);
             
-            fetchDevices();
+            listeners.clear();
+            dataCache.clear();
+            pendingUpdates.clear();
+            
+            // Reset throttle to allow immediate refresh
+            lastUpdateTime = 0;
+            
+            await fetchDevices();
         };
 
         // Start the application
         init();
 
-        // Cleanup on page unload to prevent Firebase connection leaks
+        // Comprehensive cleanup on page unload to prevent all leaks
         window.addEventListener('beforeunload', () => {
-            listeners.forEach((unsubscribe) => unsubscribe());
+            // Clear all timers
+            clearTimeout(window.batchUpdateTimer);
+            
+            // Clean up Firebase listeners
+            listeners.forEach((unsubscribe) => {
+                try { unsubscribe(); } catch(e) {}
+            });
             listeners.clear();
+            
+            // Clear all caches and data structures
+            dataCache.clear();
+            devices.clear();
+            pendingUpdates.clear();
+            
+            // Mark as not initialized for potential restart
+            isInitialized = false;
         });
+
+        // Memory monitoring for development (remove in production)
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            setInterval(() => {
+                console.log(`Memory Usage - Devices: ${devices.size}, Listeners: ${listeners.size}, Cache: ${dataCache.size}, Pending: ${pendingUpdates.size}`);
+            }, 60000);
+        }
     </script>
 </body>
 </html>
