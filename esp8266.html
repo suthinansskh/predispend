@@ -392,7 +392,11 @@
             </div>
         </div>
 
-        <div class="stats-bar">
+        <div class="stats-bar position-relative">
+            <!-- Firebase connection status indicator -->
+            <div id="firebase-status" style="position:absolute;top:8px;right:16px;font-size:0.95rem;z-index:2;">
+                <span class="badge bg-secondary"><i class="fas fa-cloud"></i> Connecting...</span>
+            </div>
             <div class="row g-2">
                 <div class="col-6 col-md-2">
                     <div class="stat-item">
@@ -433,6 +437,12 @@
                     </div>
                 </div>
             </div>
+            </div>
+            <!-- Last update time and critical alert -->
+            <div class="d-flex justify-content-between align-items-center mt-1 px-2">
+                <small id="last-update-time" class="text-muted"></small>
+                <span id="critical-alert" class="text-danger fw-bold" style="display:none;"><i class="fas fa-exclamation-triangle me-1"></i>มีอุปกรณ์ Critical!</span>
+            </div>
         </div>
 
         <div class="row" id="devices-container">
@@ -468,16 +478,27 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
-        // Global State - Ultra-optimized for minimal data usage
+        // Global State - Ultra-optimized for latest data only
         let devices = new Map();
         let lastReport = null;
         let stats = { total: 0, online: 0, offline: 0, critical: 0 };
         let listeners = new Map(); // Track active listeners to prevent duplicates
-        let lastUpdateTime = 0;
-        let updateThrottle = 45000; // 45 seconds minimum between full updates
-        let dataCache = new Map(); // Cache device data to reduce Firebase reads
-        let pendingUpdates = new Set(); // Batch DOM updates
-        let isInitialized = false;
+
+let lastUpdateTime = 0;
+let updateThrottle = 10000; // 10 seconds for even fresher data
+let dataCache = new Map(); // Only latest log per device
+let pendingUpdates = new Set(); // Batch DOM updates
+let isInitialized = false;
+
+        // Performance monitoring metrics
+        window.performanceMetrics = {
+            pageLoadStart: performance.now(),
+            firebaseConnectTime: null,
+            firstDeviceLoadTime: null,
+            allDevicesLoadTime: null,
+            lastUpdateTime: null,
+            updateCounts: 0
+        };
 
         // Constants
         const THRESHOLDS = {
@@ -624,12 +645,19 @@
             `;
         };
 
-        // Update Statistics
+        // Update Statistics + UI status
         const updateStats = () => {
             document.getElementById('total-devices').textContent = stats.total;
             document.getElementById('online-devices').textContent = stats.online;
             document.getElementById('offline-devices').textContent = stats.offline;
             document.getElementById('critical-devices').textContent = stats.critical;
+            // Show/hide critical alert
+            const crit = document.getElementById('critical-alert');
+            if (stats.critical > 0) {
+                crit.style.display = '';
+            } else {
+                crit.style.display = 'none';
+            }
         };
 
         // Recalculate Statistics
@@ -664,6 +692,8 @@
                         </div>
                     </div>
                 `;
+                // Update last update time
+                updateLastUpdateTime();
                 return;
             }
 
@@ -672,131 +702,127 @@
                 .join('');
             
             container.innerHTML = cardsHTML;
+            updateLastUpdateTime();
         };
 
-        // Ultra-optimized Firebase Functions - Absolute minimal data usage
+        // Show last update time under stat bar
+        function updateLastUpdateTime() {
+            const el = document.getElementById('last-update-time');
+            // Find latest datetime from all devices
+            let latest = null;
+            devices.forEach((data) => {
+                if (data?.datetime) {
+                    const t = new Date(data.datetime);
+                    if (!isNaN(t.getTime()) && (!latest || t > latest)) latest = t;
+                }
+            });
+            if (latest) {
+                el.textContent = 'อัปเดตล่าสุด: ' + latest.toLocaleString('th-TH', { hour12: false });
+            } else {
+                el.textContent = '';
+            }
+        }
+
+        // Ultra-optimized Firebase Functions - Fetch only device IDs, minimal data
         const fetchDevices = () => {
-            // Aggressive throttling to prevent excessive Firebase calls
             const now = Date.now();
             if (now - lastUpdateTime < updateThrottle) {
-                return Promise.resolve(); // Return cached data
+                return Promise.resolve();
             }
             lastUpdateTime = now;
 
+            // Show connecting status
+            setFirebaseStatus('connecting');
+
             const devicesRef = ref(database, 'devices');
-            
-            // Use get() for one-time fetch to minimize continuous connections
             return new Promise((resolve) => {
                 onValue(devicesRef, (snapshot) => {
                     if (snapshot.exists()) {
-                        const data = snapshot.val();
-                        const deviceIds = Object.keys(data);
-                        
-                        // Batch operations for efficiency
+                        setFirebaseStatus('connected');
+                        const deviceIds = Object.keys(snapshot.val());
                         const newDevices = new Set(deviceIds);
                         const existingDevices = new Set(devices.keys());
-                        
-                        // Add only truly new devices
                         const toAdd = deviceIds.filter(id => !existingDevices.has(id));
                         const toRemove = Array.from(existingDevices).filter(id => !newDevices.has(id));
-                        
-                        // Batch cleanup
+                        // Remove listeners and cache for removed devices
                         toRemove.forEach(deviceId => {
                             cleanupDeviceListener(deviceId);
                             devices.delete(deviceId);
                             dataCache.delete(deviceId);
                         });
-                        
-                        // Batch addition with staggered listener setup to reduce load
-                        toAdd.forEach((deviceId, index) => {
+                        // Add listeners for new devices, batch setup (no delay for small sets)
+                        toAdd.forEach(deviceId => {
                             devices.set(deviceId, null);
-                            // Stagger listener setup to prevent Firebase overload
-                            setTimeout(() => setupDeviceListener(deviceId), index * 100);
+                            setupDeviceListener(deviceId);
                         });
-                        
                         renderDevices();
                         calculateStats();
                     } else {
+                        setFirebaseStatus('connected');
                         renderDevices();
                     }
                     resolve();
-                }, { once: true }); // Single fetch only
+                }, (error) => {
+                    setFirebaseStatus('error');
+                    renderDevices();
+                    resolve();
+                }, { once: true });
             });
         };
 
-        // Ultra-optimized device listener - Absolute minimal data transfer
-        const setupDeviceListener = (deviceId) => {
-            // Prevent duplicate listeners
-            if (listeners.has(deviceId)) {
-                return;
+        // Firebase connection status indicator
+        function setFirebaseStatus(status) {
+            const el = document.getElementById('firebase-status');
+            if (!el) return;
+            if (status === 'connected') {
+                el.innerHTML = '<span class="badge bg-success"><i class="fas fa-cloud"></i> Connected</span>';
+            } else if (status === 'error') {
+                el.innerHTML = '<span class="badge bg-danger"><i class="fas fa-cloud"></i> Error</span>';
+            } else {
+                el.innerHTML = '<span class="badge bg-secondary"><i class="fas fa-cloud"></i> Connecting...</span>';
             }
+        }
 
+        // Ultra-optimized device listener - Only latest log, minimal memory
+        const setupDeviceListener = (deviceId) => {
+            if (listeners.has(deviceId)) return;
             const deviceRef = ref(database, `devices/${deviceId}/log`);
-            // Only get the most recent entry with minimal data transfer
             const deviceQuery = query(deviceRef, orderByChild('datetime'), limitToLast(1));
-            
             const unsubscribe = onValue(deviceQuery, (snapshot) => {
                 if (snapshot.exists()) {
                     const logs = snapshot.val();
-                    const latestLog = Object.values(logs)[0];
-                    
-                    // Check cache to avoid unnecessary updates
-                    const cacheKey = `${deviceId}_${latestLog.datetime}`;
-                    if (dataCache.has(cacheKey)) {
-                        return; // Skip if data hasn't changed
-                    }
-                    
-                    // Update cache
-                    dataCache.set(cacheKey, latestLog);
-                    
-                    // Clean old cache entries (keep only last 2 per device)
-                    Array.from(dataCache.keys())
-                        .filter(key => key.startsWith(deviceId + '_'))
-                        .slice(0, -2)
-                        .forEach(key => dataCache.delete(key));
-                    
+                    const logKeys = Object.keys(logs);
+                    const latestKey = logKeys[logKeys.length - 1];
+                    const latestLog = logs[latestKey];
+                    // Only keep latest in cache
+                    dataCache.set(deviceId, latestLog);
                     // Update device data efficiently
                     const prevData = devices.get(deviceId);
                     devices.set(deviceId, latestLog);
-                    
-                    // Batch UI updates to reduce DOM thrashing
-                    if (!prevData || prevData.datetime !== latestLog.datetime) {
+                    // Only update if changed
+                    if (!prevData || prevData.datetime !== latestLog.datetime || prevData.temp1 !== latestLog.temp1 || prevData.temp2 !== latestLog.temp2) {
                         pendingUpdates.add(deviceId);
-                        
-                        // Debounced batch update
                         clearTimeout(window.batchUpdateTimer);
-                        window.batchUpdateTimer = setTimeout(() => {
-                            processBatchUpdates();
-                        }, 100);
+                        window.batchUpdateTimer = setTimeout(() => { processBatchUpdates(); }, 50);
                     }
                 } else {
                     devices.set(deviceId, null);
                     pendingUpdates.add(deviceId);
-                    
                     clearTimeout(window.batchUpdateTimer);
-                    window.batchUpdateTimer = setTimeout(() => {
-                        processBatchUpdates();
-                    }, 100);
+                    window.batchUpdateTimer = setTimeout(() => { processBatchUpdates(); }, 50);
                 }
-            }, (error) => {
-                cleanupDeviceListener(deviceId);
-            });
-            
+            }, (error) => { cleanupDeviceListener(deviceId); });
             listeners.set(deviceId, unsubscribe);
         };
 
-        // Batch processing for DOM updates
+        // Batch processing for DOM updates (minimal, fast)
         const processBatchUpdates = () => {
             if (pendingUpdates.size === 0) return;
-            
-            // Process all pending updates in one DOM operation
             pendingUpdates.forEach(deviceId => {
                 const data = devices.get(deviceId);
                 updateDeviceCard(deviceId, data);
             });
-            
             pendingUpdates.clear();
-            calculateStats();
         };
 
         // Memory-optimized cleanup to prevent leaks
@@ -806,11 +832,7 @@
                 unsubscribe();
                 listeners.delete(deviceId);
             }
-            
-            // Clean cache entries for this device
-            Array.from(dataCache.keys())
-                .filter(key => key.startsWith(deviceId + '_'))
-                .forEach(key => dataCache.delete(key));
+            dataCache.delete(deviceId);
         };
 
         // Ultra-efficient single card update with DOM recycling
@@ -892,7 +914,109 @@
             });
             
             lastReport = report;
-            showToast(`Query completed! ${report.length} devices processed`, 'success');
+            showToast(`Query completed! ${report.length} devices processed (Latest data only)`, 'success');
+        };
+
+        // Data optimization status check
+        window.checkDataOptimization = function() {
+            console.log('=== DATA OPTIMIZATION STATUS ===');
+            console.log(`Total Devices: ${devices.size}`);
+            console.log(`Active Listeners: ${listeners.size}`);
+            console.log(`Cache Entries: ${dataCache.size}`);
+            console.log(`Pending Updates: ${pendingUpdates.size}`);
+            
+            // Check cache efficiency
+            const deviceCacheMap = new Map();
+            Array.from(dataCache.keys()).forEach(key => {
+                const deviceId = key.split('_')[0];
+                deviceCacheMap.set(deviceId, (deviceCacheMap.get(deviceId) || 0) + 1);
+            });
+            
+            console.log('\n=== CACHE DISTRIBUTION ===');
+            let optimalCacheCount = 0;
+            deviceCacheMap.forEach((count, deviceId) => {
+                if (count === 1) {
+                    optimalCacheCount++;
+                } else {
+                    console.log(`⚠️ Device ${deviceId}: ${count} cache entries (should be 1)`);
+                }
+            });
+            
+            console.log(`✅ Optimal cache devices: ${optimalCacheCount}/${devices.size}`);
+            
+            const avgCachePerDevice = dataCache.size / devices.size;
+            console.log(`Average cache per device: ${avgCachePerDevice.toFixed(2)} (optimal: 1.0)`);
+            
+            // Data freshness check
+            const now = Date.now();
+            let freshDataCount = 0;
+            Array.from(dataCache.keys()).forEach(key => {
+                const parts = key.split('_');
+                if (parts.length > 2) {
+                    const cacheTime = new Date(parts.slice(1, -1).join('_')).getTime();
+                    if (now - cacheTime < 300000) { // 5 minutes
+                        freshDataCount++;
+                    }
+                }
+            });
+            
+            console.log(`\nFresh data entries (< 5 min): ${freshDataCount}/${dataCache.size}`);
+            console.log('\n=== OPTIMIZATION RECOMMENDATIONS ===');
+            
+            if (avgCachePerDevice > 1.2) {
+                console.log('⚠️ Consider running cache optimization');
+            } else {
+                console.log('✅ Cache is well optimized');
+            }
+            
+            if (freshDataCount / dataCache.size < 0.8) {
+                console.log('⚠️ Consider reducing cache retention time');
+            } else {
+                console.log('✅ Data freshness is good');
+            }
+            
+            console.log('===========================\n');
+            
+            return {
+                totalDevices: devices.size,
+                activeListeners: listeners.size,
+                cacheEntries: dataCache.size,
+                averageCachePerDevice: avgCachePerDevice,
+                freshDataPercentage: (freshDataCount / dataCache.size) * 100,
+                optimalCacheDevices: optimalCacheCount
+            };
+        };
+
+        // Performance analysis function
+        window.checkLoadingDelays = function() {
+            const metrics = window.performanceMetrics;
+            const now = performance.now();
+            
+            console.log('=== LOADING PERFORMANCE ANALYSIS ===');
+            console.log(`Page Load Time: ${(now - metrics.pageLoadStart).toFixed(2)}ms`);
+            
+            if (metrics.firstDeviceLoadTime) {
+                console.log(`First Device Loaded: ${(metrics.firstDeviceLoadTime - metrics.pageLoadStart).toFixed(2)}ms`);
+            }
+            
+            if (metrics.allDevicesLoadTime) {
+                console.log(`All Devices Loaded: ${(metrics.allDevicesLoadTime - metrics.pageLoadStart).toFixed(2)}ms`);
+            }
+            
+            console.log(`Total Updates: ${metrics.updateCounts}`);
+            
+            if (metrics.lastUpdateTime) {
+                console.log(`Last Update: ${((now - metrics.lastUpdateTime) / 1000).toFixed(1)}s ago`);
+            }
+            
+            console.log('====================================\n');
+            
+            return {
+                pageLoadTime: now - metrics.pageLoadStart,
+                deviceLoadTime: metrics.allDevicesLoadTime ? metrics.allDevicesLoadTime - metrics.pageLoadStart : null,
+                totalUpdates: metrics.updateCounts,
+                lastUpdateAgo: metrics.lastUpdateTime ? (now - metrics.lastUpdateTime) / 1000 : null
+            };
         };
 
         // Export PDF Function - Shows ALL devices across multiple pages
@@ -1049,22 +1173,10 @@
                 }
             }, 600000); // 10 minutes instead of 5
             
-            // Periodic cache cleanup to prevent memory bloat
+            // Periodic cache cleanup to prevent memory bloat (just clear all, minimal data kept)
             setInterval(() => {
-                const maxCacheAge = 3600000; // 1 hour
-                const now = Date.now();
-                
-                Array.from(dataCache.keys()).forEach(key => {
-                    // Remove old cache entries
-                    const parts = key.split('_');
-                    if (parts.length > 1) {
-                        const cacheTime = new Date(parts.slice(1).join('_')).getTime();
-                        if (now - cacheTime > maxCacheAge) {
-                            dataCache.delete(key);
-                        }
-                    }
-                });
-            }, 1800000); // Clean cache every 30 minutes
+                dataCache.clear();
+            }, 900000); // Clean cache every 15 minutes
         };
 
         // Optimized refresh with intelligent cache management
