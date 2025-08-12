@@ -416,6 +416,9 @@
             <div id="firebase-status" style="position:absolute;top:8px;right:16px;font-size:0.95rem;z-index:2;">
                 <span class="badge bg-secondary"><i class="fas fa-cloud"></i> Connecting...</span>
             </div>
+            <div id="data-mode" style="position:absolute;top:8px;right:140px;font-size:0.95rem;z-index:2;cursor:pointer;">
+                <span class="badge bg-info" onclick="toggleLowDataMode()"><i class="fas fa-gauge-simple me-1"></i>Low Data: OFF</span>
+            </div>
             <div class="row g-2">
                 <div class="col-6 col-md-2">
                     <div class="stat-item">
@@ -507,6 +510,10 @@ let updateThrottle = 10000; // base throttle
 let dataCache = new Map(); // Only latest log per device
 let pendingUpdates = new Set(); // Batch DOM updates
 let isInitialized = false;
+let lowDataMode = false; // toggle for polling instead of realtime
+let lowDataTimer = null; // setInterval handle for polling
+let latestEtag = null; // ETag for /devicesLatest
+let DATA_ROOT = 'devicesLatest'; // auto-detected: 'devicesLatest' or 'devices'
 
         // Performance monitoring metrics
         window.performanceMetrics = {
@@ -742,52 +749,65 @@ let isInitialized = false;
             }
         }
 
-    // Ultra-optimized Firebase Functions - Fetch only device IDs, minimal data
-        const fetchDevices = () => {
+    // Ultra-optimized Firebase Functions - Auto-detect root and fetch only device IDs
+        const fetchDevices = async () => {
             const now = Date.now();
-            if (now - lastUpdateTime < updateThrottle) {
-                return Promise.resolve();
-            }
+            if (now - lastUpdateTime < updateThrottle) return;
             lastUpdateTime = now;
 
             // Show connecting status
             setFirebaseStatus('connecting');
 
-            const devicesRef = ref(database, 'devices');
-            // Try REST shallow to minimize data transfer (with timeout)
-            const restUrl = `${firebaseConfig.databaseURL}/devices.json?shallow=true`;
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-            return fetch(restUrl, { cache: 'no-store', signal: controller.signal })
-                .then(r => r.ok ? r.json() : Promise.reject(new Error('REST failed')))
-                .then(json => {
-                    clearTimeout(timeoutId);
-                    setFirebaseStatus('connected');
-                    const deviceIds = json ? Object.keys(json) : [];
-                    applyDeviceList(deviceIds);
-                })
-                .catch(() => {
-                    clearTimeout(timeoutId);
-                    // Fallback to SDK single read (once)
-                    return new Promise((resolve) => {
-                        onValue(devicesRef, (snapshot) => {
-                            if (snapshot.exists()) {
-                                setFirebaseStatus('connected');
-                                const deviceIds = Object.keys(snapshot.val());
-                                applyDeviceList(deviceIds);
-                            } else {
-                                setFirebaseStatus('connected');
-                                renderDevices();
-                            }
-                            resolve();
-                        }, (error) => {
-                            setFirebaseStatus('error');
-                            renderDevices();
-                            resolve();
-                        }, { once: true });
-                    });
-                });
+            try {
+                const deviceIds = await detectDataRoot();
+                if (lowDataMode && DATA_ROOT !== 'devicesLatest') {
+                    // auto-disable low data mode if latest path isn't available
+                    lowDataMode = false;
+                    setDataModeUI(false);
+                }
+                setFirebaseStatus('connected');
+                applyDeviceList(deviceIds);
+            } catch (e) {
+                setFirebaseStatus('error');
+                renderDevices();
+            }
         };
+
+        // Detect available data root: prefer /devicesLatest, then /devices
+        async function detectDataRoot() {
+            const shallow = async (path) => {
+                const controller = new AbortController();
+                const t = setTimeout(() => controller.abort(), 5000);
+                try {
+                    const res = await fetch(`${firebaseConfig.databaseURL}/${path}.json?shallow=true`, { cache: 'no-store', signal: controller.signal });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const json = await res.json();
+                    return json && typeof json === 'object' ? Object.keys(json) : [];
+                } finally { clearTimeout(t); }
+            };
+
+            try {
+                const latestIds = await shallow('devicesLatest');
+                if (latestIds.length > 0) { DATA_ROOT = 'devicesLatest'; return latestIds; }
+            } catch (_) {}
+            try {
+                const devIds = await shallow('devices');
+                if (devIds.length > 0) { DATA_ROOT = 'devices'; return devIds; }
+            } catch (_) {}
+
+            // SDK once-read fallbacks
+            const onceKeys = (path) => new Promise((resolve) => {
+                onValue(ref(database, path), (snap) => {
+                    resolve(snap.exists() ? Object.keys(snap.val()) : []);
+                }, () => resolve([]), { once: true });
+            });
+            let ids = await onceKeys('devicesLatest');
+            if (ids.length > 0) { DATA_ROOT = 'devicesLatest'; return ids; }
+            ids = await onceKeys('devices');
+            if (ids.length > 0) { DATA_ROOT = 'devices'; return ids; }
+            DATA_ROOT = 'devicesLatest';
+            return [];
+        }
 
         function applyDeviceList(deviceIds) {
             const newDevices = new Set(deviceIds);
@@ -803,7 +823,7 @@ let isInitialized = false;
             // Add listeners for new devices, batch setup (no delay for small sets)
             toAdd.forEach(deviceId => {
                 devices.set(deviceId, null);
-                setupDeviceListener(deviceId);
+                if (!lowDataMode) setupDeviceListener(deviceId);
             });
             renderDevices();
             calculateStats();
@@ -822,24 +842,29 @@ let isInitialized = false;
             }
         }
 
-        // Ultra-optimized device listener - Only latest log, minimal memory
+        // Realtime device listener - dynamic root
         const setupDeviceListener = (deviceId) => {
             if (listeners.has(deviceId)) return;
-            const deviceRef = ref(database, `devices/${deviceId}/log`);
-            const deviceQuery = query(deviceRef, orderByChild('datetime'), limitToLast(1));
-            const unsubscribe = onValue(deviceQuery, (snapshot) => {
-                if (snapshot.exists()) {
-                    const logs = snapshot.val();
-                    const logKeys = Object.keys(logs);
-                    const latestKey = logKeys[logKeys.length - 1];
-                    const latestLog = logs[latestKey];
-                    // Only keep latest in cache
-                    dataCache.set(deviceId, latestLog);
-                    // Update device data efficiently
-                    const prevData = devices.get(deviceId);
-                    devices.set(deviceId, latestLog);
-                    // Only update if changed
-                    if (!prevData || prevData.datetime !== latestLog.datetime || prevData.temp1 !== latestLog.temp1 || prevData.temp2 !== latestLog.temp2) {
+            let unsubscribe;
+            if (DATA_ROOT === 'devicesLatest') {
+                const deviceRef = ref(database, `devicesLatest/${deviceId}`);
+                unsubscribe = onValue(deviceRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        const latest = snapshot.val();
+                        dataCache.set(deviceId, latest);
+                        const prevData = devices.get(deviceId);
+                        devices.set(deviceId, latest);
+                        if (!prevData || prevData.datetime !== latest.datetime || prevData.temp1 !== latest.temp1 || prevData.temp2 !== latest.temp2) {
+                            pendingUpdates.add(deviceId);
+                            if (!window.batchUpdateRaf) {
+                                window.batchUpdateRaf = requestAnimationFrame(() => {
+                                    processBatchUpdates();
+                                    window.batchUpdateRaf = null;
+                                });
+                            }
+                        }
+                    } else {
+                        devices.set(deviceId, null);
                         pendingUpdates.add(deviceId);
                         if (!window.batchUpdateRaf) {
                             window.batchUpdateRaf = requestAnimationFrame(() => {
@@ -848,17 +873,39 @@ let isInitialized = false;
                             });
                         }
                     }
-                } else {
-                    devices.set(deviceId, null);
-                    pendingUpdates.add(deviceId);
-                    if (!window.batchUpdateRaf) {
-                        window.batchUpdateRaf = requestAnimationFrame(() => {
-                            processBatchUpdates();
-                            window.batchUpdateRaf = null;
-                        });
+                }, () => { cleanupDeviceListener(deviceId); });
+            } else {
+                const logsRef = ref(database, `devices/${deviceId}/log`);
+                const q = query(logsRef, orderByChild('datetime'), limitToLast(1));
+                unsubscribe = onValue(q, (snapshot) => {
+                    if (snapshot.exists()) {
+                        const obj = snapshot.val();
+                        const key = Object.keys(obj)[0];
+                        const latest = obj[key];
+                        dataCache.set(deviceId, latest);
+                        const prevData = devices.get(deviceId);
+                        devices.set(deviceId, latest);
+                        if (!prevData || !latest || prevData.datetime !== latest.datetime || prevData.temp1 !== latest.temp1 || prevData.temp2 !== latest.temp2) {
+                            pendingUpdates.add(deviceId);
+                            if (!window.batchUpdateRaf) {
+                                window.batchUpdateRaf = requestAnimationFrame(() => {
+                                    processBatchUpdates();
+                                    window.batchUpdateRaf = null;
+                                });
+                            }
+                        }
+                    } else {
+                        devices.set(deviceId, null);
+                        pendingUpdates.add(deviceId);
+                        if (!window.batchUpdateRaf) {
+                            window.batchUpdateRaf = requestAnimationFrame(() => {
+                                processBatchUpdates();
+                                window.batchUpdateRaf = null;
+                            });
+                        }
                     }
-                }
-            }, (error) => { cleanupDeviceListener(deviceId); });
+                }, () => { cleanupDeviceListener(deviceId); });
+            }
             listeners.set(deviceId, unsubscribe);
         };
 
@@ -870,6 +917,10 @@ let isInitialized = false;
                 updateDeviceCard(deviceId, data);
             });
             pendingUpdates.clear();
+            // Recalculate stats immediately to keep header fresh
+            calculateStats();
+            // Update last update time label under the stat bar
+            if (typeof updateLastUpdateTime === 'function') updateLastUpdateTime();
         };
 
         // Memory-optimized cleanup to prevent leaks
@@ -1211,6 +1262,48 @@ let isInitialized = false;
                 y += 8;
             });
 
+            // Hot devices (> 8°C) — top 6 hottest (consider temp1 or temp2)
+            const hotList = lastReport
+                .map(d => {
+                    const t1 = (d.temp1 !== null && d.temp1 !== undefined) ? parseFloat(d.temp1) : NaN;
+                    const t2 = (d.temp2 !== null && d.temp2 !== undefined) ? parseFloat(d.temp2) : NaN;
+                    const maxT = Math.max(isNaN(t1) ? -Infinity : t1, isNaN(t2) ? -Infinity : t2);
+                    return { ...d, t1, t2, maxT };
+                })
+                .filter(d => d.maxT > 8)
+                .sort((a,b) => b.maxT - a.maxT)
+                .slice(0, 6);
+
+            if (hotList.length > 0) {
+                const hotTitleY = y + 6;
+                doc.setFontSize(11); doc.setTextColor(20);
+                doc.text('Hot devices (> 8°C)', 20, hotTitleY);
+                doc.setFontSize(8); doc.setTextColor(100);
+                doc.text('(Top hottest, based on Temp1/Temp2)', 70, hotTitleY);
+
+                const hotHeadY = hotTitleY + 6;
+                doc.setDrawColor(220);
+                doc.line(20, hotHeadY + 2, 190, hotHeadY + 2);
+                doc.setFontSize(8); doc.setTextColor(60);
+                doc.text('Device ID', 20, hotHeadY);
+                doc.text('Temp1', 105, hotHeadY);
+                doc.text('Temp2', 125, hotHeadY);
+                doc.text('Last Update', 145, hotHeadY);
+
+                let hy = hotHeadY + 7;
+                doc.setFontSize(8); doc.setTextColor(30);
+                hotList.forEach(d => {
+                    const id = d.deviceId.length > 24 ? d.deviceId.slice(0, 24) + '…' : d.deviceId;
+                    const t1Txt = (!Number.isNaN(d.t1)) ? `${d.t1.toFixed(1)}°C` : 'N/A';
+                    const t2Txt = (!Number.isNaN(d.t2)) ? `${d.t2.toFixed(1)}°C` : 'N/A';
+                    doc.text(id, 20, hy);
+                    doc.text(t1Txt, 105, hy);
+                    doc.text(t2Txt, 125, hy);
+                    doc.text(relTime(d.datetime), 145, hy);
+                    hy += 8;
+                });
+            }
+
             // Footer
             doc.setFontSize(8); doc.setTextColor(100);
             doc.text('Generated by ESP8266 Temperature Monitor Dashboard', 20, 285);
@@ -1239,13 +1332,10 @@ let isInitialized = false;
 
             await fetchDevices();
             
-            // Significantly longer intervals to minimize Firebase usage
+            // Periodic local-only stats refresh (no Firebase reads)
             setInterval(() => {
-                // Only recalculate if there are pending changes
-                if (pendingUpdates.size === 0) {
-                    calculateStats();
-                }
-            }, 600000); // 10 minutes instead of 5
+                calculateStats();
+            }, 60000); // every 60s to keep Online/Offline/Critical fresh
             
             // Periodic cache cleanup to prevent memory bloat (just clear all, minimal data kept)
             setInterval(() => {
@@ -1273,7 +1363,7 @@ let isInitialized = false;
             await fetchDevices();
         };
 
-        // Start the application
+    // Start the application
         init();
 
         // Comprehensive cleanup on page unload to prevent all leaks
@@ -1297,18 +1387,99 @@ let isInitialized = false;
             isInitialized = false;
         });
 
-        // Pause/resume listeners when tab visibility changes (save data on mobile)
+        // Pause/resume according to data mode when tab visibility changes
         document.addEventListener('visibilitychange', async () => {
             if (document.hidden) {
-                // Pause: unsubscribe all to stop data traffic
-                listeners.forEach((unsubscribe) => { try { unsubscribe(); } catch (e) {} });
-                listeners.clear();
+                if (lowDataMode) {
+                    if (lowDataTimer) { clearInterval(lowDataTimer); lowDataTimer = null; }
+                } else {
+                    listeners.forEach((unsubscribe) => { try { unsubscribe(); } catch(e) {} });
+                    listeners.clear();
+                }
             } else {
-                // Resume: refetch device IDs and reattach only latest listeners
                 lastUpdateTime = 0; // allow immediate fetch
-                await fetchDevices();
+                if (lowDataMode) {
+                    startLowDataPoll();
+                } else {
+                    await fetchDevices();
+                }
             }
         });
+
+        // Low Data Mode toggle and helpers
+        window.toggleLowDataMode = async () => {
+            if (!lowDataMode && DATA_ROOT !== 'devicesLatest') {
+                showToast('Low Data Mode needs /devicesLatest. Using realtime.', 'warning');
+                setDataModeUI(false);
+                lowDataMode = false;
+                lastUpdateTime = 0;
+                await fetchDevices();
+                return;
+            }
+            lowDataMode = !lowDataMode;
+            setDataModeUI(lowDataMode);
+            if (lowDataMode) {
+                // stop realtime
+                listeners.forEach((unsubscribe) => { try { unsubscribe(); } catch(e) {} });
+                listeners.clear();
+                startLowDataPoll();
+            } else {
+                // stop polling
+                if (lowDataTimer) { clearInterval(lowDataTimer); lowDataTimer = null; }
+                lastUpdateTime = 0;
+                await fetchDevices();
+            }
+        };
+
+        function setDataModeUI(mode) {
+            const el = document.getElementById('data-mode');
+            if (!el) return;
+            el.innerHTML = `<span class="badge ${mode ? 'bg-warning text-dark' : 'bg-info'}" onclick="toggleLowDataMode()"><i class=\"fas fa-gauge-simple me-1\"></i>Low Data: ${mode ? 'ON' : 'OFF'}</span>`;
+        }
+
+        function startLowDataPoll() {
+            if (DATA_ROOT !== 'devicesLatest') {
+                showToast('Low Data Mode requires /devicesLatest. Realtime will be used instead.', 'warning');
+                return;
+            }
+            if (lowDataTimer) { clearInterval(lowDataTimer); lowDataTimer = null; }
+            lowDataPollOnce();
+            lowDataTimer = setInterval(lowDataPollOnce, 60000);
+        }
+
+        async function lowDataPollOnce() {
+            try {
+                setFirebaseStatus('connecting');
+                if (DATA_ROOT !== 'devicesLatest') {
+                    setFirebaseStatus('connected');
+                    return;
+                }
+                const url = `${firebaseConfig.databaseURL}/devicesLatest.json`;
+                const headers = { 'cache-control': 'no-cache', 'X-Firebase-ETag': 'true' };
+                if (latestEtag) headers['If-None-Match'] = latestEtag;
+                const res = await fetch(url, { headers });
+                if (res.status === 304) {
+                    setFirebaseStatus('connected');
+                    calculateStats();
+                    updateLastUpdateTime();
+                    return;
+                }
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const et = res.headers.get('ETag');
+                if (et) latestEtag = et;
+                const data = await res.json();
+                setFirebaseStatus('connected');
+                const deviceIds = data ? Object.keys(data) : [];
+                // sync devices map
+                const nextSet = new Set(deviceIds);
+                Array.from(devices.keys()).forEach(id => { if (!nextSet.has(id)) devices.delete(id); });
+                deviceIds.forEach(id => { devices.set(id, data[id] || null); });
+                renderDevices();
+                calculateStats();
+            } catch (e) {
+                setFirebaseStatus('error');
+            }
+        }
 
         // Memory monitoring for development (remove in production)
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
