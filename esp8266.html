@@ -360,11 +360,18 @@
             });
         };
 
-        // Initial fetch
+         // Initial fetch
         fetchDevices();
+
+        const ReloadWeb = () => {
+            location.reload();
+        };
+
 
         // Refresh every 30 seconds
         setInterval(fetchDevices, 30000);
+        
+        setInterval(ReloadWeb, 14400000); // ทุก 4 ชม 
 
 
     </script>
