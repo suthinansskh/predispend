@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP8266 Temperature Monitor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --success-color: #27ae60;
+            --danger-color: #e74c3c;
+            --warning-color: #f39c12;
+            --info-color: #3498db;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-bar {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 10px;
+            }
+
+            .header {
+                padding: 1rem;
+                margin: 0.5rem 0;
+            }
+
+            .stats-bar {
+                padding: 0.5rem;
+            }
+
+            .stat-item {
+                padding: 0.5rem;
+            }
+
+            .stat-number {
+                font-size: 1.8rem;
+            }
+
+            .device-card {
+                padding: 0.8rem;
+                min-height: 260px;
+                max-height: 300px;
+            }
+
+            .temp-grid {
+                gap: 0.5rem;
+            }
+
+            .temp-item {
+                padding: 0.6rem 0.3rem;
+                min-height: 55px;
+            }
+
+            .device-id {
+                font-size: 0.9rem;
+            }
+
+            .temp-value {
+                font-size: 1rem;
+            }
+
+            .zone-info {
+                padding: 0.3rem 0.5rem;
+                font-size: 0.8rem;
+            }
+
+            .info-item {
+                font-size: 0.75rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .header p {
+                font-size: 0.9rem;
+            }
+
+            .stat-number {
+                font-size: 1.5rem;
+            }
+
+            .device-id {
+                font-size: 0.85rem;
+            }
+
+            .temp-value {
+                font-size: 0.95rem;
+            }
+
+            .btn-control {
+                padding: 0.4rem 1rem;
+                font-size: 0.8rem;
+            }
+
+            .device-card {
+                padding: 0.7rem;
+                min-height: 240px;
+                max-height: 280px;
+            }
+
+            .temp-item {
+                padding: 0.5rem 0.2rem;
+                min-height: 50px;
+            }
+
+            .zone-info {
+                padding: 0.25rem 0.4rem;
+                font-size: 0.75rem;
+            }
+
+            .temp-label {
+                font-size: 0.65rem;
+            }
+
+            .info-item {
+                font-size: 0.7rem;
+            }
+        }
+
+        /* Show more devices per row on larger screens */
+        @media (min-width: 1400px) {
+            .device-card {
+                padding: 1.1rem;
+                min-height: 300px;
+                max-height: 340px;
+            }
+
+            .temp-value {
+                font-size: 1.2rem;
+            }
+
+            .zone-info {
+                padding: 0.5rem 0.7rem;
+                font-size: 0.9rem;
+            }
+
+            .device-id {
+                font-size: 1.05rem;
+            }
+
+            .info-item {
+                font-size: 0.85rem;
+            }
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .device-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            min-height: 280px;
+            max-height: 320px;
+        }
+
+        .device-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--info-color));
+            opacity: 0.8;
+        }
+
+        .device-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .device-card.critical {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            border: 2px solid #c0392b;
+        }
+
+        .device-card.critical::before {
+            background: linear-gradient(90deg, #fff, #ffcccc);
+        }
+
+        .device-card.critical .temp-value {
+            color: #fff !important;
+        }
+
+        .device-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.8rem;
+            padding-top: 0.3rem;
+            min-height: 45px;
+        }
+
+        .device-id {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex: 1;
+            word-break: break-word;
+            line-height: 1.2;
+        }
+
+        .device-id i {
+            background: linear-gradient(45deg, var(--primary-color), var(--info-color));
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .device-card.critical .device-id {
+            color: white;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .status-online {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .status-offline {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .status-critical {
+            background: #8b0000;
+            color: white;
+        }
+
+        .temp-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.6rem;
+            margin: 0.8rem 0;
+        }
+
+        .temp-item {
+            text-align: center;
+            padding: 0.7rem 0.4rem;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            min-height: 65px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .temp-item:hover {
+            background: rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .device-card.critical .temp-item {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .temp-label {
+            font-size: 0.7rem;
+            color: #6c757d;
+            margin-bottom: 0.3rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2px;
+            font-weight: 500;
+        }
+
+        .device-card.critical .temp-label {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .zone-info {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 6px;
+            padding: 0.4rem 0.6rem;
+            margin-bottom: 0.8rem;
+            border-left: 3px solid var(--info-color);
+            font-size: 0.85rem;
+        }
+
+        .device-card.critical .zone-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 3px solid rgba(255, 255, 255, 0.6);
+        }
+
+        .temp-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.1rem;
+            line-height: 1.2;
+        }
+
+        .temp-cold {
+            color: var(--info-color);
+        }
+
+        .temp-optimal {
+            color: var(--success-color);
+        }
+
+        .temp-hot {
+            color: var(--danger-color);
+        }
+
+        .temp-error {
+            color: var(--danger-color);
+        }
+
+        .device-info {
+            margin-top: 0.8rem;
+            padding-top: 0.8rem;
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .device-card.critical .device-info {
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.4rem;
+            font-size: 0.8rem;
+            padding: 0.2rem 0;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .info-item:hover {
+            background: rgba(0, 0, 0, 0.03);
+            padding-left: 0.5rem;
+        }
+
+        .device-card.critical .info-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .info-item i {
+            margin-right: 0.5rem;
+            width: 14px;
+            color: var(--info-color);
+            font-size: 0.8rem;
+        }
+
+        .device-card.critical .info-item i {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .btn-control {
+            border-radius: 25px;
+            padding: 0.6rem 1.5rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-control:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #6c757d;
+        }
+
+        .loading i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1050;
+        }
+
+        .toast {
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header text-center">
+            <h1 class="display-4 mb-0">
+                <i class="fas fa-thermometer-half text-primary me-3"></i>
+                ESP8266 Temperature Monitor
+            </h1>
+            <p class="lead mb-0 text-muted">Real-time IoT Temperature Monitoring Dashboard</p>
+            <div class="mt-3">
+                <button class="btn btn-outline-primary btn-sm" onclick="refreshData()">
+                    <i class="fas fa-sync-alt me-1"></i>Refresh Data
+                </button>
+            </div>
+        </div>
+
+        <div class="stats-bar">
+            <div class="row g-2">
+                <div class="col-6 col-md-2">
+                    <div class="stat-item">
+                        <div class="stat-number text-primary" id="total-devices">0</div>
+                        <div class="stat-label">Total</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <div class="stat-item">
+                        <div class="stat-number text-success" id="online-devices">0</div>
+                        <div class="stat-label">Online</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <div class="stat-item">
+                        <div class="stat-number text-danger" id="offline-devices">0</div>
+                        <div class="stat-label">Offline</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <div class="stat-item">
+                        <div class="stat-number text-warning" id="critical-devices">0</div>
+                        <div class="stat-label">Critical</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <div class="stat-item">
+                        <button class="btn btn-primary btn-control btn-sm w-100" onclick="queryData()">
+                            <i class="fas fa-search me-1"></i>Query
+                        </button>
+                    </div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <div class="stat-item">
+                        <button class="btn btn-primary btn-control btn-sm w-100" onclick="queryData()">
+                            <i class="fas fa-search me-1"></i>Query
+                        </button>
+                    </div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <div class="stat-item">
+                        <button class="btn btn-success btn-control btn-sm w-100" onclick="exportPDF()">
+                            <i class="fas fa-file-pdf me-1"></i>Export
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row" id="devices-container">
+            <div class="col-12">
+                <div class="loading">
+                    <i class="fas fa-spinner"></i>
+                    <h5>Loading devices...</h5>
+                    <p>Connecting to Firebase...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js';
+        import { getDatabase, ref, onValue, query, orderByChild, limitToLast } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js';
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBtj8Jl6tRJyRUef145AtGvSADh37xSVSs",
+            authDomain: "tempsskh-f4318.firebaseapp.com",
+            databaseURL: "https://tempsskh-f4318-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "tempsskh-f4318",
+            storageBucket: "tempsskh-f4318.firebasestorage.app",
+            messagingSenderId: "989516171136",
+            appId: "1:989516171136:web:64cb3d46e3a546dd0c2365"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // Global State - Ultra-optimized for minimal data usage
+        let devices = new Map();
+        let lastReport = null;
+        let stats = { total: 0, online: 0, offline: 0, critical: 0 };
+        let listeners = new Map(); // Track active listeners to prevent duplicates
+        let lastUpdateTime = 0;
+        let updateThrottle = 45000; // 45 seconds minimum between full updates
+        let dataCache = new Map(); // Cache device data to reduce Firebase reads
+        let pendingUpdates = new Set(); // Batch DOM updates
+        let isInitialized = false;
+
+        // Constants
+        const THRESHOLDS = {
+            ONLINE: 300,     // 5 minutes
+            CRITICAL: 1800   // 30 minutes
+        };
+
+        // Utility Functions
+        const formatTemp = (temp, status) => {
+            if (status === "SENSOR_ERROR" || temp === -127) return "Error";
+            return `${parseFloat(temp).toFixed(2)}°C`;
+        };
+
+        const getTempClass = (temp, status) => {
+            if (status === "SENSOR_ERROR" || temp === -127) return "temp-error";
+            const t = parseFloat(temp);
+            if (t < 2) return "temp-cold";
+            if (t <= 8) return "temp-optimal";
+            return "temp-hot";
+        };
+
+        // Simplified status detection - Less verbose logging
+        const getDeviceStatus = (data) => {
+            if (!data?.datetime) return 'no-data';
+
+            const deviceTime = new Date(data.datetime);
+            if (isNaN(deviceTime.getTime())) return 'no-data';
+
+            const diffSeconds = Math.floor((Date.now() - deviceTime.getTime()) / 1000);
+
+            if (diffSeconds < THRESHOLDS.ONLINE) return 'online';
+            if (diffSeconds < THRESHOLDS.CRITICAL) return 'offline';
+            return 'critical';
+        };
+
+        const formatDuration = (data) => {
+            if (!data?.datetime) return 'No data';
+
+            const deviceTime = new Date(data.datetime);
+            if (isNaN(deviceTime.getTime())) return 'Invalid date';
+
+            const diffSeconds = Math.floor((Date.now() - deviceTime.getTime()) / 1000);
+
+            if (diffSeconds < 60) return 'Just now';
+
+            const days = Math.floor(diffSeconds / 86400);
+            const hours = Math.floor((diffSeconds % 86400) / 3600);
+            const minutes = Math.floor((diffSeconds % 3600) / 60);
+
+            if (days > 0) return `${days}d ${hours}h ago`;
+            if (hours > 0) return `${hours}h ${minutes}m ago`;
+            return `${minutes}m ago`;
+        };
+
+        // Toast System - Optimized for minimal DOM manipulation
+        const showToast = (message, type = 'info') => {
+            const container = document.getElementById('toast-container');
+
+            // Reuse existing toast if available
+            let toast = container.querySelector('.toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.className = `toast show`;
+                container.appendChild(toast);
+            }
+
+            toast.innerHTML = `
+                <div class="toast-header">
+                    <i class="fas fa-${type === 'success' ? 'check-circle text-success' : 'info-circle text-info'} me-2"></i>
+                    <strong class="me-auto">${type === 'success' ? 'Success' : 'Info'}</strong>
+                    <button type="button" class="btn-close" onclick="this.parentElement.parentElement.style.display='none'"></button>
+                </div>
+                <div class="toast-body">${message}</div>
+            `;
+
+            toast.style.display = 'block';
+
+            // Auto-hide after 3 seconds (reduced from 5)
+            clearTimeout(toast.hideTimer);
+            toast.hideTimer = setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        };
+
+        // Simplified device card - Remove debug info
+        const createDeviceCard = (deviceId, data) => {
+            const zone = deviceId.split('-')[0];
+            const status = getDeviceStatus(data);
+            const temp1 = data ? formatTemp(data.temp1, data.status_temp1) : '--';
+            const temp2 = data ? formatTemp(data.temp2, data.status_temp2) : '--';
+            const temp1Class = data ? getTempClass(data.temp1, data.status_temp1) : '';
+            const temp2Class = data ? getTempClass(data.temp2, data.status_temp2) : '';
+            const lastUpdate = data ? formatDuration(data) : 'Never';
+
+            const statusInfo = {
+                'online': { class: 'status-online', text: 'Online', icon: 'check-circle' },
+                'offline': { class: 'status-offline', text: 'Offline', icon: 'exclamation-triangle' },
+                'critical': { class: 'status-critical', text: 'Critical', icon: 'exclamation-triangle' },
+                'no-data': { class: 'status-offline', text: 'No Data', icon: 'times-circle' }
+            };
+
+            return `
+                <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6 col-12 mb-3">
+                    <div class="device-card ${status === 'critical' ? 'critical' : ''}" data-device="${deviceId}">
+                        <div class="device-header">
+                            <div class="device-id">
+                                <i class="fas fa-microchip"></i>
+                                <span>${deviceId}</span>
+                            </div>
+                            <span class="status-badge ${statusInfo[status].class}">
+                                <i class="fas fa-${statusInfo[status].icon} me-1"></i>
+                                ${statusInfo[status].text}
+                            </span>
+                        </div>
+                        
+                        <div class="zone-info">
+                            <i class="fas fa-map-marker-alt me-2"></i>
+                            <strong>Zone:</strong> ${zone}
+                        </div>
+                        
+                        <div class="temp-grid">
+                            <div class="temp-item">
+                                <div class="temp-label">Temp 1</div>
+                                <div class="temp-value ${temp1Class}">${temp1}</div>
+                            </div>
+                            <div class="temp-item">
+                                <div class="temp-label">Temp 2</div>
+                                <div class="temp-value ${temp2Class}">${temp2}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="device-info">
+                            <div class="info-item">
+                                <i class="fas fa-clock"></i>
+                                <span>${lastUpdate}</span>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-network-wired"></i>
+                                <span>IP: ${data?.ip || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        // Update Statistics
+        const updateStats = () => {
+            document.getElementById('total-devices').textContent = stats.total;
+            document.getElementById('online-devices').textContent = stats.online;
+            document.getElementById('offline-devices').textContent = stats.offline;
+            document.getElementById('critical-devices').textContent = stats.critical;
+        };
+
+        // Recalculate Statistics
+        const calculateStats = () => {
+            stats = { total: 0, online: 0, offline: 0, critical: 0 };
+
+            devices.forEach((data, deviceId) => {
+                stats.total++;
+                const status = getDeviceStatus(data);
+
+                switch (status) {
+                    case 'online': stats.online++; break;
+                    case 'offline': stats.offline++; break;
+                    case 'critical': stats.critical++; break;
+                    default: stats.offline++; break;
+                }
+            });
+
+            updateStats();
+        };
+
+        // Render All Devices
+        const renderDevices = () => {
+            const container = document.getElementById('devices-container');
+            if (devices.size === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center">
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                            <h4>No devices found</h4>
+                            <p>No devices are available in the database.</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const cardsHTML = Array.from(devices.entries())
+                .map(([deviceId, data]) => createDeviceCard(deviceId, data))
+                .join('');
+
+            container.innerHTML = cardsHTML;
+        };
+
+        // Ultra-optimized Firebase Functions - Absolute minimal data usage
+        const fetchDevices = () => {
+            // Aggressive throttling to prevent excessive Firebase calls
+            const now = Date.now();
+            if (now - lastUpdateTime < updateThrottle) {
+                return Promise.resolve(); // Return cached data
+            }
+            lastUpdateTime = now;
+
+            const devicesRef = ref(database, 'devices');
+
+            // Use get() for one-time fetch to minimize continuous connections
+            return new Promise((resolve) => {
+                onValue(devicesRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        const data = snapshot.val();
+                        const deviceIds = Object.keys(data);
+
+                        // Batch operations for efficiency
+                        const newDevices = new Set(deviceIds);
+                        const existingDevices = new Set(devices.keys());
+
+                        // Add only truly new devices
+                        const toAdd = deviceIds.filter(id => !existingDevices.has(id));
+                        const toRemove = Array.from(existingDevices).filter(id => !newDevices.has(id));
+
+                        // Batch cleanup
+                        toRemove.forEach(deviceId => {
+                            cleanupDeviceListener(deviceId);
+                            devices.delete(deviceId);
+                            dataCache.delete(deviceId);
+                        });
+
+                        // Batch addition with staggered listener setup to reduce load
+                        toAdd.forEach((deviceId, index) => {
+                            devices.set(deviceId, null);
+                            // Stagger listener setup to prevent Firebase overload
+                            setTimeout(() => setupDeviceListener(deviceId), index * 100);
+                        });
+
+                        renderDevices();
+                        calculateStats();
+                    } else {
+                        renderDevices();
+                    }
+                    resolve();
+                }, { once: true }); // Single fetch only
+            });
+        };
+
+        // Ultra-optimized device listener - Absolute minimal data transfer
+        const setupDeviceListener = (deviceId) => {
+            // Prevent duplicate listeners
+            if (listeners.has(deviceId)) {
+                return;
+            }
+
+            const deviceRef = ref(database, `devices/${deviceId}/log`);
+            // Only get the most recent entry with minimal data transfer
+            const deviceQuery = query(deviceRef, orderByChild('datetime'), limitToLast(1));
+
+            const unsubscribe = onValue(deviceQuery, (snapshot) => {
+                if (snapshot.exists()) {
+                    const logs = snapshot.val();
+                    const latestLog = Object.values(logs)[0];
+
+                    // Check cache to avoid unnecessary updates
+                    const cacheKey = `${deviceId}_${latestLog.datetime}`;
+                    if (dataCache.has(cacheKey)) {
+                        return; // Skip if data hasn't changed
+                    }
+
+                    // Update cache
+                    dataCache.set(cacheKey, latestLog);
+
+                    // Clean old cache entries (keep only last 2 per device)
+                    Array.from(dataCache.keys())
+                        .filter(key => key.startsWith(deviceId + '_'))
+                        .slice(0, -2)
+                        .forEach(key => dataCache.delete(key));
+
+                    // Update device data efficiently
+                    const prevData = devices.get(deviceId);
+                    devices.set(deviceId, latestLog);
+
+                    // Batch UI updates to reduce DOM thrashing
+                    if (!prevData || prevData.datetime !== latestLog.datetime) {
+                        pendingUpdates.add(deviceId);
+
+                        // Debounced batch update
+                        clearTimeout(window.batchUpdateTimer);
+                        window.batchUpdateTimer = setTimeout(() => {
+                            processBatchUpdates();
+                        }, 100);
+                    }
+                } else {
+                    devices.set(deviceId, null);
+                    pendingUpdates.add(deviceId);
+
+                    clearTimeout(window.batchUpdateTimer);
+                    window.batchUpdateTimer = setTimeout(() => {
+                        processBatchUpdates();
+                    }, 100);
+                }
+            }, (error) => {
+                cleanupDeviceListener(deviceId);
+            });
+
+            listeners.set(deviceId, unsubscribe);
+        };
+
+        // Batch processing for DOM updates
+        const processBatchUpdates = () => {
+            if (pendingUpdates.size === 0) return;
+
+            // Process all pending updates in one DOM operation
+            pendingUpdates.forEach(deviceId => {
+                const data = devices.get(deviceId);
+                updateDeviceCard(deviceId, data);
+            });
+
+            pendingUpdates.clear();
+            calculateStats();
+        };
+
+        // Memory-optimized cleanup to prevent leaks
+        const cleanupDeviceListener = (deviceId) => {
+            const unsubscribe = listeners.get(deviceId);
+            if (unsubscribe) {
+                unsubscribe();
+                listeners.delete(deviceId);
+            }
+
+            // Clean cache entries for this device
+            Array.from(dataCache.keys())
+                .filter(key => key.startsWith(deviceId + '_'))
+                .forEach(key => dataCache.delete(key));
+        };
+
+        // Ultra-efficient single card update with DOM recycling
+        const updateDeviceCard = (deviceId, data) => {
+            const card = document.querySelector(`[data-device="${deviceId}"]`);
+            if (card) {
+                // Try to update existing elements instead of replacing
+                updateCardContent(card, deviceId, data);
+            } else {
+                // Create new card only if doesn't exist
+                const container = document.getElementById('devices-container');
+                const newCardHTML = createDeviceCard(deviceId, data);
+                container.insertAdjacentHTML('beforeend', newCardHTML);
+            }
+        };
+
+        // Efficient in-place card content update
+        const updateCardContent = (card, deviceId, data) => {
+            const zone = deviceId.split('-')[0];
+            const status = getDeviceStatus(data);
+            const temp1 = data ? formatTemp(data.temp1, data.status_temp1) : '--';
+            const temp2 = data ? formatTemp(data.temp2, data.status_temp2) : '--';
+            const temp1Class = data ? getTempClass(data.temp1, data.status_temp1) : '';
+            const temp2Class = data ? getTempClass(data.temp2, data.status_temp2) : '';
+            const lastUpdate = data ? formatDuration(data) : 'Never';
+
+            const statusInfo = {
+                'online': { class: 'status-online', text: 'Online', icon: 'check-circle' },
+                'offline': { class: 'status-offline', text: 'Offline', icon: 'exclamation-triangle' },
+                'critical': { class: 'status-critical', text: 'Critical', icon: 'exclamation-triangle' },
+                'no-data': { class: 'status-offline', text: 'No Data', icon: 'times-circle' }
+            };
+
+            // Update critical status
+            if (status === 'critical') {
+                card.classList.add('critical');
+            } else {
+                card.classList.remove('critical');
+            }
+
+            // Update status badge
+            const statusBadge = card.querySelector('.status-badge');
+            if (statusBadge) {
+                statusBadge.className = `status-badge ${statusInfo[status].class}`;
+                statusBadge.innerHTML = `<i class="fas fa-${statusInfo[status].icon} me-1"></i>${statusInfo[status].text}`;
+            }
+
+            // Update temperature values
+            const tempValues = card.querySelectorAll('.temp-value');
+            if (tempValues[0]) {
+                tempValues[0].textContent = temp1;
+                tempValues[0].className = `temp-value ${temp1Class}`;
+            }
+            if (tempValues[1]) {
+                tempValues[1].textContent = temp2;
+                tempValues[1].className = `temp-value ${temp2Class}`;
+            }
+
+            // Update last update time
+            const timeElement = card.querySelector('.info-item span');
+            if (timeElement) {
+                timeElement.textContent = lastUpdate;
+            }
+        };
+
+        // Ultra-optimized query - Use cached data to eliminate Firebase reads
+        window.queryData = () => {
+            const report = [];
+            devices.forEach((data, deviceId) => {
+                const status = getDeviceStatus(data);
+                report.push({
+                    deviceId,
+                    status,
+                    temp1: data?.temp1,
+                    temp2: data?.temp2,
+                    datetime: data?.datetime,
+                    ip: data?.ip
+                });
+            });
+
+            lastReport = report;
+            showToast(`Query completed! ${report.length} devices processed`, 'success');
+        };
+
+        // Export PDF Function - Shows ALL devices across multiple pages
+        window.exportPDF = () => {
+            if (!lastReport) {
+                showToast('Please run Query first', 'info');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Title
+            doc.setFontSize(16);
+            doc.text('ESP8266 Temperature Monitor Report', 20, 20);
+
+            // Timestamp
+            doc.setFontSize(10);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 30);
+
+            // Summary Statistics in compact format
+            doc.setFontSize(12);
+            doc.text('Summary:', 20, 45);
+            doc.setFontSize(9);
+            doc.text(`Total: ${stats.total} | Online: ${stats.online} | Offline: ${stats.offline} | Critical: ${stats.critical}`, 20, 55);
+
+            // Temperature Classification
+            let tempStats = { cold: 0, optimal: 0, hot: 0, error: 0 };
+            lastReport.forEach(device => {
+                if (device.temp1 !== null && device.temp1 !== undefined) {
+                    const temp = parseFloat(device.temp1);
+                    if (isNaN(temp)) tempStats.error++;
+                    else if (temp < 2) tempStats.cold++;
+                    else if (temp <= 8) tempStats.optimal++;
+                    else tempStats.hot++;
+                }
+            });
+
+            doc.text(`Temperature Classification - Cold: ${tempStats.cold} | Optimal: ${tempStats.optimal} | Hot: ${tempStats.hot} | Error: ${tempStats.error}`, 20, 65);
+
+            // Device Details - ALL devices across multiple pages
+            doc.setFontSize(11);
+            doc.text('Device Details:', 20, 80);
+
+            // Table headers
+            doc.setFontSize(8);
+            doc.text('Device ID', 20, 90);
+            doc.text('Status', 60, 90);
+            doc.text('Temp1', 85, 90);
+            doc.text('Temp2', 110, 90);
+            doc.text('Last Update', 135, 90);
+            doc.text('IP', 180, 90);
+
+            // Draw header line
+            doc.line(20, 93, 190, 93);
+
+            let y = 100;
+            let deviceCount = 0;
+            let pageCount = 1;
+            const maxDevicesPerPage = 22; // More devices per page
+            const pageHeight = 280; // A4 page height limit
+
+            lastReport.forEach(device => {
+                // Check if we need a new page
+                if (y > pageHeight && deviceCount > 0) {
+                    // Add page number
+                    doc.setFontSize(8);
+                    doc.text(`Page ${pageCount}`, 170, 285);
+
+                    // Add new page
+                    doc.addPage();
+                    pageCount++;
+                    y = 20;
+
+                    // Repeat headers on new page
+                    doc.setFontSize(11);
+                    doc.text('Device Details (continued):', 20, y);
+                    y += 15;
+
+                    doc.setFontSize(8);
+                    doc.text('Device ID', 20, y);
+                    doc.text('Status', 60, y);
+                    doc.text('Temp1', 85, y);
+                    doc.text('Temp2', 110, y);
+                    doc.text('Last Update', 135, y);
+                    doc.text('IP', 180, y);
+
+                    doc.line(20, y + 3, 190, y + 3);
+                    y += 10;
+                }
+
+                doc.setFontSize(7);
+
+                // Device ID (truncated if too long)
+                const deviceIdShort = device.deviceId.length > 12 ? device.deviceId.substring(0, 12) + '...' : device.deviceId;
+                doc.text(deviceIdShort, 20, y);
+
+                // Status
+                const statusShort = device.status.charAt(0).toUpperCase() + device.status.slice(1, 4);
+                doc.text(statusShort, 60, y);
+
+                // Temperatures
+                const temp1Text = device.temp1 !== null ? `${device.temp1.toFixed(1)}°C` : 'N/A';
+                const temp2Text = device.temp2 !== null ? `${device.temp2.toFixed(1)}°C` : 'N/A';
+                doc.text(temp1Text, 85, y);
+                doc.text(temp2Text, 110, y);
+
+                // Last update (simplified)
+                const lastUpdate = device.datetime ?
+                    new Date(device.datetime).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }) : 'Never';
+                doc.text(lastUpdate, 135, y);
+
+                // IP (simplified)
+                const ipShort = device.ip ? device.ip.split('.').slice(-2).join('.') : 'N/A';
+                doc.text(ipShort, 180, y);
+
+                y += 8;
+                deviceCount++;
+            });
+
+            // Add final page number
+            doc.setFontSize(8);
+            doc.text(`Page ${pageCount}`, 170, 285);
+
+            // Footer on last page
+            doc.setFontSize(8);
+            doc.text('Generated by ESP8266 Temperature Monitor Dashboard', 20, 285);
+            doc.text(`Total Devices: ${lastReport.length}`, 20, 275);
+
+            // Save
+            const filename = `temp-report-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.pdf`;
+            doc.save(filename);
+
+            showToast(`PDF exported: ${filename} (${lastReport.length} devices, ${pageCount} pages)`, 'success');
+        };
+
+        // Ultra-optimized initialization - Absolute minimal resource usage
+        const init = async () => {
+            if (isInitialized) return;
+            isInitialized = true;
+
+            await fetchDevices();
+
+            // Significantly longer intervals to minimize Firebase usage
+            setInterval(() => {
+                // Only recalculate if there are pending changes
+                if (pendingUpdates.size === 0) {
+                    calculateStats();
+                }
+            }, 600000); // 10 minutes instead of 5
+
+            // Periodic cache cleanup to prevent memory bloat
+            setInterval(() => {
+                const maxCacheAge = 3600000; // 1 hour
+                const now = Date.now();
+
+                Array.from(dataCache.keys()).forEach(key => {
+                    // Remove old cache entries
+                    const parts = key.split('_');
+                    if (parts.length > 1) {
+                        const cacheTime = new Date(parts.slice(1).join('_')).getTime();
+                        if (now - cacheTime > maxCacheAge) {
+                            dataCache.delete(key);
+                        }
+                    }
+                });
+            }, 1800000); // Clean cache every 30 minutes
+        };
+
+        // Optimized refresh with intelligent cache management
+        window.refreshData = async () => {
+            showToast('Refreshing...', 'info');
+
+            // Clean up existing listeners efficiently
+            const cleanupPromises = Array.from(listeners.values()).map(unsubscribe => {
+                try { unsubscribe(); } catch (e) { }
+            });
+            await Promise.allSettled(cleanupPromises);
+
+            listeners.clear();
+            dataCache.clear();
+            pendingUpdates.clear();
+
+            // Reset throttle to allow immediate refresh
+            lastUpdateTime = 0;
+
+            await fetchDevices();
+        };
+
+        // Start the application
+        init();
+
+        // Comprehensive cleanup on page unload to prevent all leaks
+        window.addEventListener('beforeunload', () => {
+            // Clear all timers
+            clearTimeout(window.batchUpdateTimer);
+
+            // Clean up Firebase listeners
+            listeners.forEach((unsubscribe) => {
+                try { unsubscribe(); } catch (e) { }
+            });
+            listeners.clear();
+
+            // Clear all caches and data structures
+            dataCache.clear();
+            devices.clear();
+            pendingUpdates.clear();
+
+            // Mark as not initialized for potential restart
+            isInitialized = false;
+        });
+
+        // Memory monitoring for development (remove in production)
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            setInterval(() => {
+                console.log(`Memory Usage - Devices: ${devices.size}, Listeners: ${listeners.size}, Cache: ${dataCache.size}, Pending: ${pendingUpdates.size}`);
+            }, 60000);
+        }
+    </script>
+</body>
+
+</html>
