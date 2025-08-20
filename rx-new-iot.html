@@ -317,18 +317,28 @@
                 // Re-add event listeners after rendering
                 document.querySelectorAll('.edit-btn').forEach(button => {
                     button.addEventListener('click', (e) => {
-                        const deviceId = e.target.dataset.id;
-                        const deviceName = e.target.dataset.name;
-                        showPopup('Edit Device', deviceName, deviceId);
+                        const password = prompt("Enter password to edit:");
+                        if (password === 'rx888') {
+                            const deviceId = e.target.dataset.id;
+                            const deviceName = e.target.dataset.name;
+                            showPopup('Edit Device', deviceName, deviceId);
+                        } else {
+                            alert("Incorrect password.");
+                        }
                     });
                 });
 
                 document.querySelectorAll('.delete-btn').forEach(button => {
                     button.addEventListener('click', (e) => {
-                        const deviceId = e.target.dataset.id;
-                        if (confirm('Are you sure you want to delete this device?')) {
-                            const deviceRef = ref(database, `device_list/${deviceId}`);
-                            remove(deviceRef);
+                        const password = prompt("Enter password to delete:");
+                        if (password === 'rx888') {
+                            const deviceId = e.target.dataset.id;
+                            if (confirm('Are you sure you want to delete this device?')) {
+                                const deviceRef = ref(database, `device_list/${deviceId}`);
+                                remove(deviceRef);
+                            }
+                        } else {
+                            alert("Incorrect password.");
                         }
                     });
                 });
